@@ -1,0 +1,96 @@
+Grid {
+	Grid(page) {
+		this.addClass(common.Config );
+		db=Class.db('config');
+		dataModel=Class.model('test');
+		grid=page.grid;
+		grid.model( dataModel, 'dsn:DSN, driver:드라이버, server:서버, dbnm:DB명, uid:DB사용자, pwd:비밀번호, port:포트' );
+		grid.check('sortEnable', true);
+		
+		/* 그리드 이벤트 맵핑  */
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onChange, this.gridChange, 'node');
+		grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		
+		/* 필드 비율만큼 그리드 헤더폭을 자동 계산  */
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+		/* 삭제 버튼이 있을경우 아이디를 넣어준다 */
+		deleteButton=page.deleteButton;
+	}
+	initGrid() {
+		root=grid.rootNode();
+		/* 조회 쿼리를 넣어준다*/
+		db.fetchAll("select dsn, server, driver, dbnm, uid, pwd, port from db_info ", root.removeAll() );
+		grid.update();
+		page.deletePage.hide();
+		gridHeaderWidth(grid);
+	}
+	/* 그리드 노드변경시 */
+	gridChange( node) {
+		
+	}
+	/* 그리드 더블클릭시 */
+	gridDoubleClick(node) {
+		
+	}
+	/* 그리드 사이즈 변경시 */
+  	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	/* 그리드 그리기 */
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+	/* 그리드 클릭시 */
+	gridClick(node, column) {
+		field=grid.field(column);
+		switch( field ) {
+		case check:	gridCheck(grid, node, page.deletePage );
+		case note:		grid.edit(node, 2);
+		}
+	}
+	/* 그리드 inline 에디터 실행시 */
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		switch( type ) {
+		case create:
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+					node[modify#$field]=true;
+				}
+				node[$field]=data;
+			}
+			grid.update();
+		default: break;
+		}
+	}
+ 
+}

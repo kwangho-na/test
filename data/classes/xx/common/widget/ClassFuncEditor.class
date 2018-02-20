@@ -1,0 +1,99 @@
+ClassFuncEditor {
+	ClassFuncEditor(page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+		page.save.eventMap(onClick, saveSrc);
+		page.run.eventMap(onClick, runSrc);
+ 		db=Class.db('pages');
+ 	}
+
+	initPage(node) {
+		cf.currentNode=node;
+		note=when( node[note], "/* $node[note] */");
+		if( node[src] ) {
+			this.setSrc("${node[class_func]}($node[class_param]) {\r\n$node[src]\r\n}");
+		} else {
+			this.setSrc("${node[class_func]}($node[class_param]) {\r\n\t^|\r\n}");
+		}
+ 	}
+ 	saveSrc() {
+		node=cf.currentNode;
+		_save=func(&s) {
+			c=s.ch();
+			if( c.eq('/') ) {
+				if( s.ch(1).eq('/') ) note.add( s.findPos("\n") );
+				else if( s.ch(1).eq('*') ) note.add( s.match() );
+				s.ch();
+			}
+			func=s.move();
+			not( func.eq(node[class_func]) ) {
+				not( page.confirm("$func 함수는 이전 함수명과 다릅니다(이전함수: $node[class_func]) 새로운 함수를 만드시겠습니까?") ) return;
+			}
+			c=s.ch();
+			not( c.eq('(') ) {
+				page.alert("함수 시작오류 : 함수명 : $func");
+				break;
+			}
+			param=s.match().trim();
+			c=s.ch();
+			not( c.eq('{') ) {
+				page.alert("함수 매개변수 오류: $param");
+				break;
+			}
+			body=s.match(1);
+			node.varMap('class_func: func, class_param: param, note');
+			if( body.find('//') || body.find('/*') ) {
+				node[class_src]=body;
+				node[class_data]=makeSrc(body);			
+			} else {
+				node[class_src]='';
+				node[class_data]=body;			
+			}
+			print("@@@@@@@@ $root @@@@@@@@@@@");
+			num=db.exec("update class_info set class_src=#{class_src}, class_data=#{class_data}, class_param=#{class_param}, note=#{note}, tm='$tm' where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", root);
+			not( num ) {
+				db.exec("insert into class_info( class_grp, class_nm, class_func, class_param, class_src, class_data, note, tm ) values (#{class_grp}, #{class_nm}, #{class_func}, #{class_param}, #{class_src}, #{class_data}, #{note}, '$tm')", root);
+			}		
+		};
+		src=page.src.value();
+		_save(src.ref());
+		this.runSrc();
+		page.save.disable();
+	}
+	runSrc() {
+ 		node=cf.currentNode;
+		currentClass=node.currentClass;
+		bconf=false;
+		parse=func(&s) {
+			while( s.valid() ) {
+				c=s.ch();
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') ) {
+						s.findPos("\n");
+					} else if( s.ch(1).eq('*') ) {
+						s.match();
+					}
+					continue;
+				}
+				funcName=s.move();
+				if( funcName.start('conf') ) @bconf=true;
+				if( s.ch().eq('(') ) {
+					param=s.match();
+					s.ch();
+					body=s.match();
+				}
+				rst="currentClass.function('$funcName', func($param) { $body })";
+				print( currentClass, rst);
+				Cf.call(rst);
+			}
+		};
+		classSrc=page.src.value();
+		parse(classSrc);
+		this.update(bconf);
+	}
+	update(bconf) {
+		p=pageLoad('Kiosk.EditPageCanvas');
+		x=p.x;
+		if( bconf ) x.conf();
+		x.update();
+	}
+}

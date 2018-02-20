@@ -1,0 +1,133 @@
+AdminLogin {
+AdminLogin(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	/* 숫자입력 패드 영역 설정 */
+	node=findTag('AdminNumberPad', tag);
+	bw=node[ButtonWidth], bh=node[ButtonHeight];
+	node[Margin].inject(sx, sy);
+	num=1;
+	while( row,4 ) {
+		cx=sx;
+		while( col,3 ) {
+			if( row.eq(3) ) {
+				switch(col) {
+				case 0:	key="rcDelete";
+				case 1:	key="rc0";
+				case 2:	key="rcReset";
+				}
+			} else {
+				key="rc$num";
+				num++;
+			}
+			node[$key]=Class.rect(cx, sy, bw, bh), cx+=bw+10;
+		}
+		sy+=bh+10;
+	}
+	node.inject(rc1, rcReset);
+	node[rect]=mergeRect(rc1, rcReset);
+	arr=_arr(node, 'fields').reuse();
+	fields="1,2,3,4,5,6,7,8,9,0,Delete,Reset";
+	while(id, fields.split() ) {
+		arr.add(id);
+	}
+}
+
+draw(draw, node, timeline) {
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag]) {
+		case LogInButton:
+			drawNodeButton(draw, cur, null, this); 
+		case ExitButton:
+			drawNodeButton(draw, cur, null, this); 
+		case AdminNumberPad:
+			while( key, cur[fields] ) { 
+				rc=cur[rc$key];
+				if( key.eq('Delete','Reset') ) {
+					attr="${key}Button";
+					type=when( rc.eq(this.mouseDownRect), 'p', 'n');
+				} else {
+					attr="NumberButton";
+					type="0$key";
+					if( rc.eq(this.mouseDownRect) ) {
+						type.add('_p');
+					} else {
+						type.add('_n');
+					}
+				}
+				print("key=$key, attr=$attr, $type");
+				drawNodeImage(draw, rc, cur, attr, type);
+			}
+		}
+	}
+}
+
+exitButtonClick() {
+	cf[stackPage]=null;
+	this.update();
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+loginButtonClick() {
+	this.mainControl().loadStackPage('AdminHome');
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag]) {
+		case AdminNumberPad:
+			while( key, cur[fields] ) { 
+				rc=cur[rc$key];
+				if( rc.contains(pos) ) {
+					this.mouseDownRect=rc; 
+					break;
+				} 
+			}
+		default:
+			this.mouseDownRect=cur[rect];
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag]) {
+		case LogInButton:	this.loginButtonClick();
+		case ExitButton:		this.exitButtonClick();
+		case AdminNumberPad:
+			while( key, cur[fields] ) { 
+				rc=cur[rc$key];
+				if( rc.contains(pos) ) {
+					this.numberButtonClick(key);
+					break;
+				} 
+			}
+		default:
+			this.mouseDownRect=cur[rect];
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+numberButtonClick(key) {
+	
+}
+}

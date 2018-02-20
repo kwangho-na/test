@@ -1,0 +1,201 @@
+TransDataControl {
+	TransDataControl(parentControl, canvas) {
+		cf={};
+		_json=callback(url, dataNode) {
+			Class.web('tros').call(url, callback(type, data) {
+				parentControl._log("$type : $data"); 
+				switch( type ) {
+				case read:	dataNode.removeAll().parseJson(data.ref());
+				case finish:	this.masterDbInsert(dataNode);
+				case error:	dataNode[error]=data;
+				}
+			});	
+		};
+		_post=callback(node) {
+			node.method='post';
+			Class.web('tros').call(node, callback(type, data) {
+				parentControl._log("$type : $data"); 
+				switch( type ) {
+				case finish:	this.postFinish(node);
+				case error:	cf[error]=data;
+				}
+			});
+		};
+
+		db=Class.db('namzatang_local');
+ 	}
+	masterDownload(modifyDate) {
+		// host='http://namzatang.happy-mate.co.kr';
+		// URL : http://tros.sportsbridge.co.kr:18008
+		host='http://tros.sportsbridge.co.kr:18008';
+		service="$host/work/api/kiosk/cli.masterdown.asp";
+		date=System.date('yyyyMMdd');
+		modify_date =modifyDate;
+		api_id='tros';
+		store_no='1001';
+		code="${api_id}${store_no}${date}";
+		api_key=code.encode('sha256');
+
+		url="$service?api_id=${api_id}&api_key=${api_key}&store_no=${store_no}&date=${date}";
+		if( modifyDate ) {
+			url.add("&modifyDate=${modifyDate}");
+		}
+		dataNode=Class.model('masterDownload').rootNode();
+		_json(url, dataNode.initNode() );
+	}
+	send(cur) {
+		url='http://namzatang.happy-mate.co.kr/work/api/kiosk/cli.masterdown.asp';
+		type='xxx';
+		cur.put(url, type);
+		
+		param=_node(cur,'param'); 
+		header=_node(cur,'header'); 
+		header[ContentType] = "application/x-www-form-urlencoded; charset=UTF-8;"
+		date=System.date('yyyyMMdd');
+		api_id='tros';
+		store_no='1001';
+		code="${api_id}${store_no}${date}";
+		api_key=code.encode('sha256');
+		param.put(api_id, store_no,...);
+		_post(cur);
+	}
+	sendAll() {
+		while( cur, cf ) {
+			
+		}
+	}
+	upload() {
+		db.fetchAll("", cf.removeAll() );
+		sendAll();
+	}
+	postFinish(node) {
+		node.send_yn=true;
+		this.sendAll();
+	}
+
+	masterDbInsert(node) {
+		cur=node[TB_STORE_MST];
+
+		// db.exec("delete from TB_STORE_MST");
+		if( cur[STORE_NO] ) {
+			count=db.exec("UPDATE TB_STORE_MST SET STORE_NM=#{STORE_NM},BIZ_NO=#{BIZ_NO},BIZ_CAT=#{BIZ_CAT},BIZ_CON=#{BIZ_CON},OWNER_NM=#{OWNER_NM},TEL=#{TEL},ADDR1=#{ADDR1},ADDR2=#{ADDR2},OPEN_DATE=#{OPEN_DATE},CLOSE_DATE=#{CLOSE_DATE},CALL_TYPE=#{CALL_TYPE},LOCAL_IP=#{LOCAL_IP},LOCAL_PORT=#{LOCAL_PORT},LOCAL_PW=#{LOCAL_PW},KCN_PRT_TYPE=#{KCN_PRT_TYPE},USE_YN=#{USE_YN},FAX=#{FAX},CUS_PRT_YN=#{CUS_PRT_YN},BKR_STORE_NO=#{BKR_STORE_NO} WHERE STORE_NO=#{STORE_NO}", cur);
+			not( count ) db.exec("INSERT INTO TB_STORE_MST (STORE_NO, STORE_NM, BIZ_NO, BIZ_CAT, BIZ_CON,OWNER_NM, TEL, ADDR1, ADDR2, OPEN_DATE,CLOSE_DATE, CALL_TYPE, LOCAL_IP, LOCAL_PORT, LOCAL_PW,KCN_PRT_TYPE, USE_YN, FAX, CUS_PRT_YN, BKR_STORE_NO ) VALUES (#{STORE_NO}, #{STORE_NM}, #{BIZ_NO}, #{BIZ_CAT}, #{BIZ_CON}, #{OWNER_NM}, #{TEL}, #{ADDR1}, #{ADDR2}, #{OPEN_DATE}, #{CLOSE_DATE}, #{CALL_TYPE}, #{LOCAL_IP}, #{LOCAL_PORT}, #{LOCAL_PW}, #{KCN_PRT_TYPE}, #{USE_YN}, #{FAX}, #{CUS_PRT_YN}, #{BKRSTORENO} )", cur);
+		}
+		if( this.dbError(@funcName, 'TB_STORE_MST') ) {
+			return;
+		}
+
+		// db.exec("delete from TB_POS_MST");
+		while( cur, node[TB_POS_MST] ) {
+			count=db.exec("UPDATE TB_POS_MST SET BKR_POS_NO=#{BKR_POS_NO},MOBILE_YN=#{MOBILE_YN},VAN_CD=#{VAN_CD},VAN_NM=#{VAN_NM},VAN_IP=#{VAN_IP},VAN_PORT=#{VAN_PORT},VAN_DATA1=#{VAN_DATA1},VAN_DATA2=#{VAN_DATA2},VAN_DATA3=#{VAN_DATA3},VAN_DATA4=#{VAN_DATA4},VAN_DATA5=#{VAN_DATA5},VAN_TMNL_ID=#{VAN_TMNL_ID},CHANGE_NO_ST=#{CHANGE_NO_ST},CHANGE_NO_EN=#{CHANGE_NO_EN)} WHERE STORE_NO=#{STORE_NO} AND POS_NO=#{POS_NO}", cur);
+			not( count ) db.exec("INSERT INTO TB_POS_MST (STORE_NO, POS_NO, BKR_POS_NO, MOBILE_YN, VAN_CD,VAN_NM, VAN_IP, VAN_PORT, VAN_DATA1, VAN_DATA2,VAN_DATA3, VAN_DATA4, VAN_DATA5, VAN_TMNL_ID, CHANGE_NO_ST,CHANGE_NO_EN) VALUES (#{STORE_NO}, #{POS_NO}, #{BKR_POS_NO}, #{MOBILE_YN}, #{VAN_CD}, #{VAN_NM}, #{VAN_IP}, #{VAN_PORT}, #{VAN_DATA1}, #{VAN_DATA2}, #{VAN_DATA3}, #{VAN_DATA4}, #{VAN_DATA5}, #{VAN_TMNL_ID}, #{CHANGE_NO_ST}, #{CHANGE_NO_EN} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_POS_MST') ) {
+			return;
+		}
+
+		// db.exec("delete from TB_MENU_MST");
+		while( cur, node[TB_MENU_MST] ) {
+			count=db.exec("UPDATE TB_MENU_MST SET MENU_TYPE=#{MENU_TYPE},CLASS_CD=#{CLASS_CD},MENU_NM=#{MENU_NM},MENU_NM_CN=#{MENU_NM_CN},MENU_NM_EN=#{MENU_NM_EN},MENU_NM_JP=#{MENU_NM_JP},SALE_PRICE=#{SALE_PRICE},EVENT_PRICE=#{EVENT_PRICE},EVENT_ST=#{EVENT_ST},EVENT_EN=#{EVENT_EN},EVENT_NO=#{EVENT_NO},DISP_TYPE=#{DISP_TYPE},OPT_YN=#{OPT_YN},TAX_YN=#{TAX_YN},TAKEOUT_YN=#{TAKEOUT_YN},SALE_ST=#{SALE_ST},SALE_EN=#{SALE_EN},KCN_PRT_YN=#{KCN_PRT_YN},PRT1_YN=#{PRT1_YN},PRT2_YN=#{PRT2_YN},PRT3_YN=#{PRT3_YN},PRT4_YN=#{PRT4_YN},PRT5_YN=#{PRT5_YN},USE_YN=#{USE_YN},BKR_MENU_CD=#{BKR_MENU_CD},MENU_DE=#{MENU_DE},MENU_DE_CN=#{MENU_DE_CN},MENU_DE_EN=#{MENU_DE_EN},MENU_DE_JP=#{MENU_DE_JP},BKR_ITEM_TP=#{BKR_ITEM_TP},BKR_SET_YN=#{BKR_SET_YN},BKR_MENU_GB=#{BKR_MENU_GB},SIZEUP_YN=#{SIZEUP_YN},MENU_SIZEUP_CD=#{MENU_SIZEUP_CD},OPEN_TIME=#{OPEN_TIME},CLOSE_TIME=#{CLOSE_TIME},BUY_QTY=#{BUY_QTY} WHERE STORE_NO=#{STORE_NO} AND MENU_CD=#{MENU_CD}", cur);
+			not( count ) db.exec("INSERT INTO TB_MENU_MST (STORE_NO, MENU_CD, MENU_TYPE, CLASS_CD, MENU_NM,MENU_NM_CN, MENU_NM_EN, MENU_NM_JP,SALE_PRICE, EVENT_PRICE, EVENT_ST, EVENT_EN, EVENT_NO,DISP_TYPE, OPT_YN, TAX_YN, TAKEOUT_YN, SALE_ST,SALE_EN, KCN_PRT_YN, PRT1_YN, PRT2_YN, PRT3_YN,PRT4_YN, PRT5_YN, USE_YN, BKR_MENU_CD, MENU_DE,MENU_DE_CN, MENU_DE_EN, MENU_DE_JP, BKR_ITEM_TP, BKR_SET_YN,BKR_MENU_GB, SIZEUP_YN, MENU_SIZEUP_CD, OPEN_TIME, CLOSE_TIME, BUY_QTY ) VALUES (#{STORE_NO}, #{MENU_CD}, #{MENU_TYPE}, #{CLASS_CD}, #{MENU_NM}, #{MENU_NM_CN}, #{MENU_NM_EN}, #{MENU_NM_JP}, #{SALE_PRICE}, #{EVENT_PRICE}, #{EVENT_ST}, #{EVENT_EN}, #{EVENT_NO}, #{DISP_TYPE}, #{OPT_YN}, #{TAX_YN}, #{TAKEOUT_YN}, #{SALE_ST}, #{SALE_EN}, #{KCN_PRT_YN}, #{PRT1_YN}, #{PRT2_YN}, #{PRT3_YN}, #{PRT4_YN}, #{PRT5_YN}, #{USE_YN}, #{BKR_MENU_CD}, #{MENU_DE}, #{MENU_DE_CN}, #{MENU_DE_EN}, #{MENU_DE_JP}, #{BKR_ITEM_TP}, #{BKR_SET_YN}, #{BKR_MENU_GB}, #{SIZEUP_YN}, #{MENU_SIZEUP_CD}, #{OPEN_TIME}, #{CLOSE_TIME}, #{BUY_QTY} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_MENU_MST') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_CORNER_MST");
+		while( cur, node[TB_CORNER_MST] ) {
+			count=db.exec("UPDATE TB_CORNER_MST SET CORNER_NM=#{CORNER_NM},DP_RANK=#{DP_RANK},USE_YN=#{USE_YN},CORNER_NM_CN=#{CORNER_NM_CN},CORNER_NM_EN=#{CORNER_NM_EN},CORNER_NM_JP=#{CORNER_NM_JP},VIEW_TYPE=#{VIEW_TYPE},OPEN_TIME=#{OPEN_TIME},CLOSE_TIME=#{CLOSE_TIME} WHERE STORE_NO=#{STORE_NO} AND CORNER_CD=#{CORNER_CD}", cur);
+			not( count ) db.exec("INSERT INTO TB_CORNER_MST (STORE_NO, CORNER_CD, CORNER_NM, DP_RANK, USE_YN,CORNER_NM_CN, CORNER_NM_EN, CORNER_NM_JP, VIEW_TYPE, OPEN_TIME,CLOSE_TIME) VALUES ( #{STORE_NO}, #{CORNER_CD}, #{CORNER_NM}, #{DP_RANK}, #{USE_YN}, #{CORNER_NM_CN}, #{CORNER_NM_EN}, #{CORNER_NM_JP}, #{VIEW_TYPE}, #{OPEN_TIME}, #{CLOSE_TIME})",cur);		
+		}
+		if( this.dbError(@funcName, 'TB_CORNER_MST') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_CORNER_MENU");
+		while( cur, node[TB_CORNER_MENU] ) {
+			count=db.exec("UPDATE TB_CORNER_MENU SET DP_RANK=#{DP_RANK} WHERE STORE_NO=#{STORE_NO} AND CORNER_CD=#{CORNER_CD} AND MENU_CD=#{MENU_CD}", cur);
+			not( count ) db.exec("INSERT INTO TB_CORNER_MENU (STORE_NO, CORNER_CD, MENU_CD, DP_RANK) VALUES (#{STORE_NO}, #{CORNER_CD}, #{MENU_CD}, #{DP_RANK} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_CORNER_MENU') ) {
+			return;
+		}
+
+		while( cur, node[TB_DID_SCHEDULE] ) {
+			count=db.exec("UPDATE TB_DID_SCHEDULE SET AD_TITLE=#{AD_TITLE},AD_GUBUN=#{AD_GUBUN},AD_CONTENTS_URL=#{AD_CONTENTS_URL},SDATE=#{SDATE},EDATE=#{EDATE},SOUND_CFC=#{SOUND_CFC},SEND_CFC=#{SEND_CFC},AD_RUN=#{AD_RUN},DP_RANK=#{DP_RANK} WHERE STORE_NO=#{STORE_NO} AND AD_CODE=#{AD_CODE}", cur);
+			not( count ) db.exec("INSERT INTO TB_DID_SCHEDULE (STORE_NO, AD_CODE, AD_TITLE, AD_GUBUN, AD_CONTENTS_URL,SDATE, EDATE, SOUND_CFC, SEND_CFC, AD_RUN,DP_RANK) VALUES (#{STORE_NO}, #{AD_CODE}, #{AD_TITLE}, #{AD_GUBUN}, #{AD_CONTENTS_URL}, #{SDATE}, #{EDATE}, #{SOUND_CFC}, #{SEND_CFC}, #{AD_RUN}, #{DP_RANK} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_DID_SCHEDULE') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_OPTION_GROUP");
+		while( cur, node[TB_OPTION_GROUP] ) {
+			count=db.exec("UPDATE TB_OPTION_GROUP SET OPT_GP_NM=#{OPT_GP_NM},REQUIRE_YN=#{REQUIRE_YN},MULTI_YN=#{MULTI_YN},OPT_GP_NM_CN=#{OPT_GP_NM_CN},OPT_GP_NM_EN=#{OPT_GP_NM_EN},OPT_GP_NM_JP=#{OPT_GP_NM_JP},MULTI_CNT=#{MULTI_CNT},OPT_CNT=#{OPT_CNT},USE_YN=#{USE_YN} WHERE STORE_NO=#{STORE_NO} AND OPT_GP_CD=#{OPT_GP_CD}", cur);
+			not( count ) db.exec("INSERT INTO TB_OPTION_GROUP (STORE_NO, OPT_GP_CD, OPT_GP_NM, REQUIRE_YN, MULTI_YN,OPT_GP_NM_CN, OPT_GP_NM_EN, OPT_GP_NM_JP,MULTI_CNT, OPT_CNT, USE_YN) VALUES (#{STORE_NO}, #{OPT_GP_CD}, #{OPT_GP_NM}, #{REQUIRE_YN}, #{MULTI_YN}, #{OPT_GP_NM_CN}, #{OPT_GP_NM_EN}, #{OPT_GP_NM_JP}, #{MULTI_CNT}, #{OPT_CNT}, #{USE_YN} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_OPTION_GROUP') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_PRT_RECEIPT");
+		while( cur, node[TB_PRT_RECEIPT] ) {
+			count=db.exec("UPDATE TB_PRT_RECEIPT SET MSG=#{MSG},ALIGN=#{ALIGN},PRT_FONT=#{PRT_FONT} WHERE STORE_NO=#{STORE_NO} AND POSITION=#{POSITION} AND LINE=#{LINE}",cur);
+			not( count ) db.exec("INSERT INTO TB_PRT_RECEIPT (STORE_NO, POSITION, LINE, MSG, ALIGN,PRT_FONT) VALUES (#{STORE_NO}, #{POSITION}, #{LINE}, #{MSG}, #{ALIGN}, #{PRT_FONT} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_PRT_RECEIPT') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_SETOPTION_MENU");
+		while( cur, node[TB_SETOPTION_MENU] ) {
+			count=db.exec("UPDATE TB_SETOPTION_MENU SET DP_RANK=#{DP_RANK} WHERE STORE_NO=#{STORE_NO} AND MENU_CD=#{MENU_CD} AND SETOPT_CD=#{SETOPT_CD}",cur);
+			not( count ) db.exec("INSERT INTO TB_SETOPTION_MENU (STORE_NO, MENU_CD, SETOPT_CD, DP_RANK) VALUES (#{STORE_NO}, #{MENU_CD}, #{SETOPT_CD}, #{DP_RANK} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_SETOPTION_MENU') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_SETOPTION_HEADER");
+		while( cur, node[TB_SETOPTION_HEADER] ) {
+			count=db.exec("UPDATE TB_SETOPTION_HEADER SET SETOPT_SNM=#{SETOPT_SNM},SETOPT_NM=#{SETOPT_NM},SETOPT_NM_EN=#{SETOPT_NM_EN},SETOPT_NM_JP=#{SETOPT_NM_JP},SETOPT_NM_CN=#{SETOPT_NM_CN},USE_YN) VALUES (#{STORE_NO}=#{USE_YN) VALUES (#{STORE_NO}},#{SETOPT_CD}=#{#{SETOPT_CD}},#{SETOPT_SNM}=#{#{SETOPT_SNM}},#{SETOPT_NM}=#{#{SETOPT_NM}},#{SETOPT_NM_EN}=#{#{SETOPT_NM_EN}},#{SETOPT_NM_JP=#{#{SETOPT_NM_JP} WHERE STORE_NO=#{STORE_NO} AND SETOPT_CD=#{SETOPT_CD}",cur);
+			not( count ) db.exec("INSERT INTO TB_SETOPTION_HEADER (STORE_NO, SETOPT_CD, SETOPT_SNM, SETOPT_NM, SETOPT_NM_EN,SETOPT_NM_JP, SETOPT_NM_CN, USE_YN) VALUES (#{STORE_NO}, #{SETOPT_CD}, #{SETOPT_SNM}, #{SETOPT_NM}, #{SETOPT_NM_EN}, #{SETOPT_NM_JP}, #{SETOPT_NM_CN}, #{USE_YN} )",cur);
+		}
+		if( this.dbError(@funcName, 'TB_SETOPTION_HEADER') ) {
+			return;
+		}
+
+		// db.exec("delete from  TB_SETOPTION_DETAIL");
+		while( cur, node[TB_SETOPTION_DETAIL] ) {
+			count=db.exec("UPDATE TB_SETOPTION_DETAIL SET DP_RANK=#{DP_RANK},BASIC_CK=#{BASIC_CK} WHERE STORE_NO=#{STORE_NO} AND SETOPT_CD=#{SETOPT_CD} AND MENU_CD=#{MENU_CD}", cur);
+			not( count ) db.exec("INSERT INTO TB_SETOPTION_DETAIL (STORE_NO, SETOPT_CD, MENU_CD, DP_RANK, BASIC_CK) VALUES (#{STORE_NO}, #{SETOPT_CD}, #{MENU_CD}, #{DP_RANK}, #{BASIC_CK} )",cur);
+		}	
+		if( this.dbError(@funcName, 'TB_SETOPTION_DETAIL') ) {
+			return;
+		}
+		print(parentControl, canvas);
+		this.log("Master Data Apply Ok !!!");
+		canvas.postEvent(KIOSK.TRANS_DATA_OK, node);
+
+		/*
+		while( cur, node[TB_OPTION_SUB] ) db.exec("INSERT INTO TB_OPTION_SUB (STORE_NO, OPT_GP_CD, OPT_CD, OPT_NM, OPT_PRICE,OPT_NM_CN, OPT_NM_EN, OPT_NM_JP,DP_RANK, USE_YN) VALUES (#{STORE_NO}, #{OPT_GP_CD}, #{OPT_CD}, #{OPT_NM}, #{OPT_PRICE}, #{OPT_NM_CN}, #{OPT_NM_EN}, #{OPT_NM_JP}, #{DP_RANK}, #{USE_YN} )",cur);
+		while( cur, node[TB_OPTION_MENU] ) db.exec("INSERT INTO TB_OPTION_MENU (STORE_NO, OPT_GP_CD, MENU_CD) VALUES (#{STORE_NO}, #{OPT_GP_CD}, #{MENU_CD} )",cur);
+		while( cur, node[TB_MSG_MST] ) db.exec("INSERT INTO TB_MSG_MST (STORE_NO, MSG_NO, LINE, MSG_ST, MSG_EN,MSG, ALIGN, USE_YN, PRT_FONT) VALUES (#{STORE_NO}, #{MSG_NO}, #{LINE}, #{MSG_ST}, #{MSG_EN}, #{MSG}, #{ALIGN}, #{USE_YN}, #{PRT_FONT} )",cur);
+		while( cur, node[TB_SETMAIN_DETAIL] ) db.exec("INSERT INTO TB_SETMAIN_DETAIL (STORE_NO, MENU_CD, SETMAIN_CD, DP_RANK, MENU_QTY) VALUES (#{STORE_NO}, #{MENU_CD}, #{SETMAIN_CD}, #{DP_RANK}, #{MENU_QTY} )",cur);
+		*/
+
+ 	}
+	dbError(funcName, tableName) {
+		err=db.error();
+		if( err ) {
+			this.log("$funcName : $tableName error : $err");
+			return true;
+		}
+		return false;	
+	}
+	log(msg) {
+		print("#### log : $msg ###");
+		this[logMessage]=msg;
+		canvas.postEvent(KIOSK.Log, this);
+	}
+}

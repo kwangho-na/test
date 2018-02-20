@@ -1,0 +1,311 @@
+## my
+codeNode(code, &str) {
+	base=_node('commCodeInfo');
+	root=base[cc$code];
+	not( root ) {
+		root={};
+		root[code_cd]=code;
+		while( str.valid() ) {
+			key=str.move().trim();
+			not( str.ch().eq(':') ) {
+				break;
+			}
+			str.incr();
+			if( str.ch().eq() ) {
+				value=str.match();
+			} else {
+				value=str.findPos(",",1,1).trim();
+			}
+			if( key ) {
+				cur=root.addNode();
+				cur[code]=key;
+				cur[value]=value;
+			}
+			not( str.ch().eq(',') ) {
+				break;
+			}
+			str.incr();
+		}
+		base[cc$code]=root;
+	}
+	return root;
+}
+
+## my
+comm_splitterSizes(splitter, width) {
+	not( width ) width=260;
+	splitter=this.tag('splitter'), arr=splitter.sizes(), sum=arr.sum();
+	arr[0]=width, arr[1]=max(5, sum-width);
+	splitter.sizes(arr);
+}
+
+## my
+getFormValue(page, node, flag ) {
+	not( node ) node=_node();
+	while( w, page.widgets() ) {
+		tag=w[tag];
+		if( tag.eq('button', 'label', 'toolbutton', 'grid', 'tree', 'splitter') ) continue;
+		id=w.id;
+		if( tag.eq('check', 'option') ) {
+			if( flag ) {
+				node[$id]=when( w.checked(), 'Y', 'N');
+			} else {
+				node[$id]=w.checked();
+			}
+		} else if( tag.eq('date') ) {
+			val=w.value();
+			if( flag ) {
+				val=val.replace('-');
+			}
+			node[$id]=val;
+		} else {
+			val=w.value();
+			if( chk ) {
+				if( val.eq('--') ) val='';
+			}
+			node[$id]=val;
+		}
+	}
+	return node;
+}
+
+## my 
+setFormValue(page, node, reset ) {
+	while( w, page.widgets() ) {
+		tag=w[tag];
+		if( tag.eq('button', 'label', 'toolbutton', 'grid', 'tree', 'splitter') ) continue;
+		id=w.id;
+		if( node ) {
+			val=node[$id];
+			
+			if( node.isset(id) ) {
+				if( tag.eq('date') ) {
+					switch( val.size() ) {
+					case 8:
+						yy=val.value(0,4), mm=val.value(4,6), dd=val.value(6,8);
+						w.value("$yy-$mm-$dd");
+					case 6:
+						yy=val.value(0,2), mm=val.value(2,4), dd=val.value(4,6);
+						w.value("20$yy-$mm-$dd");
+					default: w.value(val);
+					}
+				} else if( tag.eq('check','radio') ) {
+					chk=when( val.eq('Y'), true, false);
+					w.checked(chk);
+				} else {
+					w.value(val);
+				}
+			} else if( reset ) {
+				w.value('');
+			}
+		} else {
+			w.value('');
+		}
+	}
+}
+
+## my
+getNodeFuncInfo(page, root, reset ) {
+	root.removeAll();
+	keys=_arr(root, 'pageKeys', true);
+	arrEvent=_arr(root, 'pageEvent', true);
+	arrCtrlEvent=_arr(root, 'pageCtrlEvent', true);
+	arrUserFunc=_arr(root, 'pageUserFunc', true);
+	while( key, page.keys(keys) ) {
+		if( key.ch().eq('@') ) continue;
+		fc=page[$key];
+		not( typeof(fc,"function") ) continue;
+		param=Cf.funcParam(fc);
+		if( key.eq('onInit') ) {
+			root.addNode({funcName:$key, sort:1});
+		} else if( key.start('on') ) {
+			arrEvent.add({funcName:$key, funcParam:$param, sort:2}); 
+		} else if( key.find('.') ) {
+			arrCtrlEvent.add({funcName:$key, funcParam:$param, sort:3}); 
+		} else {
+			cur={funcName:$key, funcParam:$param, sort:4};
+			arrUserFunc.add(cur);
+			if( fc[@funcName] ) {
+				cur[subPageUse]=true;
+			}
+		} 
+	}
+	arrEvent.sort('funcName');
+	arrCtrlEvent.sort('funcName');
+	arrUserFunc.sort('funcName');
+	while( cur, arrEvent ) root.addNode(cur);
+	while( cur, arrCtrlEvent ) root.addNode(cur);
+	while( cur, arrUserFunc ) root.addNode(cur);  
+	noteNode=_node('#noteNode');
+	noteNode[cmsCode]=page[@cms.code];
+	noteNode[pageCode]=page[id];
+	db=Class.db('pages');
+	db.fetchAll("select funcName, note from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and length(note)>0 ", noteNode.removeAll() );
+	while( cur, noteNode ) {
+		find=root.findOne('funcName', cur[funcName]);
+		if( find ) {
+			find[note]=cur[note];
+		}
+	}
+	return root;
+}
+
+
+## MyScript
+Project_treeChange(page, node, mainPage) {
+	디비설정=func(node) {
+		projectPath=config('ProjectPath');
+		projectCode=nvl( node[project_cd], node[page_group]);
+		if( projectCode.eq(mainPage[currentProjectCode]) ) {
+			return;
+		}
+		mainPage[currentProjectCode]=projectCode;
+		dbConf=Class.db('config'), dbPages=Class.db('pages');
+		dbConf.close(), dbPages.close();
+		dbConf.open("$projectPath/$projectCode/data/config.db");
+		dbPages.open("$projectPath/$projectCode/data/pages.db");
+	};
+	페이지노드=func(node, dbset) {
+		if( node[depth].eq(2) ) {
+			디비설정(node);
+			node[currentPage]=pageLoad("${node[page_group]}.${node[page_code]}", node.pageReset);
+			return node;
+		}
+		p=node.parent();
+		while( p ) {
+			if( p[depth].eq(2) ) {
+				if( dbset ) {
+					디비설정(p);
+				}
+				return p;
+			}
+			p=p.parent();
+		}
+		return null;
+	};
+	클래스정보=func(node, page) {
+		s=Cf.info('funcVar', page, 'init');
+		s.str();
+		while( s.valid() ) {
+			line=s.findPos("\n");
+			key=line.findPos("=");
+			not( key ) break;
+			if( key.ch().eq('@') ) continue;
+			type=line.move().trim();
+			if( type.eq('class') ) {
+				cur=node.addNode({depth:3, type:classObject});
+				cur[text]=key;
+				cur[class]=page[$key];
+				break;
+			}
+		}
+	};
+	
+	switch( node[depth] ) {
+	case 0:
+		mainPage.contentWebView();
+	case 1:
+		디비설정(node);
+		mainPage.contentWebView();
+	case 2:
+		페이지노드(node);
+		not( node.childCount() ) {
+			layout=node.addNode({depth:3, type:layout, text: 레이아웃});
+			layout.varMap(node,'page_group, page_code');
+			if( node[page_info] ) {
+				form=node.addNode({depth:3, type:canvasForm, text: 캔바스폼});
+				form[formXml]=node[page_info];
+			}
+			node.addNode({depth:3, type:pageFunc, text: 페이지 함수});
+			클래스정보(node, node[currentPage]);
+			Class.db('pages').fetch("select layout from pageLayout where cmsCode=#{page_group} and pageCode=#{page_code}", layout);
+			page.tree.update();
+		}
+		mainPage.contentAddPage(node[currentPage]);
+	case 3:
+		parent=node.parent();
+		페이지노드( parent );
+		switch( node[type] ) {
+		case layout:
+		case canvasForm:
+		case pageFunc:
+			tree=page.tree;
+			getNodeFuncInfo(parent[currentPage], node);
+			tree.update();
+			tree.expand(node, true);
+		case classObject:
+		}
+	default:
+		페이지노드(node, true);
+		
+	}
+}
+
+## MyScript
+Project_treeChildData(page, node ) {
+	if( node.lvl.eq(0) ) {
+		node.addNode({type:root, title:프로젝트 정보, depth:0});
+		return;
+	}
+	dataPath=config('DataPath'), projectPath=config('ProjectPath');
+	
+	db=Class.db('config');
+	switch( node.depth ) {
+	case 0:
+		not( db.open() ) db.open("$dataPath/config.db");
+		db.fetchAll("select 1 depth, project_idx, project_cd, project_nm, project_desc, project_type from project_info ", node );
+	case 1:
+		projectCode=node[project_cd];
+		if( db.open() ) db.close();
+		
+		print("$projectPath/$projectCode/data/config.db");
+		db.open("$projectPath/$projectCode/data/config.db");
+		db.fetchAll("select 2 depth, page_group, page_code, page_title, page_desc, page_icon, page_kind, page_info from page_info where page_group=#{project_cd}", node );
+	}
+}
+
+## MyScript
+Project_treeDraw(page, draw, node, over) {
+	tree=page.tree;
+	rc=treeIcon(tree, draw, node, over);
+	rcIcon = rc.width(18).center(16,16);
+	rc.incrX(20);
+	ref='';
+	switch(node[depth]) {
+	case 0:
+		draw.icon( rcIcon, "vicon.folder_image" );
+		draw.save().font('bold');
+		draw.text( rc,  node[title]);
+		draw.restore();
+	case 1:
+		draw.icon( rcIcon, "vicon.application_side_boxes" );
+		draw.text( rc,  node[project_nm]);
+		ref="[${node[project_cd]}]";
+	case 2:
+		draw.icon( rcIcon, "vicon.application_view_list" );
+		draw.text( rc,  node[page_title]);
+		ref=node[page_code];
+	default:
+		draw.icon( rcIcon, "vicon.page_red" );
+		draw.text( rc,  "${node[funcName]}($node[funcParam])");
+		ref=node[note];
+	}
+	if( ref ) {
+		val=ref.findPos("\n").trim();
+		refWidth=draw.textWidth(val)+10;
+		draw.text(rc.move('end',refWidth).incrW(-10), val, 'right');
+	}
+}
+
+## MyScript
+Project_treeFilter(page, node, filter) {
+	not( filter ) return true;
+	if( node[project_type].eq(filter) ) return true;
+	return false;
+}
+
+## MyScript
+Project_treeMouseDown(page, pos, button, mode) {
+	print();
+}
+

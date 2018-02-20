@@ -1,0 +1,370 @@
+Image : {
+	layout: <page margin=4> 
+	<hbox margin=0>
+		<label text="ID : " width=45  height=24 align=right>
+		<input id=idSearch width=150 height=24>
+		<combo id=imageGroup height=24>
+		<button id=search text=조회 height=26>
+		<space>
+		<button id=clipboardCapture text="클립보드 캡쳐" height=26>
+		<button id=newImage text="이미지생성" height=26>
+	</hbox>
+	<tree id=grid>
+	<hbox>
+		<button id=ok text="확인" height=26><space>
+		<button id=cancel text="취소" height=26>
+	</hbox>
+	</page>
+	title: 페이지 아이콘 선택,
+	icon: vicon.image_edit,
+	onInit() {
+		db = Class.db('icons');
+		sql = "select (type||'.'||id) as icon, type,id,tm,use from icons where 1=1 #[ type ? and type=#{type}] #[idSearch? and id like '%'||#{idSearch}||'%'] limit  #{offset}, 50";
+		grid=this.grid;
+		mainPage = this;
+		comboNode = {};
+		db.fetchAll("select type from icons group by type", comboNode);
+		this[imageGroup].addItem(comboNode, 'type', '이미지 선택'); 
+		grid.model(db,"check:*#45, icon:아이콘#60, type:그룹#110, id:아이디#180, use:사용여부#60, tm:등록일시#150");
+		grid.check('treeMode',  false);
+		this.search();
+	}
+	ok.onClick() {
+		cur=grid.current();
+		not( cur ) return;
+		fc=getParentFunc(this,'iconSelect');
+		fc(cur);
+		this.hide();
+	}
+	cancel.onClick() {
+		this.hide();
+	}
+	imageGroup.onChange() {
+		this[idSearch].value('');
+		this.search();
+	}
+
+	newImage.onClick() {
+		&form = this.widget({
+			title: VRS 이미지 등록,
+			icon: Icon.igims.reg,
+			layout:
+				<page>
+					<layout stretch=1>
+						<row><label text="이미지 그룹명 : " align=right><input id=typeName></row>
+						<row><label text="폴더선택 : " align=right><hbox><input id=folderName stretch=1><button id=folderSel text="..." width=32 height=26></hbox></row>
+						<row stretch=1><label colspan=2></row>
+						<row><hbox colspan=2><space><button id=apply text=적용><button id=cancel text=취소></hbox></row>
+					</layout>
+				</page>,
+			onInit() {
+				this[typeName].focus();
+			}
+			apply.onClick() {
+				mainPage.newImageOk( this[folderName].value(), this[typeName].value() );
+				this.close();
+			}
+			cancel.onClick() {
+				this.close();
+			}
+			folderSel.onClick() {
+				this[folderName].value( Cf.selectFolder('이미지 폴더 선택') );
+			}
+			initPage(main) {
+				this[main] = main;
+				this.size(460,165);
+			}
+		});
+		form.initPage(this);
+		form.open(this,'center');
+	}
+
+	grid.onFetchMore() {
+		@node[offset]=@node[fetchNum];
+		db.fetchAll(sql, @node);
+		@node.incr('fetchNum',50);
+		grid.update();
+	}
+
+	grid.onClicked() {
+		if( @column.eq(2,3) ) { 
+			@me.edit(@node,@column); 
+		}
+	}
+	grid.onDoubleClicked() {
+		this.fireEvent('ok.onClick');
+	}
+
+	grid.onEditEvent(type, node, data, index) {
+		&pos = @me.offset(); 
+		&hh = @me.headerHeight();
+		switch(type) {
+		case create:		 
+			@me.check('sortEnable',false);
+		case finish:
+			field=@me.field(index);  
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify, true);
+				}
+				node[$field] = data;
+			}
+			@me.update();
+			@me.check('sortEnable',true);
+		default: return;
+		}
+	}
+
+	grid.onDraw() {
+		this.drawGrid(@me, @draw, @node, @over);
+	}
+
+	clipboardCapture.onClick() {
+		not( Cf[imageData] ) Cf[imageData]={};
+		cf = Cf[imageData];
+		watcher = instance('global.watcher');
+		&page = this.widget({
+			id: clipboard,
+			title: 복사 이미지저장,
+			tag: dialog,
+			icon: ICON.igims.cloud , 
+			layout:
+				<page>
+				<layout stretch=1>
+					<row><label min=50 stretch=1 text="이미지 그룹"><input id=grp min=90 stretch=3></row>
+					<row><label text="이미지 아이디"><input id=code></row>
+					<row stretch=1><space rowspan=2></row>
+				</layout>
+				<hbox><space><button id=saveImage text=확인><button id=cancel text=취소></hbox>
+				</page>,
+			initPage() {
+				this[grp].value('');
+				this[code].value('');
+			},
+			saveImage.onClick() {
+				mainPage.saveImage(this[grp].value(), this[code].value());
+				this.hide();
+			},
+			cancel.onClick() {
+				this.hide();
+			}
+		});
+		page.initPage();
+		if( cf[captureYn] ) {
+			cf[captureYn] = false;
+			watcher.clipboard(false);
+			@me.value('클립보드 캡쳐');
+			return;
+		}
+		cf[captureYn] = true;
+		@me.value('클립보드 캡쳐중');
+		watcher.clipboard(callback(ty,data) {
+			switch(ty) {
+			case image:
+				cf[data] = data;
+				page.initPage();
+				page.open();
+			default:
+				print("clipboard change");
+			}
+		});		
+	}
+
+	search.onClick() {
+		this.search();
+	}
+
+	saveImage(type,id) {
+		cf = Cf[imageData];
+		tm=System.localtime();
+		cf.put(id,type,tm);
+		bindBlob= func(type,field) { return when( field.eq('data'), 'blob', 'bind'); };
+		not( db.exec("update icons set data=#{data}, tm=#{tm} where id=#{id} and type=#{type}", cf, bindBlob)  ) {
+			db.exec("insert into icons (id,type,data,prop,use,tm) values (#{id},#{type},#{data},'clipboard','Y',#{tm})", cf, bindBlob);
+		}
+	}
+
+	newImageOk(folder, type) {
+		not( Cf[imageData] ) Cf[imageData]={};
+		cf = Cf[imageData];
+		tm=System.localtime();
+		cf.put(type,tm);
+		print();
+		bindBlob= func(type,field) { return when( field.eq('data'), 'blob', 'bind'); };
+		while( cur, instance("my.filefind").fetchAll(folder, '*.png') ) {
+			cf[id] = cur[fileName].find('.').trim();
+			print("id=$cf");
+			cf[data] = instance('my.file').readAll("$folder/$cur[fileName]");
+			not( db.exec("update icons set data=#{data}, tm=#{tm} where id=#{id} and type=#{type}", cf, bindBlob)  ) {
+				db.exec("insert into icons (id,type,data,prop,use,tm) values (#{id},#{type},#{data},'save','Y',#{tm})", cf, bindBlob);
+			}
+		}
+	}
+
+	search() {
+		root = grid.rootNode();
+		root.removeAll(); 
+		root[type]			= this[imageGroup].value();
+		root[idSearch]	= this[idSearch].value();
+		root[offset]			= 0;
+		root[fetchNum]	= 50;
+		db.fetchAll(sql,root);
+		grid.update();
+	}
+
+	drawGrid(grid, d, node, over) {
+		rc=d.rect(); 
+		if( d.state(STYLE.Selected) ) {	
+			d.fill( rc, '#f0f0f0' );
+		} else {
+			d.fill();
+		}
+		if( over ) d.rectLine(rc, 4, '#f0c0a0');
+		field=grid.field(d.index());
+		switch( field ) {
+		case check:		
+			if( node[checked] ) 
+				d.icon(rc.center(16.16), Icon.func.check);
+			else
+				d.icon(rc.center(16.16), Icon.func.add);
+		case icon:
+			d.icon( rc.center(16,16), node[$field]);		
+		case use:
+			d.text( rc, node[$field], 'center' );
+		case tm:
+			d.text( rc, System.date(node[$field],'yyyy-MM-dd'), 'center' );
+		default:
+			d.text( rc.incrX(2), node[$field] );	
+		} 
+		not( over ) d.rectLine(rc,4,'#d0d0d0');
+	}
+}
+searchFunc: {
+	layout: 
+	<page>
+	<splitter stretchFactor="GridPage" type="vbox">
+		<vbox id="GridPage" margin=0> 
+			<group> 
+				<hbox>
+					<vbox>
+						<hbox>
+							<label text="유형: "><combo id="funcKind">
+							<label text="그룹:"><combo id="group" width=200>
+							<label text="코드:"><combo id="code" width=180>
+							<space>
+						</hbox>
+						<hbox>
+							<label text="함수명: "><input id="funcName">
+							<label text="내용:"><input id="funcData">
+							<space>
+							<check id="appendSrc" text="Append 소스 ">
+						</hbox>
+					</vbox>
+					<button id="search" text="조회" height=60>
+				</hbox>
+			</group>
+			<grid id="grid" stretch=1>
+			<hbox>
+				<label id="gridStatus">
+			</hbox>
+		</vbox>
+		<editor id="src">
+	</splitter>
+	<hbox>
+			<button id="save" text="저장"><space>
+			<button id="close" text="창닫기">
+	</hbox>
+	</page>
+	onInit() {
+		include('common/widget.FuncSearchGrid', true);
+		include('common/widget.EditorSrc');
+		x=newClass('common/widget.FuncSearchGrid', this);
+		editorSrc=newClass('common/widget.EditorSrc', this);
+	
+		db=Class.db('pages');
+		this.funcName.maxWidth(220);
+		this.funcData.maxWidth(220);
+		this.funcKind.addItem(getCommCodeNode('funcKind'), 'code,value', '=전체=');
+	}
+	initPage(text) {
+		this.funcData.value(text);
+		this.fireEvent('search.onClick');
+	}
+	setSrc(text) {
+		editorSrc.setSrc(text);
+	}
+	getSrc(flag) {
+		if( flag ) this.save.disable();
+		return this.src.value();
+	}
+	isModify() {
+		return this.src.isModify();
+	}	
+	funcKind.onChange() {
+		val=this.funcKind.value();
+		this.group.removeAll();
+		this.code.removeAll();
+		root=_node(this,'GroupCombo').removeAll();
+		if( val ) {
+			this.group.enable();
+			this.code.enable();
+			switch(val) {
+			case a: 	this.initUserFunc(root);
+			case b:	this.initPageFunc(root);
+			case c:	this.initClassFunc(root);
+			}
+		} else {
+			this.group.disable();
+			this.code.disable();
+		}
+	}
+	initUserFunc(root) { 
+		sql="select cmsCode as groupCode from cmsFunc group by cmsCode";
+		this.group.addItem( db.fetchAll(sql,root), 'groupCode', '==전체==');
+	}
+	initPageFunc(root) {
+		sql="select cmsCode as groupCode from pageFunc group by cmsCode";
+		this.group.addItem( db.fetchAll(sql,root), 'groupCode', '==전체==');
+	}
+	initClassFunc(root) {
+		sql="select class_grp as groupCode from class_info group by class_grp";
+		this.group.addItem( db.fetchAll(sql,root), 'groupCode', '==전체==');
+	}
+	group.onChange() {
+		root=_node(this,'GroupCombo');
+		val=@me.value();
+		cur=root.findOne('groupCode', val);
+		print( val, cur);
+		cur.removeAll();
+		this.code.removeAll();
+		switch( this.funcKind.value() ) {
+		case a: 	this.codeUserFunc(cur, val);
+		case b:	this.codePageFunc(cur, val);
+		case c:	this.codeClassFunc(cur, val);
+		}	
+	}
+	codeUserFunc(cur, val) {
+		items=db.fetchAll("select funcName from cmsFunc where cmsCode=#{groupCode}", cur );
+		this.code.addItem( items, 'funcName', '==전체==');		
+	}
+	codePageFunc(cur, val) {
+		items=db.fetchAll("select pageCode from pageFunc where cmsCode=#{groupCode} group by pageCode", cur );
+		this.code.addItem( items, 'pageCode', '==전체==');		
+	}
+	codeClassFunc(cur, val) {
+		items=db.fetchAll("select class_nm from class_info where class_grp=#{groupCode} group by class_nm", cur );
+		this.code.addItem( items, 'class_nm', '==전체==');		
+	}
+	search.onClick() {
+		kind=this.funcKind.value();
+		group=this.group.value();
+		code=this.code.value();
+		x.search(kind, group, code);
+	}
+	save.onClick() {
+	
+	}
+	close.onClick() {
+		this.close(false);
+	}
+}

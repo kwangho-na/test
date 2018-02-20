@@ -1,0 +1,154 @@
+PageFuncsManager {
+	PageFuncsManager(page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+	 	db=Class.db('pages');
+		currentPage=null;
+ 	}
+	initPage(root, append) {
+		not( root ) return;
+		this[currentNode]=root;
+		if( root.currentPage ) {
+			@currentPage=root.currentPage;
+		}
+		src='';
+		while( cur, root ) {
+			not( cur[checked] ) continue;
+			note=when( cur[note], "/*\r\n$cur[note] */");
+			if( note ) src.add("$note\r\n");
+			key=cur[funcName];
+			body=makeSourceIndentText(cur[src].ref(), "\t");
+			src.add("${cur[funcName]}($cur[funcParam]) {$body}\r\n\r\n");
+		}
+		if( append ) {
+			editor.append("\r\n$src", true);
+		} else {
+			this.setSrc(src);
+		}
+		return currentPage;
+ 	}
+	saveSrc() {
+		root=this[currentNode];
+		root[tm]=System.localtime();
+		me=this;
+		_save=func(&s) {
+			err='';
+			while( s.valid() ) {
+				c=s.ch();
+				not( c ) break;
+				note='';
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') ) note.add( s.findPos("\n") );
+					else if( s.ch(1).eq('*') ) note.add( s.match() );
+					continue;
+				}
+				sp=s.cur(), s.move();
+				c=s.ch();
+				if( c.eq('.') ) {
+					s.incr(), s.move();
+					c=s.ch();
+				}
+				ep=s.cur();
+				funcName=s.value(sp,ep,true);
+				not( c.eq('(') ) {
+					err.add("함수 시작오류 : 함수명 : $funcName\n");
+					break;
+				}
+				funcParam=s.match().trim();
+				c=s.ch();
+				not( c.eq('{') ) {
+					err.add("함수 매개변수 오류: $funcName, $funcParam\n");
+					break;
+				}
+				body=s.match(1);
+				root.put( funcName, funcParam, note );
+				if( body.find('/*') || body.find('// ') ) {
+					root[funcSrc]=body;
+					root[funcData]=makeSrc(body);			
+				} else {
+					root[funcSrc]='';
+					root[funcData]=body;			
+				}
+				root[note]=note;
+				num=db.exec("update pageFunc set funcSrc=#{funcSrc}, funcData=#{funcData}, funcParam=#{funcParam}, note=#{note}, tm=#{tm} where cmsCode=#{cmsCode} and pageCode=#{pageCode} and funcName=#{funcName}", root);
+				not( num ) {
+					if( funcName.eq('onInit') ) {
+						root[sort]=1;
+					} else if( funcName.start('on') ) {
+						root[sort]=2;
+					} else if( funcName.find('.') ) {
+						root[sort]=3;
+					} else {
+						root[sort]=4;
+					} 
+					db.exec("insert into pageFunc( cmsCode, pageCode, funcName, funcParam, funcSrc, funcData, note, tm, sort ) values (#{cmsCode}, #{pageCode}, #{funcName}, #{funcParam}, #{funcSrc}, #{funcData}, #{note}, #{tm}, #{sort} )", root);
+				}
+			}
+			me[error]=err;
+		};
+		parse=func(&s) {
+			if( s.find("#>") ) { 
+				_save( s.findPos("#>") );
+			} else {
+				_save(s);
+			}
+		}; 
+		parse( page[src].value() );
+		if( page[autoRunCheck].checked() ) {
+			this.runSrc(true);
+		}
+		page.save.disable();
+ 	}
+	runSrc( flag ) {
+		me=this;
+		_run=func(&s) {
+			err='';
+			while( s.valid() ) {
+				c=s.ch();
+				not( c ) break;
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') )  
+						s.findPos("\n");
+					 else if( s.ch(1).eq('*') ) 
+						s.match();
+					continue;
+				}
+				sp=s.cur(), s.move();
+				c=s.ch();
+				if( c.eq('.') ) {
+					s.incr(), s.move();
+					c=s.ch();
+				}
+				ep=s.cur();
+				func=s.value(sp,ep,true);
+				not( c.eq('(') ) {
+					err.add("함수 시작오류 : 함수명 : $func\n");
+					break;
+				}
+				param=s.match().trim();
+				c=s.ch();
+				
+				not( c.eq('{') ) {
+					err.add("함수 매개변수 오류: $param");
+					break;
+				}
+				body=s.match(1);
+				currentPage.func("${func}($param) { $body }");
+			}
+			me[error]=err;
+		};
+		parse=func(&s) {
+			if( s.find("#>") ) {
+				src=s.findPos("#>");
+				_run( src );
+				cmd=s.findPos("\n").trim();
+				Cf.call("currentPage.${cmd}");
+			} else {
+				_run(s);
+			}
+		};
+		parse( page[src].value() );
+		this.update();
+	}
+	update() {
+	}
+}

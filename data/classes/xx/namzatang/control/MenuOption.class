@@ -1,0 +1,337 @@
+MenuOption {
+MenuOption(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+cancelButtonClick() {
+	this.mainControl().closePopup();
+}
+
+conf() {
+	if( this.state(NODE.set) ) return;
+	confNodeLayout(tag);
+	setChildSize=func(root) {
+		while( cur, root ) {
+			not( cur[type] ) cur[type]='vbox';
+			setNodeSize(cur,true);
+			confNodeLayout(cur);
+			setChildSize(cur);
+		}
+	};
+	setChildSize(tag);
+	this.state(NODE.set, true);
+	
+	/* 메뉴수량 버튼 위치 설정*/
+	node=findTag('MenuInfo.MenuQty',tag);
+	if( node ) {
+		node[rect].inject(sx,sy,sw,sh);
+		arr=_arr(this,'TempRate').recalc(sw,'55,75,55,*');
+		qx=sx+55;
+		/* 0=수량감소 버튼,  1= 수량,  2=수량증가 버튼 */
+		while( qw, arr, column, 0 ) {
+			rc=Class.rect(qx, sy, qw, sh), qx+=qw;
+			switch(column) {
+			case 0: node[rcMinusButton]	=rc.center(45,45); 
+			case 1: node[rcQtyText]		=rc.center( rc.width(), 45);
+			case 2: node[rcPlusButton]	=rc.center(45,45); 
+			}
+		}
+	}
+	
+	/* 사이드 메뉴의 영역이 세팅되지 않았다면 사이드 메뉴 영역을 만든다 */
+	dataNode=_node(this,'OptionMenuDataNode');
+	list1=findTag('OptionInfo.SideMenuList', tag);
+	list2=findTag('OptionInfo.OptionMenuList', tag);
+	temp=_arr(this, 'TempRate').recalc(170,'60,20,20');
+	temp.inject(h1,h2,h3);
+	print( h1, h2, h3, list2, list1[rect]);
+	while( node, dataNode ) {
+		list= when( node[setopt_cd].eq('S0001'), list1, list2);
+		list[rect].inject(sx, sy);
+		sx+=25, sw=155, sh=170;
+		cx=sx;
+		while( menu, node, n, 0 ) {
+			menu[rect]		=Class.rect(cx, sy, sw, sh);
+			cy=sy;
+			menu[rcImage]	=Class.rect(cx,cy,sw,h1), cy+=h1;
+			menu[rcText]	=Class.rect(cx,cy,sw,h2), cy+=h2;
+			menu[rcPrice]	=Class.rect(cx,cy,sw,h3);
+			cx+=sw+5;
+			/* 한라인에 6개씩보이도록 한다 */
+			mod=n%6;
+			if( mod.eq(5) ) {
+				cx=sx, sy+=sh+5;
+			}
+		}
+	}
+	
+	/* 하단버튼 위치 설정*/
+	node=findTag('Buttons',tag);
+	if( node ) {
+		while( button, node ) {
+			img=imageLoad(button,'src','n');
+			if( img ) button[rcButton]=img.center(cur[rect]);
+		}
+	}
+}
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	draw.mode();
+	draw.effect(
+		DRAW.RoundBox, tag[rect], 15, '#cacaca', '#ffffff', 2
+	);
+	
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case MenuInfo:	this.drawMenuInfo(draw, cur);
+		case OptionInfo:	this.drawOptionInfo(draw, cur);
+		case Buttons: 		
+			while( button, cur)  {
+				drawNodeButton(draw, button, 'PopupButton');
+			}
+		default:
+		}
+	}
+}
+
+drawMenuInfo(draw, root) {
+	menu=this.selectedMenu;
+	while( cur, root ) {
+		switch(cur[tag] ) {
+		case MenuImage:
+			/* 메뉴타이틀 이미지 */
+			if( menu ) {
+				img=imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+				if( img ) {
+					draw.drawImage( img.center(cur[rect]), img);
+				}				
+			}
+		case Group:
+			/* 메뉴 상세정보 & 수량,가격정보*/
+			while( sub, cur ) {
+				switch(sub[tag]) {
+				case MenuDesc:
+					sub[rect].inject(sx,sy,sw,sh);
+					sx+=40;
+					_arr(this,'TempRate').recalc(sh, '*,66').inject(h1,h2);
+					r1=Class.rect(sx,sy,sw,h1), sy+=h1;
+					r2=Class.rect(sx,sy,sw,h2);
+					drawNodeText(draw, r1, menu[menu_nm], 'left', 40, '#404040', 'bold');
+					drawNodeText(draw, r2, menu[menu_de], 'left', 18, '#a0a0a0', 'normal');
+				case MenuOrder:	
+					this.drawMenuOrder(draw, sub);
+				}
+			}
+		default:
+		}
+	}
+}
+
+drawMenuOrder(draw, root) {
+	menu=this.selectedMenu;
+	while( cur, root ) {
+		cur[rect].inject(sx,sy,sw,sh);
+		switch(cur[tag] ) {
+		case MenuQty: 
+			/* 수량감소 버튼 */
+			r0=cur[rcMinusButton].center(45,45);
+			ty=when( menu[qty].eq(1), 'd', 'n' );
+			if( r0.eq(this.mouseDownRect) ) ty='p';
+			drawNodeImage(draw, r0, tag, 'QtyMinusButton', ty);
+			
+			/* 수량 텍스트 */
+			r0=cur[rcQtyText];
+			draw.rectLine(r0, 0, '#c0c0c0', 2);
+			drawNodeText(draw, r0, menu[qty], 'center', 'TableList');
+			
+			/* 수량증가 버튼 */
+			r0=cur[rcPlusButton].center(45,45);
+			ty='n';
+			if( r0.eq(this.mouseDownRect) ) ty='p';
+			drawNodeImage(draw, r0, tag, 'QtyPlusButton', ty); 
+		case MenuPrice:
+			price=menu[sale_price];
+			price*=menu[qty];
+			priceSum=util_priceComma(price);
+			drawNodeText(draw, cur[rect], "$priceSum 원", 'center', 'TableList');
+		default:
+		}
+	}
+}
+
+drawOptionInfo(draw, root) {
+	dataNode=_node(this,'OptionMenuDataNode');
+	
+	/* ########################[ inline function ]########################### */
+	_title=func(setopt_cd, rc) {
+		drawNodeImage(draw, rc, cur, 'BkImage');
+		rcIcon=rc.width(24), rc.incrX(60);
+		color=Class.color('#f18910');
+		draw.fill(rcIcon, color);
+		draw.rectLine(rcIcon, 3, color.darkColor(100) );
+		
+		node=dataNode.findOne('setopt_cd', setopt_cd);
+		drawNodeText(draw, rc, node[setopt_nm], 'left', 'SubTitle' );
+	};
+	
+	_list=func(setopt_cd, rc) {
+		node=dataNode.findOne('setopt_cd', setopt_cd);
+		/* 사이드 메뉴 출력 */
+		while( menu, node ) {
+			/*이미지 영역 */
+			menu.inject(rcImage, rcText, rcPrice, menu_cd, menu_nm, sale_price); 
+			img=imageLoad(menu, 'MenuImage', cf, menu_cd);				
+			if( rcImage.eq(this.mouseDownRect) ) {
+				draw.drawImage(img.center(rcImage), img, 'shadow', 20, 8, '#a0a0a0');
+			} else {
+				draw.drawImage(img.center(rcImage), img );
+			}
+			if( menu[checkedMenu] ) {
+				rcChecked=rcImage.center(92,92);
+				drawNodeImage( draw, rcChecked.incrY(20,true), tag, 'CheckedImage');
+			}
+			price=util_priceComma(sale_price);
+			drawNodeText(draw, rcText, menu_nm, 'center','OrderInfo');
+			drawNodeText(draw, rcPrice, "+ $price 원", 'center', 'OrderPrice');
+		}
+	};
+	/* ################################################################## */
+	
+	while( cur, root ) {
+		rc=cur[rect];
+		switch(cur[tag] ) {
+		case SideMenuTitle: 		_title('S0001',	rc);
+		case SideMenuList:		_list('S0001',	rc);
+		case OptionMenuTitle:	_title('S0002', 	rc);
+		case OptionMenuList:		_list('S0002',	rc);
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+	
+	/* 옵션 메뉴 조회 */
+	dataNode=_node(this,'OptionMenuDataNode');
+	db.fetchAll( tr('sql#namzatang.setoption'), dataNode.removeAll() );
+	while( cur, dataNode ) {
+		db.fetchAll(tr('sql#namzatang.setoptionMenu'), cur);
+	}
+	
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case MenuInfo:	
+			node=findTag('MenuQty',cur);
+			field='rcMinusButton, rcPlusButton';
+			while( key, field.split() ) {
+				not( node[$key].contains(pos) ) continue;
+				this.mouseDownRect=node[$key];
+			}
+		case OptionInfo:
+			dataNode=this[OptionMenuDataNode];
+			while( node, dataNode ) {
+				while( menu, node ) {
+					not( menu[rcImage].contains(pos) ) continue;
+					this.mouseDownRect=menu[rcImage];
+				}
+			}
+		case Buttons:
+			while( button, cur) {
+				not( button[rcButton].contains(pos) ) continue;
+				this.mouseDownRect=button[rcButton];
+			} 
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case MenuInfo:	
+			node=findTag('MenuQty',cur);
+			field='rcMinusButton, rcPlusButton';
+			while( key, field.split() ) {
+				not( node[$key].contains(pos) ) continue;
+				switch(key) {
+				case rcMinusButton:	this.qtyMinusClick();
+				case rcPlusButton:		this.qtyPlusClick();
+				}
+				
+			}
+		case OptionInfo:
+			dataNode=this[OptionMenuDataNode];
+			while( node, dataNode ) {
+				while( menu, node ) {
+					not( menu[rcImage].contains(pos) ) continue;
+					menu.toggle('checkedMenu');
+				}
+			}
+		case Buttons:
+			while( button, cur) {
+				print(button[tag], button[rcButton]);
+				not( button[rcButton].contains(pos) ) continue;
+				switch( button[tag] ) {
+				case Ok:			this.okButtonClick();
+				case Cancel:	this.cancelButtonClick();
+				}
+			} 
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+okButtonClick() {
+	selectedMenu=this.selectedMenu;
+	dataNode=this[OptionMenuDataNode];
+ 	while( node, dataNode ) {
+		while( menu, node ) {
+			not( menu[checkedMenu] ) continue;
+			cf[ShoppingCart].addMenu(menu);
+		}
+	}
+	qty=selectedMenu[qty];
+	cf[ShoppingCart].addMenu(selectedMenu, qty);
+	this.mainControl().closePopup();
+}
+
+qtyMinusClick() {
+	menu=this.selectedMenu;
+	if( menu[qty]>1 ) menu[qty--];	
+	this.update();
+}
+
+qtyPlusClick() {
+	menu=this.selectedMenu;
+	menu[qty++];	
+	this.update();
+}
+
+setSelectedMenu(menu) {
+	menu[qty]=1;
+	this.selectedMenu=menu;
+	dataNode=_node(this,'OptionMenuDataNode');
+	while( node, dataNode ) {
+		while( menu, node ) {
+			menu[checkedMenu]=false;
+		}
+	}
+	this.update();
+}
+}

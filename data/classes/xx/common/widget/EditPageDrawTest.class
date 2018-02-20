@@ -1,0 +1,409 @@
+EditPageDrawTest {
+	EditPageDrawTest(page) { 
+		this.addClass(common.Config );
+		canvas=page.canvas;
+		canvas.eventMap(onDraw, this.canvasDraw, 'draw');
+		canvas.eventMap(onMouseDown, this.canvasMouseDown, 'pos, keys, button');
+		canvas.eventMap(onMouseUp, this.canvasMouseUp, 'pos, keys, button');
+		canvas.eventMap(onMouseMove, this.canvasMouseMove, 'pos');
+		canvas.eventMap(onResize, this.canvasResize );
+		srcEditor=null;
+		currentSrcPage=null;
+		timelineNode={};
+		removeArr=[];
+		this.initPage();
+		log=func(s) { this.printOut(s) };
+		timeline=func(cmd,start) { this.timelineCheck(cmd, start); };
+
+		/* 사이즈변경 시간 */
+		cf.canvasSizeChangeTick=0;
+		canvas.timer(500, this.timerCheck, this);
+	} 
+	initDraw( root ) {
+		cf.buttonRect=null;
+		cf.scrollX=0, cf.scrollY=0;
+		canvas.redraw();
+	}
+	canvasResize() {
+		cf.canvasSizeChangeTick = System.tick();
+	}
+	timerCheck() {
+		not( cf[canvasSizeChangeTick] ) return;
+		dist =System.tick() - cf[canvasSizeChangeTick];
+		if( dist>700 ) {
+			cf.canvasSizeChangeTick=0;
+			// this.config(true);
+		}
+	}
+	timerRestart() {
+		while( tm, canvas.timer() ) {
+			canvas.killTimer(tm);
+		}
+		canvas.timer(500, this.timerCheck, this);
+	}
+	canvasDraw(draw) {
+		rc=draw.rect();
+		/* Draw 크기변경 */
+		not( rc.eq(cf.rcDraw) )  {
+			cf.rcDraw=rc;
+		}
+		draw.rectLine(rc,0,'#c0c0c0');
+
+		timelineDraw=func() {
+			removeArr.reuse();
+			redraw=false;
+			while( tm, timelineNode ) {
+				not( tm.state(NODE.start) ) continue;
+				tid=tm[tid];
+				if( Cf.timeLine("${tid}.running") ) { 
+					this.drawTimeline(tid, draw, tm);
+				} else {
+					cf.timelineDraw=false;
+					redraw=true;
+					tm.state(NODE.start, false);
+					not( tm.state(NODE.stay) ) {
+						removeArr.add(tm);
+					}
+				}
+			}
+			/* 삭제할 노드가 있다면 삭제후 다시 그리기 */
+			if( removeArr.size() ) {
+				while( cur, removeArr ) {
+					timelineNode.remove(cur);
+					cur.delete();
+				}
+			}
+			if( redraw ) {
+				print("xxxxxxxxxxxxxxxxxx redraw xxxxxxxxxxxxxxxx");
+				canvas.redraw();
+			}
+		};
+		if( cf.timelineDraw ) {
+			timelineDraw();
+			return;
+		}
+		this.draw(draw, rc);
+
+		/* 애니메이션 처리할 노드가 없다면 무시 */
+		not( timelineNode.childCount() ) return; 
+		timelineDraw();
+	}
+	canvasMouseDown(pos, keys, button) {
+		not( this.MouseDown ) return;
+		this.MouseDown(cf.rcDraw, pos, keys, button);
+	}
+	canvasMouseUp(pos, keys, button) {
+		not( this.MouseUp ) return;
+		this.MouseUp(cf.rcDraw, pos, keys, button);
+	}
+	canvasMouseMove(pos) {	
+		not( this.MouseMove ) return;
+		this.MouseMove(cf.rcDraw, pos); 
+	}
+
+	draw(rc, draw, tm) {
+	
+	}
+	drawMemory() {
+	
+	}
+	drawTimeline(tid, draw,  tm) {
+		funcName="draw$tid";
+		fc=this[$funcName];
+		if( typeof(fc,"function") ) {
+			fc(cf.rcDraw, draw, tm);
+		}
+	}
+
+	/* 애니메이션 처리 (타임라인) */
+	timelineCheck(cmd, start) {
+		not( cmd ) {
+			while( tm, timelineNode ) {
+				not( tm.state(NODE.start) ) continue;
+				if( Cf.timeLine("${tm[tid]}.running") ) {
+					return true;
+				}
+			}
+			return false;
+		}
+		if( start ) {
+			tm=timelineNode.findOne('tid',cmd);
+			not( tm ) {
+				log("$cmd 타임라인을 찾을수 없습니다");
+			}
+			tm.inject(duration, range, mode);
+			tm.state(NODE.start, true);
+			tm[drawCount]=0;
+			Cf.timeLine("${cmd}.start", canvas, duration, range, mode);
+		} else {
+			return Cf.timeLine(cmd);
+		}
+	}
+
+	timelineStart(tid, duration, range, mode, state) {
+		tm=timelineNode.findOne('tid',tid);
+		not( tm ) {
+			tm=timelineNode.addNode();
+		}
+		tm.state(0);
+		switch(state) {
+		case stay:	tm.state(NODE.stay, true);
+		case start:	tm.state(NODE.start, true);
+		default:		tm.state(NODE.start, true);
+		}
+		tm[tid]=tid;
+		tm[startTick]=System.tick();
+		tm[drawCount]=0;
+		tm.put(duration, range, mode);
+		if( tm.state(NODE.start)) {
+			Cf.timeLine("${tid}.start", canvas, duration, range, mode);
+			this.printOut("타임라인 시작 : 타임라인 아이디=$tid, 투명도 비율: $opacityRate, 시작tick: $tm[startTick]");
+		}
+		return tm;
+	}
+	timelineStop(key) {
+		if( key ) {
+			Cf.timeLine("${key}.stop");
+		} else {
+			while( key, Cf.timeLine() ) {
+				if( Cf.timeLine("${key}.running") ) {
+					Cf.timeLine("${key}.stop");
+				}
+			}
+		}
+		timelineNode.removeAll();
+	}
+ 
+	/* 외부 호출 */
+	setSrcEditor(editor) {
+		@srcEditor=editor;
+	}
+	printOut(msg) {
+		not( srcEditor ) return;
+		srcEditor.append(">> $msg", true);
+	}
+
+	update(&src) {
+		me=this;
+		fc="me.function('[#]', func([#]) { [#] })";
+		type=null;
+		isConf=false;
+		while( src.valid() ) {
+			left=src.findPos('##',1);
+			switch(type) {
+			case drawPage:
+				funcBody=tr(fc, type,"draw, page",left);
+				Cf.call( funcBody );
+ 			case timeline:
+				param.inject(tid, duration, range, mode, state);
+				if( tid ) {
+					funcBody=tr(fc,"draw$tid","rc,draw,tm",left);
+					Cf.call( funcBody );
+					this.timelineStart(tid, duration, range, mode, state);
+				}
+			case [MouseDown, MouseUp, MouseMove]: 
+				if( type.eq('MouseMove') ) {
+					funcBody=tr(fc, type,"rc, pos",left);
+				} else {
+					funcBody=tr(fc, type,"rc, pos, keys, button",left);
+				}
+				Cf.call( funcBody );
+			default:
+				if( type ) {
+					if( type.eq('config') ) isConf=true;
+					arg='';
+					if( param ) {
+						while( a, param) {
+							if( arg ) arg.add(',');
+							arg.add(a);
+						}
+					} else {
+						if( type.eq('draw') ) {
+							arg='draw, rc,  mode';
+						}
+					}
+					funcBody=tr(fc,type,arg,left);
+					Cf.call( funcBody );
+				} else if( left.ch() ) {
+					funcBody=tr(fc,"draw","draw, rc, mode",left);
+					Cf.call( funcBody );
+				}
+			}
+			line= src.findPos("\n");
+			not( line.valid() ) break;
+
+			type=line.move().trim();
+			param=null;
+			if( line.ch().eq('(') ) {
+				val=line.match().trim();
+				param=val.split(',');
+			}
+		}
+		if( isConf ) {
+			this.initDraw();
+			this.config();
+			print("Draw Test Function update ok ------------------------ config  function called");
+		}
+		canvas.redraw();
+	}
+    makePage(root, maxPageHeight ) {
+		not( maxPageHeight ) maxPageHeight=1024;
+		pageNode=_node(cf,'pageNode').initNode();
+		
+		sy=null;
+		offset=null;
+		startY=null;
+		startRow=0;
+		pageNum=1;
+		
+		posY=0, posX=0;
+		root.inject(margin);
+		last=root.childCount()-1;
+
+		while( rowNode, root, row, 0 ) {
+ 			rcRow=rowNode[rect];				not( offset ) offset=rcRow.lt();
+			rc=rcRow.incrXY(offset,false); 
+			if( row.eq(0) ) {
+				sy=rcRow.y();
+				posY=rc.y();
+				startY=sy;
+			}
+			pageHeight = sy-startY;
+			sy+=rcRow.height() + margin;
+			h1= sy-startY;
+			if( row.eq(last) ) {
+				pageHeight = h1;
+				row++;
+				chk=2;
+			} else if( h1>maxPageHeight ) {
+				chk=1;
+			} else {
+				continue;
+			}			
+			endRow = row; 
+			page=pageNode.addNode();
+			drawWidth=rcRow.width();
+			page[rect]=Class.rect(0,posY,drawWidth, pageHeight);
+			page.put(startRow, endRow, offset, posX, posY, pageNum);
+			posY+=pageHeight;
+			posX+=drawWidth;
+			pageNum++;
+			if( chk.eq(2) ) break;
+			startRow=row;
+			startY+=pageHeight;
+			offset=rcRow.lt();
+		} 
+		if( cf.debug ) {
+			while( p, pageNode )  log("makePage page=>$p"); 
+		}
+		this.initDraw();
+	}
+	getPageNode() {
+		return cf.pageNode; 
+	} 
+	getPage() {
+		param=args();
+		pageNode=cf.pageNode;
+		initPage=func(page) {
+			not( page ) return null;
+			if( page[drawObject] ) return page;
+			page[rect].inject(x,y,w,h); 
+			page[drawObject]=Class.draw( w,h );
+			this.drawPage( page[drawObject], page );
+			return page;
+		};
+		not( param ) {
+			/* 매개변수가 없다면 drawObject가 세팅되지 않은 페이지리턴 */
+			while( page, pageNode ) {
+				if( page.drawObject ) continue;
+				return initPage(page);	
+			}
+			return null;
+		}
+		switch(param.size() ) {
+		case 1:
+			/* 페이지 번호 */
+			param.inject(pageNum);
+			page=pageNode.child(pageNum);
+			return initPage(page); 
+		case 2:
+			param.inject(scrollPos, mode);
+			if( scrollPos>0 ) return null;
+			/* 세로 가로 스크롤 처리 */
+			scrollPos*=-1;
+			if( mode ) {
+				pos=Class.point(1, scrollPos);
+				while( page, pageNode ) {
+					if( page[rect].contains(pos) ) {
+						return initPage(page);	
+					}
+				}
+			} else {
+				while( page, pageNode ) {
+				}
+			}
+			page=pageNode.child(-1);
+			return initPage(page);
+		default: return;
+		}
+	}
+	drawScrollPage(draw, rcBox, scrollY, bClicp ) {
+		rcBox.inject(bx, by, bw, bh);
+		if( bClicp ) {
+			draw.clip(rcBox);
+		}
+		page=this.getPage(scrollY, true);	// 스크롤이 위치한 페이지를 얻어온다
+		
+		/* 스크롤후 남은공간 체크 */
+		rcPage=page[rect]; 
+		endPos			=rcPage.bottom();
+		remain			=endPos+scrollY;			// 페이지의 남은 공간
+		dy					=rcPage.height()-remain; 		// y출력위치
+		
+		/* 페이지를 초과한경우 다음페이지을 얻어와 남은 영역만큼 더 그린다 */
+		if( bh>remain ) {
+			draw.drawImage(rcBox, page.drawObject, 0, dy, bw, remain);
+			nextPage=this.getPage(page.pageNum);
+			if( nextPage ) {
+				rcBox.incrY(remain);		// 출력된 위치만큼 이동
+				nextHeight=bh-remain;
+				draw.drawImage(rcBox, nextPage.drawObject, 0, 0, bw, nextHeight);
+			}
+		} else { 
+			draw.drawImage(rcBox, page.drawObject, 0, dy);	// 페이지의 남은공간이 출력박스 보다 큼으로 출력박스 만큼 출력한다.
+		}
+		if( bClicp ) {
+			draw.clip(false);
+		}
+	}
+	drawCurrentPage(draw, scrollY, rcBox  ) {
+		rcBox.inject(bx, by, bw, bh);
+		draw.clip(rcBox);
+		if( cf[currentPage] < 0 ) cf[currentPage]=0;
+		pageNum=cf[currentPage];
+		page=this.getPage(pageNum);	// 스크롤이 위치한 페이지를 얻어온다
+		
+		/* 스크롤후 남은공간 체크 */
+		rcPage=page[rect]; 
+		pageHeight		=rcPage.height();
+		remain			=pageHeight+scrollY;			// 페이지의 남은 공간
+		dy					=pageHeight-remain; 		// y출력위치
+
+		/* 페이지를 초과한경우 다음페이지을 얻어와 남은 영역만큼 더 그린다 */
+		if( bh>remain ) {
+			draw.drawImage(rcBox, page.drawObject, 0, dy, bw, remain);
+			nextPage=this.getPage(page.pageNum);
+			if( nextPage ) {
+				rcBox.incrY(remain);		// 출력된 위치만큼 이동
+				nextHeight=bh-remain;
+				draw.drawImage(rcBox, nextPage.drawObject, 0, 0, bw, nextHeight);
+			}
+		} else { 
+			draw.drawImage(rcBox, page.drawObject, 0, dy);	// 페이지의 남은공간이 출력박스 보다 큼으로 출력박스 만큼 출력한다.
+		}
+		draw.clip(false);
+	}
+ 
+
+
+}

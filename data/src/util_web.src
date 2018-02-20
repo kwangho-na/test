@@ -1,0 +1,153 @@
+help_contentTitle(title, subTitle) {not( subTitle ) return template() {
+<div class="whitebg right">
+  <p>Free and open source<br><img align="top" border=0 src="images/gplv3.png"></p>
+</div>
+<h1 style="border-bottom: none;">$title<br><br><br><br></h1>
+};
+
+return template() {
+<div class="whitebg right">
+  <p>Free and open source<br><img align="top" border=0 src="images/gplv3.png"></p>
+</div>
+<h1 style="border-bottom: none;">[$title] $subTitle<br><br><br><br></h1>
+};}
+
+ux_makeCombo(db,sql,root,field,title) {root.removeAll();
+if( sql ) db.fetchAll(sql, root );
+s="<select id='select_$field'>";
+if( title ) s.add("<option value=''>$title</option>");
+while( cur, root ) {
+	s.add("<option>$cur[$field]</option>");
+}
+s.add("</select>");
+return s;}
+
+web_pageNow(curPage, listTotal, rowCount ) {
+
+	not( curPage ) curPage=1;
+	pageNum = listTotal/rowCount, mod=listTotal%rowCount;
+	if( mod ) pageNum++;
+	s="<span class='pageNow'> 페이지 $curPage/$pageNum (전체 $listTotal 건) &nbsp;&nbsp;&nbsp;&nbsp;";
+	while( n, pageNum ) {
+		page=n+1;
+		if( page.eq(curPage) ) {
+			s.add("&nbsp;<a style='color:#909090' href='#'>$page</a>");	
+		} else {
+			href="'javascript:search($page)'";
+			s.add("&nbsp;<a href=$href>$page</a>");
+		}
+	}
+	s.add("</span>");
+	return s; 
+
+}
+
+ux_makeRadio(title, name) {return template() {
+<label class="cursor mR10">
+	<input type="radio" name="$name"/>
+	<span class="inBlock vm">$title</span>
+</label>
+};}
+
+ux_makeButton(name, href, className) {
+	return template() {
+<button type="button" onClick="$href">$name</button>
+	};
+ 
+
+}
+
+web_tableField(&s) {fields=class('util').node();
+while( s.valid() ) {
+	line = s.findPos(";");
+	field=line.move().trim();
+	if( line.ch().eq('=') ) {
+		line.incr();
+		cur=fields.addNode();
+		fields[$field]=cur;
+		line.split().inject(name, width, align);
+		cur.put(field, name, width, align);
+	}
+}
+return fields;}
+
+ux_makeTable() {
+
+
+	arr=args();
+	bBody=false;
+	switch( arr.size() ) {
+	case 2:
+		arr.inject(root, fieldInfo);
+	case 3:
+		arr.inject(root, fieldInfo, bBody);
+	case 4:
+		arr.inject(db, sql, root, fieldInfo);
+		if( db ) db.fetchAll(sql, root.removeAll() );		
+	}
+	
+	s='';
+	/* 테이블 tbody 만 출력 (size==3) */
+	if( bBody ) {
+		arr=fieldInfo.split();
+		while( row, root ) {
+			s.add('<tr>');
+			while( field, arr ) { 
+				align='al';
+				if( field.find('_type','_cd','_btn') ) {
+					align='ac';
+				}
+				s.add("<td class='$align'>$row[$field]</td>");
+				
+			}
+			s.add('</tr>');
+		}
+		not( root.childCount() ) {
+			cols=arr.size();
+			s.add("<tr><td colspan=$cols style='height:50px;'>검색된 결과가 없습니다</td></tr>");
+		}	
+		return s;
+	}
+	
+	
+	fs=web_tableField(fieldInfo.ref());
+	s='';
+	while( cur, fs) {
+		s.add("<col style='width:$cur[width];'/>");
+	}
+	colGroup=tr('<colgroup>[#]</colgroup>',s);
+	
+	s='';
+	while( cur, fs) {
+		s.add("<th scope='col'>$cur[name]</th>");
+	}
+	thead=tr('<thead><tr>[#]</tr></thead>',s);
+	
+	s='';
+	while( row, root ) {
+		s.add('<tr>');
+		while( cur, fs) {
+			field=cur[field];
+			s.add("<td class='$cur[align]'>$row[$field]</td>");
+		}
+		s.add('</tr>');
+	}
+	not( root.childCount() ) {
+		cols=fs.childCount();
+		s.add("<tr><td colspan=$cols style='height:50px;'>검색된 결과가 없습니다</td></tr>");
+	}
+	
+	return tr('<table class="tb collapse">[#][#]<tbody>[#]</tbody></table>', colGroup, thead, s);
+
+
+}
+
+ux_makeCodeCombo(id, code, title) { 
+	s="<select id='$id'>";
+	if( title ) s.add("<option value=''>$title</option>");
+	while( cur, class('code').getCodeNode(code) ) {
+		s.add("<option value='$cur[code]'>$cur[value]</option>");
+	}
+	s.add("</select>");
+	return s;	
+}

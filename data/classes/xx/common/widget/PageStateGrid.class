@@ -1,0 +1,73 @@
+PageStateGrid {
+	PageStateGrid(page) {
+		this.addClass(common.Config );
+		
+		dataModel=Class.model('PageState');
+		grid=page.grid;
+		grid.model( dataModel, gridMakeField('
+			page_icon: 아이콘			#60px, 
+			page_kind: 종류				#70px,
+			page_template: 템플릿	#85px,
+			page_group: 그룹			#110, 
+			page_code:페이지코드	#190, 
+			page_title:타이틀			#220,
+			regdt: 등록일시				#130px') 
+		);
+		grid.check('sortEnable', true);
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+	}
+	search(node) {
+		root=grid.rootNode();
+		dbLocal=Class.db('config'), dbPath=null;
+		if( node ) {
+			file=Class.file();
+			dbPath="project/$node[project_cd]/data/config.db";
+			if( file.isFile(dbPath) ) {
+				dbLocal=Class.db('local');
+				if( dbLocal.open() ) dbLocal.close();
+				dbLocal.open(dbPath);
+			} else {
+				dbPath=null;
+			}
+		}
+ 		dbLocal.fetchAll("select project_idx, page_icon, page_group, page_code, page_title, page_kind, page_template, regdt from page_info where 1=1 #[project_idx ? and project_idx=#{project_idx}]", root.initNode(node));
+ 		grid.update();
+		page.deletePage.hide();
+		gridHeaderWidth(grid);
+		if( dbPath ) dbLocal.close();
+	}
+ 	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		case page_kind: 
+			draw.text(rc, getCommCodeValue('pageKind', node[$field]), 'center');
+		case page_template: 
+			draw.text(rc, getCommCodeValue('pageTemplate', node[$field]) );
+		case page_icon: 
+			if( node[page_icon] ) draw.icon(rc.center(16,16), node[page_icon] );
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+ 
+}

@@ -1,0 +1,54 @@
+20:54:28 #call runSrcCallFunction function ok
+20:54:30 QueryParse=> "
+	select
+		count(1) cnt
+	from (
+		select
+			cmsCode as pageGroup, pageCode,  funcName, funcParam, funcData, note, sort, '#' as type, funcLine
+		from pageFunc
+		where  
+			funcName='_arr' 
+		union
+		select 
+			funcGroup as pageGroup, refCode as pageCode, funcName, funcParam, funcData, note, 9 as sort, type, funcLine
+		from cmsFunc 
+		where 
+			funcName='_arr' 
+	)	
+" 
+ 20:54:30 QueryParse=> "
+	select
+		pageGroup, pageCode, funcName, funcParam, note, sort, type, funcLine
+	from (
+		select
+			cmsCode as pageGroup, pageCode,  funcName, funcParam, funcData, note, sort, '#' as type, funcLine
+		from pageFunc
+		where  
+			funcName='_arr' 
+		union
+		select 
+			funcGroup as pageGroup, refCode as pageCode, funcName, funcParam, funcData, note, 9 as sort, type, funcLine
+		from cmsFunc 
+		where 
+			funcName='_arr' 
+	)	
+
+" 
+ 20:54:31 QueryParse=> "
+	select
+		count(1) cnt
+	from (
+		select
+			cmsCode as pageGroup, pageCode,  funcName, funcParam, funcData, note, sort, '#' as type, funcLine
+		from pageFunc
+		where  
+			funcName='_arr' 
+		union
+		select 
+			funcGroup as pageGroup, refCode as pageCode, funcName, funcParam, funcData, note, 9 as sort, type, funcLine
+		from cmsFunc 
+		where 
+			funcName='_arr' 
+	)	
+" 
+ 

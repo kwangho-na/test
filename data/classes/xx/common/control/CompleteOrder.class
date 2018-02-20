@@ -1,0 +1,58 @@
+CompleteOrder {
+CompleteOrder(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	setChildSize=func(root) {
+		while( cur, root ) {
+			not( cur[type] ) cur[type]='vbox';
+			setNodeSize(cur,true);
+			confNodeLayout(cur);
+			setChildSize(cur);
+		}
+	};
+	setChildSize(tag);
+ 
+}
+
+draw(draw, tag) {
+	popupFadeIn(draw, timeline);
+	drawNodeStyle(draw, tag);
+	order=cf[OrderHeader];
+	
+	_order_info=func() {
+		while( sub, cur ) {
+			switch(sub[tag]) {
+			case OrderNumber:
+				drawNodeText( draw, sub[rect], "주문번호 : $order[DealNo]", "center", 28, '#fa304a');
+			case OrderImage:
+				img=imageLoad(tag,'CompleteImage');
+				draw.drawImage( img.center(sub[rect]), img);
+			}
+		}
+	}
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Title: drawNodeText(draw, cur[rect].incrX(40), "결제완료", "left", 35, '#404040');
+		case CompleteMessage: 
+			drawNodeText(draw, cur[rect], "결제가 완료되었습니다.\n영수증을 확인하세요", "center", 26);
+		case OrderInfo: _order_info();
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+}
+
+mouseUp(pos) {
+}
+}

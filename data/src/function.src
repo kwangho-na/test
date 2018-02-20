@@ -1,0 +1,245 @@
+setGlobalValue(code, val) {cf = get('global');
+cf[$code] = val;
+return val;}
+
+include(code, overwrite) {
+
+	not( Cf[includeNode] ) Cf[includeNode]= {};
+	root = Cf[includeNode];
+	root.removeAll();
+	db = instance('pages.model');
+	
+	if( code.find('.') ) {
+		groupName=code.find('.').trim();
+		className=code.find('.').right().trim();
+		if( className.eq('*') ) {
+			className=null;
+		}
+		// print(groupName,className);
+		if( className ) {		
+			file=instance('my.file');
+			fileName="data/classes/${groupName}_${className}.class";
+			if( file.isFile(fileName) ) {
+				root.put( className, groupName);
+				tm=file.modifyDate(fileName);
+				modifyTm=db.value("select tm from class_mst where class_grp=#{groupName} and class_nm=#{className}", root);		
+				
+				not( tm.eq(modifyTm) ) {
+					overwrite=true;
+					if( modifyTm ) {
+						db.exec("update class_mst set tm='$tm' where class_grp=#{groupName} and class_nm=#{className}", root);
+					} else {
+						db.exec("insert into class_mst(class_grp, class_nm, status, useyn, tm) values(#{groupName}, #{className}, '1', 'N', '$tm')", root );
+					}
+				}			
+				if( root[$code], not(overwrite) ) {
+					return true;
+				}
+				root[$code]=true;
+				src=file.readAll(fileName);
+				arr=class('util').arr();
+				saveClassFile( db, src.ref(), groupName, arr, tm);
+				print("load classes arr: $arr");
+				while( classNm, arr ) {
+					classCode="${groupName}.${classNm}";
+					Cf.reloadClass(classCode);
+					loadClassByDb(classCode);
+				}			
+				print("modifyTm=$modifyTm == $tm");
+			} else {
+				cls=Cf.class(code);
+				if( cls, not(overwrite) ) return true;
+				loadClassByDb(code);		
+			}		
+		} else {
+			root.put( groupName);
+			db.fetchAll("select class_nm from class_info where class_grp=#{groupName} group by class_nm", root );
+			not( root.childCount() ) return false;
+			while( node, root ) {
+				classCode="${groupName}.${node[class_nm]}";
+				cls=Cf.class(classCode);
+				if( cls, not(overwrite) ) continue;
+				Cf.reloadClass(classCode);
+				loadClassByDb(classCode);
+			} 
+		}	
+	} else {
+		root[cmsCode]=code;
+		db.fetchAll("select funcName, funcParam, funcData, type from cmsFunc where useyn='Y' and cmsCode=#{cmsCode} ", root); 
+		while( cur, root ) {
+			static=when( cur[type].eq('S'), true);
+			Cf.func("${cur[funcName]}($cur[funcParam]) {$cur[funcData]}", static);
+		}	
+	}
+
+}
+
+/*  */
+pageReload(dbcode ) {
+args(1, path, pageGroup, pageName, pageSrc, reload);
+	print( pageGroup, pageName );
+	not(dbcode )	dbcode='pages';
+	not(path ) 		path='data/pages';
+	node=_node();
+	db=Class.db(dbcode);
+	result = '';	
+	savePageGroup=func(fileName, modifyDate) {
+		file=Class.file();
+		fullPath="$path/$fileName";
+		not( file.isFile(fullPath) ) {
+			_err("common_func", "pageReload fail: $fullPath not found!!!");
+		}
+		cmscode =fileName.findLast('.').trim();
+		not( modifyDate ) modifyDate=file.modifyDate(fullPath);
+		node[func] = file.readAll(fullPath);
+		node[modifyDate] = modifyDate;
+		not( db.count("select count(1) from page_info where type_code='$dbcode' and cms_code='$cmscode'") ) {
+			result.add("[new page=$cmscode], ");
+			db.exec("insert into page_info(type_code, cms_code, func, type, status, useyn, modifyDate) values ('$dbcode','$cmscode',#{func}, 'P', '0', 'Y',#{modifyDate})", node);
+			continue;
+		}
+		not( db.count("select count(1) as cnt from page_info where type_code='$dbcode' and cms_code='$cmscode' and modifyDate=#{modifyDate}", node) ) {
+			result.add("[modify page=$cmscode],");
+			if( reload ) {
+				db.exec("delete from pageFunc where cmsCode='$cmscode'");
+			}
+			db.exec("update page_info set func=#{func}, src=null, modifyDate=#{modifyDate} where type_code='$dbcode' and cms_code='$cmscode'", node);
+		}	
+	};
+	savePage=func(&s, cmscode) {
+		not( cmscode ) return false;
+		file=Class.file();
+		node[modifyDate]=file.modifyDate(fullPath);
+		if( db.count("select count(1) as cnt from page_info where type_code='$dbcode' and cms_code='$cmscode' and modifyDate=#{modifyDate}", node) ) {
+			return true;
+		}
+		while( s.valid() ) {
+			s.findPos('[##');
+			pageDesc=s.findPos('##]').trim();
+			key=s.move();
+			not( pageName.eq(key) ) {
+				continue;
+			}
+			not( s.ch().eq(':') ) {
+				break;
+			}
+			s.incr();
+			body=s.match(1);
+			node[func]="${pageName} : { $body }";
+			if( db.count("select count(1) from page_info where type_code='$dbcode' and cms_code='$cmscode'") ) {
+				result.add("[update page=$cmscode], $pageName");
+				if( reload ) {
+					db.exec("delete from pageFunc where cmsCode='$cmscode'");
+				}
+				db.exec("update page_info set func=#{func}, src=null, modifyDate=#{modifyDate} where type_code='$dbcode' and cms_code='$cmscode'", node);
+			} else {
+				result.add("[new page=$cmscode], $pageName");
+				db.exec("insert into page_info(type_code, cms_code, func, type, status, useyn, modifyDate) values ('$dbcode','$cmscode',#{func}, 'P', '0', 'Y',#{modifyDate})", node);			
+			}
+			break;
+		}
+	}
+	if( typeof(pageGroup,'bool') ) {
+		pageGroup=null;
+		reload=true;
+	} else if( typeof(pageName,'bool') ) {
+		pageName=null;
+		reload=true; 
+	} else if( typeof(pageSrc,'bool') ) {
+		pageSrc=null;
+		reload=true; 
+	}
+
+	if( pageGroup ) {
+		if( pageName ) {
+			if( pageSrc ) {
+				print("xxxxxxxxxxxxxxxxxxxxxxxxx $node xxxxxxxxxxxxxxxxx");
+				node[func]="$pageName : { $pageSrc }";
+				db.exec("update page_info set func=#{func}, src=null where type_code='$dbcode' and cms_code='$pageGroup'", node);
+			} else {
+				fullPath="$path/${pageGroup}.pages";
+				src=fileRead(fullPath);
+				savePage( src.ref(), pageGroup );
+			}
+		} else {
+			savePageGroup("${pageGroup}.pages");
+		}
+		Cf.makeCmsTable(dbcode);
+	} else {
+		ff=Class.filefind();
+		print(dbcode, path, db, ff);
+		node=_node().removeAll();
+		while( file , ff.fetchAll(path,'*.pages') ) {
+			print("$dbcode > $cmscode file===$file[fileName]");
+			savePageGroup(file[fileName], file[modifyDate]);
+		}
+		Cf.makeCmsTable(dbcode);
+	}
+	
+	return result;
+
+}
+
+pageDbCreate(node, pageGroup) {db=instance('pages.model');
+pageType='pages';
+not( pageGroup ) pageGroup=node[pageGroup];
+node[modifyDate]=System.localtime();
+
+if( db.count("select count(1) as cnt from page_info where type_code='$pageType' and cms_code='$pageGroup'") ) {
+	result.add("[modify page=$pageGroup],");
+	db.exec("update page_info set func=#{pageSrc}, src=null, modifyDate=#{modifyDate} where type_code='$pageType' and cms_code='$pageGroup'", node);
+} else {
+	result.add("[new page=$pageGroup], ");
+	db.exec("insert into page_info(type_code, cms_code, func, type, status, useyn, modifyDate) values ('$pageType','$pageGroup',#{pageSrc}, 'P', '0', 'Y',#{modifyDate})", node);
+}
+Cf.makeCmsTable(dbcode);
+
+ }
+
+/*  */
+pageFuncCheck(&src, page) {	while(src.valid() ) {
+		not( src.ch() ) break;
+		sp=src.cur();
+		fc=src.move();
+		ch=src.ch();
+		print(fc, ch);
+		if( ch.eq(':') ) {
+			src.incr();
+			ch=src.ch();
+			if( ch.eq() ) {
+				src.match();
+			} else if( ch.eq('<') ) {
+				sp=src.cur();
+				src.incr();
+				tag=src.move();
+				src.pos(sp);
+				src.match("<$tag", "</$tag>");
+			} else {
+				src.findPos(",",1,1);
+			}
+			if( src.ch().eq(',',';') ) src.incr();
+			continue;
+		}
+		if( ch=='.') {
+			src.incr();
+			src.move();
+			ep=src.cur();
+			fc=src.value(sp,ep,true);
+			ch=src.ch();
+		}
+		not( ch.eq('(') ) {
+			print("xxxxxxxxxx param $ch xxxxxxxxx");
+			break;
+		}
+		param=src.match();
+		ch=src.ch();
+		not( ch.eq('{') ) {
+			print("xxxxxxxxxx func $ch xxxxxxxxx");
+			break;
+		}
+		body= src.match(1);
+		print("${fc} ($param);");
+		if( src.ch().eq(',',';') ) src.incr();		
+	} 
+
+}

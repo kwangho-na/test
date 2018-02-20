@@ -1,0 +1,334 @@
+## common/widget.PageFuncsGrid
+/* 페이지 함수 확인 버튼 클릭시 처리(페이지 함수내용을 미리 불러오는 부분 삭제 )*/
+okClick() {
+	root=grid.rootNode();
+	cmsCode=currentPage[@cms.code], pageCode=currentPage[id];
+	root[currentPage]=currentPage;
+	root.put(cmsCode, pageCode);
+	fc=getParentFunc(page, 'addPageFuncsEdit');
+	fc(root);
+}
+
+## common/widget.PageFuncsManager
+/* 페이지 함수 수정페이지에서 주석을 보이게 한다 */
+initPage(root, append) {
+	not( root ) return;
+	this[currentNode]=root;
+	if( root.currentPage ) {
+		@currentPage=root.currentPage;
+	}
+	src='';
+	while( cur, root ) {
+		not( cur[checked] ) continue;
+		cur[cmsCode]	=root[cmsCode];
+		cur[pageCode]	=root[pageCode];
+		db.fetch("select case when length(ifnull(funcSrc,''))==0 then funcData else funcSrc end as src, funcParam, note from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and funcName=#{funcName}", cur);
+		note=cur[note] .trim();
+		if( note ) {
+			src.add("/* $note */\r\n");
+		}		
+		key=cur[funcName];
+		body=makeSourceIndentText(cur[src].ref(), "\t");
+		src.add("${cur[funcName]}($cur[funcParam]) {$body}\r\n\r\n");
+	}
+	if( append ) {
+		editor.append("\r\n$src", true);
+	} else {
+		this.setSrc(src);
+	}
+	return currentPage;
+}
+
+## my
+/* 페이지 문자열 리턴 (레이아웃, onInit함수만)*/
+getPageString(root, pageId) {
+	if( root ) {
+		root[sort]=1;
+	} else {
+		root=_node();	
+	}
+	if( pageId ) {
+		pageId.split('.').inject(page_group, page_code);
+		root.put(page_group, page_code);
+	}
+	not( root[page_group] ) {
+		return null;
+	}
+	db=Class.db('pages');
+	s='';
+	db.fetchAll("select objectCode, objectData from pageObject where cmsCode=#{page_group} and pageCode=#{page_code} ", root.removeAll() );
+	if( root.childCount() ) {
+		while( cur, root, n, 0 ) {
+			if( n ) s.add("\n");
+			s.add("${cur[objectCode]}: ${cur[objectData]},");
+		}
+		s.add("\n");
+	}
+	
+	db.fetch("select layout from pageLayout where cmsCode=#{page_group} and pageCode=#{page_code} ", root);	
+	s.add("layout: ", $root[layout]);
+
+
+	db.fetchAll("select funcName, funcParam, funcData, note
+		from pageFunc 
+		where cmsCode=#{page_group} and pageCode=#{page_code} #[ sort ? and sort=#{sort} ]
+		order by sort", root.removeAll() );
+	_body=func(s) {
+		d='';
+		s.ch();
+		while(s.valid(), n, 0 ) {
+			line=s.findPos("\n");
+			if( n ) 
+				d.add("\r\n" );
+			else
+				d.add("\r\n\t" );
+			d.add(line);
+		}
+		return d;
+	}
+	while( a, root ) {
+		if( a[note] ) {	
+			s.add("\r\n/* $a[note] */");
+		}
+		body=_body(a[funcData].ref());
+		s.add("\r\n${a[funcName]}($a[funcParam]) {$body\r\n}\r\n");
+	}
+	return s;
+}
+
+## my
+/* 파일에서 업데이트된 함수를 로딩하고 실행한다 */
+loadNewFuncs(path, reload) {
+
+	db=Class.db('pages');
+	tm=System.localtime();
+
+	사용자_함수저장  = func(&s ) {
+		root=_node();
+
+		funcName=s.move().trim();
+		not( s.ch().eq('(') ) return;
+		funcParam=s.match().trim();
+		not( s.ch().eq('{') ) return;
+
+		body=s.match(1);
+		root.varMap('cmsCode:funcGrp, funcName, funcParam, note, tm');
+		if( body.find('/*') || body.find('// ') ) {
+			root[funcSrc]=body;
+			root[funcData]=makeSrc(body);
+		} else {
+			root[funcSrc]='';
+			root[funcData]=body;
+		}
+		insert="insert into cmsFunc(cmsCode, funcName, funcParam, funcSrc, funcData, note, type, status, tm ) values( #{cmsCode}, #{funcName}, #{funcParam}, #{funcSrc}, #{funcData}, #{note}, 'A', 0, #{tm} )";
+		if( reload ) {
+			update="update cmsFunc set funcParam=#{funcParam}, funcData=#{funcData}, funcSrc=#{funcSrc}, note=#{note}, tm=#{tm} where cmsCode=#{cmsCode} and funcName=#{funcName}";
+			not( db.exec(update, root) ) {
+				db.exec(insert, root);
+			}
+		} else {
+			not( db.count("select count(1) from cmsFunc where cmsCode=#{cmsCode} and funcName=#{funcName}", root) ) { 
+				db.exec(insert, root);
+			}
+		}
+		Cf.func("${root[funcName]}($root[funcParam]) {$root[funcData]}" );
+	};
+	클래스_함수저장 = func(&s, note) {
+		root=_node();
+		while( s.valid(), num, 0 ) {
+			c=s.ch(), comment='';
+			if( num ) {
+				if( c.eq('/') ) {
+					if( data.ch(1).eq('/') ) comment.add( s.findPos("\n") );
+					else if( data.ch(1).eq('*') ) comment.add( s.match() );
+				}
+				note=comment.trim();
+			}
+			class_func=s.move().trim();
+			not( s.ch().eq('(') ) return;
+			class_param=s.match().trim();
+			not( s.ch().eq('{') ) return;
+
+			body=s.match(1);
+			root.varMap('class_grp:classGrp, class_nm:classNm, class_func, class_param, note, tm');
+
+			if( body.find('//') || body.find('/*') ) {
+				root[class_src]=body;
+				root[class_data]=makeSrc(body);
+			} else {
+				root[class_src]='';
+				root[class_data]=body;
+			}
+			root[type] = when( class_func.eq(classNm), 'A', 'F');
+			execNum=db.exec("update class_info set class_src=#{class_src}, class_data=#{class_data}, class_param=#{class_param}, note=#{note}, type=#{type}, tm='$tm' where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", root);
+			not( execNum ) {
+				db.exec("insert into class_info ( class_grp, class_nm, class_func, class_param, class_src, class_data, note, type, tm ) values (#{class_grp}, #{class_nm}, #{class_func}, #{class_param}, #{class_src}, #{class_data}, #{note}, #{type}, #{tm})", root);
+			}
+		}
+	};
+	페이지_함수저장 = func(&s) {
+		root=_node();
+		s.ch();
+		sp=s.cur();
+		funcName=s.move(), c=s.ch();
+		if( c.eq('.') ) {
+			s.incr();
+			s.move(), ep=s.cur(), c=s.ch();
+			funcName=s.value(sp, ep, true);
+		}
+		print( funcName, c );
+		not( c.eq('(') ) return;
+		funcParam=s.match().trim(), c=s.ch();
+		not( c.eq('{') ) return;
+
+		body=s.match(1);
+		root.varMap('pageGroup:pageGrp, pageCode:pageNm, funcName, funcParam, note, tm');
+		if( body.find('/*') || body.find('// ') ) {
+			root[funcSrc]=body;
+			root[funcData]=makeSrc(body);
+		} else {
+			root[funcSrc]='';
+			root[funcData]=body;
+		}
+		execNum=db.exec("update pageFunc set funcSrc=#{funcSrc}, funcData=#{funcData}, funcParam=#{funcParam}, note=#{note}, tm=#{tm} where cmsCode=#{pageGroup} and pageCode=#{pageCode} and funcName=#{funcName}", root);
+		not( execNum ) {
+			if( funcName.eq('onInit') ) {
+				root[sort]=1;
+			} else if( funcName.start('on') ) {
+				root[sort]=2;
+			} else if( funcName.find('.') ) {
+				root[sort]=3;
+			} else {
+				root[sort]=4;
+			}
+			db.exec("insert into pageFunc( cmsCode, pageCode, funcName, funcParam, funcSrc, funcData, note, tm, sort ) values (#{pageGroup}, #{pageCode}, #{funcName}, #{funcParam}, #{funcSrc}, #{funcData}, #{note}, #{tm}, #{sort} )", root);
+		}
+	};
+	설정_저장=func(data) {
+		dbConfig=Class.db('config');
+		root=_node();
+		root.varMap('grp:confGrp, cd:confCode, note, data');
+		execNum=dbConfig.exec("update conf_info set data=#{data}, note=#{note} where grp=#{grp} and cd=#{cd}", root);
+		not( execNum ) {
+			dbConfig.exec( getQuery('conf_info', 'grp, cd, data, note'), root);
+		}
+	};
+	신규_함수저장 = func(&s) {
+		if( s.find('<##',1) ) {
+			left=s.findPos('<##',1);
+			s=left;
+		}
+		while( s.valid(), n, 0 ) {
+			data=s.findPos('## ',1);
+			line=s.findPos("\n").trim();
+			if( n>0 ) {
+				c=data.ch(), comment='';
+				if( c.eq('/') ) {
+					if( data.ch(1).eq('/') ) comment.add( data.findPos("\n") );
+					else if( data.ch(1).eq('*') ) comment.add( data.match() );
+				}
+				note=comment.trim();
+				if( funcGrp ) {
+					사용자_함수저장(data );
+				} else if( classGrp ) {
+					클래스_함수저장(data, note );
+				} else if( pageGrp ) {
+					페이지_함수저장(data );
+				} else if( confGrp ) {
+					설정_저장(data );
+				}
+				funcGrp=null, pageGrp=null, classGrp=null, confGrp=null;
+			}
+			if( line.start('config') ) {
+				right=line.findPos('(',0,1).right();
+				param=right.match();
+				param.split('.').inject(confGrp, confCode);
+			} else if( line.find('.') ) {
+				line.split('.').inject(classGrp, classNm);
+			} else if( line.find('#') ) {
+				line.split('#').inject(pageGrp, pageNm);
+			} else {
+				funcGrp=line;
+			}
+			data=left;
+		}
+	};
+	file=Class.file();
+	not( path ) path="data/update/new_func.src";
+	if( file.isFile(path) ) {
+		신규_함수저장( file.readAll(path) );
+	}
+}
+
+## my
+/* 페이지 또는 JSON형태 노드 문자열 체크 및 시작 주석제거 */
+parseNodeJsonString(&s, page) {
+	d='';
+	while( s.valid() ) {
+		c=s.ch();
+		if( c.eq('/') ) {
+			if( s.ch(1).eq('/') ) s.findPos("\n");
+			else if( s.ch(1).eq('*') ) s.match();
+			s.ch();
+		} else if( c.eq(',',';') ) {
+			s.incr();
+			continue;
+		}
+		not( c ) return;
+
+		sp=s.cur();
+		key=s.move(), c=s.ch();
+		if( c.eq(':') ) {
+			s.incr(), c=s.ch();
+			if( c.eq() ) {
+				val=s.match();
+				d.add("$key: '$val',\r\n");
+			} else if( c.eq('<') ) {
+				sp=s.cur();
+				s.incr(), tag=s.move(), s.cur(sp);
+				not( s.match("<$tag","</$tag>") ) {
+					if(page) page.alert("${tag}에 매칭되는 태그를 찾을수 없습니다");
+				}
+				ep=s.cur();
+				val=s.value(sp, ep, true);
+				d.add("$key: $val\r\n");
+			} else {
+				val=s.findPos(',').trim();
+				d.add("$key: $val,\r\n");
+			}
+			continue;
+		}
+		if( c.eq('.') ) {
+			s.incr();
+			s.move(), ep=s.cur(), c=s.ch();
+			funcName=s.value(sp,ep,true);
+		} else {
+			funcName=key;
+		}
+		not( c.eq('(') ) {
+			if(page) page.alert("${funcName}에 함수 오류");
+			return d;
+		}
+		param=s.match().trim(), c=s.ch();;
+		not( c.eq('{') ) {
+			if(page) page.alert("${funcName}에 함수 본문 끝을 찾을수 없습니다");
+			return d;
+		}
+		body=s.match();
+		d.add("${funcName}($param) {$body}\r\n");
+	}
+	return d;
+}
+
+## my
+config(code, value) {
+	size=args().size();
+	if( code.find('.') ) {
+		return;
+	}
+	cf=_node('#config');
+	if( size>1 ) {
+		cf[$code]=value;
+	}
+	return cf[$code];
+}

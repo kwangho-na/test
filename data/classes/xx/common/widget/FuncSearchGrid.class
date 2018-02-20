@@ -1,0 +1,99 @@
+FuncSearchGrid {
+	FuncSearchGrid(page) {
+		this.addClass(common.Config );
+		db=Class.db('pages');
+		dataModel=Class.model('FuncSearch');
+		grid=page.grid;
+		grid.model( 
+			dataModel, 
+			gridMakeField('kind:유형#80px, groupCode:그룹#100px, code: 코드#100px, func: 함수명#120, param:매개변수#50, note: 비고#100' );
+		);
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+		grid.check('sortEnable', true);
+		
+		/* 그리드 이벤트 맵핑  */
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onChange, this.gridChange, 'node');
+		grid.eventMap(onFetchMore, this.gridFetchMore, 'node');
+
+		/* 폼정보  */
+		if( page.funcName ) {
+			funcNameInput= page.funcName;
+		}
+		if( page.funcData ) {
+			funcDataInput= page.funcData;
+		}
+		searchSql=null;
+ 	}
+	search(funcKind, groupCode, code ) {
+		root=grid.rootNode().removeAll();
+		func =funcNameInput.value();
+		funcData=funcDataInput.value();
+		root[offset]			= 0;
+		root[fetchNum]	= 50;
+		root.put(groupCode, code, func, funcData);
+
+		sql_a="select 'a' as kind, cmsCode groupCode, '' code, funcName func, funcParam param, note from cmsFunc where 1=1 #[funcData ? and funcData like '%'||#{funcData}||'%']";
+		sql_b="select 'b' as kind, cmsCode groupCode, pageCode code, funcName func, funcParam param, note from pageFunc where 1=1 #[funcData ? and funcData like '%'||#{funcData}||'%']";
+		sql_c="select 'c' as kind, class_grp groupCode, class_nm code, class_func func, class_param param, note from class_info where 1=1 #[funcData ? and class_data like '%'||#{funcData}||'%']";
+		switch(funcKind) {
+		case a: 	sql=sql_a;
+		case b:	sql=sql_b;
+		case c:	sql=sql_c;
+		default:	sql="$sql_a\nunion\n$sql_b\nunion\n$sql_c";
+		}
+		filter="1=1 
+			#[groupCode ? and groupCode=#{groupCode}] 
+			#[code ? and code=#{code}] 
+			#[func ? and func like '%'||#{func}||'%'] ";
+		@searchSql="select kind, groupCode, code, func, param, note from ($sql) where $filter limit  #{offset}, 50";
+
+		db.fetchAll(searchSql, root );
+		total=db.count("select count(1) from ($sql) where $filter", root);
+		page.gridStatus.value("전체 $total 건");
+		grid.update();
+		page.deletePage.hide();
+		gridHeaderWidth(grid);
+	}
+	gridFetchMore(node) {
+		node[offset]=node[fetchNum];
+		db.fetchAll(searchSql, node);
+		node[fetchNum+=50];
+		grid.update();	
+	}
+	/* 그리드 노드변경시 */
+	gridChange( node) {
+		switch( node[kind] ) {
+		case a: sql="select funcData as src from cmsFunc where cmsCode=#{groupCode} and funcName=#{func}";
+		case b: sql="select funcData as src from pageFunc where cmsCode=#{groupCode} and pageCode=#{code} and funcName=#{func}";
+		case c: sql="select class_data as src from class_info where class_grp=#{groupCode} and class_nm=#{code} and class_func=#{func}";
+		}
+		db.fetch(sql, node);
+		src=makeSourceIndentText(node[src].ref(), "\t");
+		body="${node[func]}($node[param]) {$src}";
+		if( page.appendSrc.checked() ) {
+			page.src.append(body);
+		} else {
+			page.setSrc(body);
+		}
+	}
+ 	/* 그리드 사이즈 변경시 */
+  	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	/* 그리드 그리기 */
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case kind:	draw.text(rc, getCommCodeValue('funcKind', node[kind]), 'center');
+		default:		draw.text(rc, node[$field].trim());
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+ 
+ 
+}

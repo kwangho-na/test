@@ -1,0 +1,743 @@
+[## 실시간 페이지 함수 관리 메인 ##]
+main: {
+layout:
+	<page>
+		<hbox>
+			<label text="페이지 그룹 :"><hbox spacing=0>
+				<combo id="pageGroup" height=24>
+				<toolbutton id="pageGroupButton" icon="vicon.add_default">
+			</hbox>
+			<label text="페이지 코드 :">
+			<combo id="pageCode" width=160 height=24> 
+			<combo id="pageSub" height=24>
+			<button id="pageOpen" text="페이지 열기">
+			<space>
+			<toolbutton id="imageOpen" icon="ficon.photo-album" tip="이미지소스 보기">
+			<toolbutton id="confManagerOpen" icon="ficon.report--pencil" tip="공통설정창 열기">
+			<toolbutton id="devPageOpen" icon="ficon.table-money" tip="개발툴 열기">
+			<button id="helpOpen" text="도움말">
+			<button id="pageSourceLoad" text="페이지 소스 불러오기">
+		</hbox>
+ 		<hbox>
+			<label text="페이지 함수 : "><combo id="pageFuncCombo" width=165 height=24>
+			<hbox margin="10,2,10,2" spacing=0>
+				<combo id="pageVarCombo" width=145 height=24><toolbutton id="pageVarPlus" icon="vicon.add_default">
+			</hbox>
+			<hbox>
+				<label id="pageEventLabel" text="페이지 이벤트 : ">
+				<combo id="pageEventCombo" width=125>
+			</hbox>
+			<hbox>
+				<label id="pageClassLabel" text="페이지 클래스 : ">
+				<combo id="inheritCombo" width=160 height=24> 
+				<combo id="classVarCombo" width=150 height=24> 
+				<combo id="classFuncCombo" width=185 height=24> 
+			</hbox>
+			<space>
+		</hbox>	
+ 		<tab id="tab">
+	</page>
+
+title: 실시간 페이지 소스관리,
+icon: ficon.application-block,
+onInit() {
+	mainPage=this;
+	pageCodeNode=null;
+	classImplPage=null;
+	pageFuncPage=null;
+	userFuncPage=null;
+	confManagerPage=null;
+	coreFuncPage=null;
+	pageSourcePage=null;
+	db=instance('pages.model');
+	help=instance('help.model');
+	not( help.open() ) help.open('data/help.db');
+	pageSelect=newClass('dev.pageSelectCombo', this);
+	projectSelect=newClass('dev.projectSelectCombo', this);
+	projectVar=newClass('dev.projectSelectCombo', this);
+	pageVar=newClass('dev.pageVarCombo', this, this[pageVarCombo], this[pageVarPlus] );
+	pageFunc=newClass('dev.pageFuncCombo', this, this[pageFuncCombo] );
+	pageClass=newClass('dev.pageClassCombo',this, this[inheritCombo], this[classVarCombo], this[classFuncCombo]);
+ 
+	this.makePageFuncTab('new');
+	this.makeClassImplTab();
+	this.pageFuncCombo.findLayout().hideAll();
+	this.pageEventCombo.findLayout().hideAll();
+	this.pageEventCombo.delegate(true, 24);
+
+ 	this.pageGroup.func(tr('event#combo.onKeyDown#showPopup','pageGroup'));
+ 	this.pageCode.func(tr('event#combo.onKeyDown#showPopup','pageCode'));
+ 	this.pageFuncCombo.func(tr('event#combo.onKeyDown#showPopup','pageFuncCombo'));
+ 	this.pageVarCombo.func(tr('event#combo.onKeyDown#showPopup','pageVarCombo'));
+ 	this.classFuncCombo.func(tr('event#combo.onKeyDown#showPopup','classFuncCombo'));
+}
+
+helpOpen.onClick() {
+	System.run('http://localhost:8088/@help.coreFunc');
+}
+imageOpen.onClick() {
+	pageLoad("common.image").open(this,'center');
+}
+confManagerOpen.onClick() {
+	pageLoad("confManager").open(this,'center');
+}
+devPageOpen.onClick() {
+	pageLoad("devTool.pages").open();
+}
+pageOpen.onClick() {
+	/* 페이지 열기 기능 */
+	pageSelect.inject( pageGroupVal, pageCodeVal);
+	if( pageGroupVal && pageCodeVal ) {
+		page=pageLoad("${pageGroupVal}.${pageCodeVal}");
+		if( page.layout ) {
+			page.open();
+			pageSelect.pageCodeChange();
+		} else {
+			not( this.confirm("페이지 정보가 없습니다 신규 페이지를 생성할까요?") ) {
+				return;
+			}
+		}
+	} else {
+		this.alert("페이지 코드를 입력하세요");
+	}
+}
+
+pageVarComboChange(val, combo) {
+	not( val ) return;
+	root=combo.rootNode();
+	cur=root.findOne('id', val);
+	print("@@ cur===========$cur");
+	pageClass.hideAll();
+	this.pageEventCombo.findLayout().hideAll();
+	if( cur[tag].eq('class') ) {
+		page=pageVar.currentPage;
+		cls=page[$val];
+		pageClass.makeComboData(cls);
+		pageClass.showAll();
+	} else if( cur[type].eq('widget') ) {
+		not( cur[tag] ) return;
+		this.pageEventCombo.findLayout().showAll();
+		not( eventNode ) eventNode={}; 
+		eventNode.removeAll();
+		eventNode[tag]=cur[tag];
+		help.fetchAll("select tag, event_nm, event_param from core_object_event where tag=#{tag}", eventNode.removeAll() );
+		help.fetchAll("select tag, event_nm, event_param from core_object_event where tag='common'", eventNode  );
+		this.pageEventCombo.removeAll().addItem(eventNode,'event_nm','=이벤트 선택=');
+		maxStr='';
+		while( sub, eventNode ) {
+			text="$sub[event_nm]\t$sub[event_param]";
+			if( maxStr.size()< text.size() ) maxStr=text;
+		}
+		this.pageEventCombo.addText(maxStr, true);
+	} 
+}
+pageEventComboDraw(draw, index, over) {
+	node= class('draw').comboDraw(this.pageEventCombo, draw, index, over, this.pageEventVal, 'event_nm');
+	not( node ) return;
+	rc=draw.rect();
+	rcIcon=rc.width(20).center(16,16);
+	rc.incrX(20);
+	icon=when( node[tag].eq('common'), 'award_star_silver_1','award_star_gold_1');
+	draw.icon(rcIcon, "vicon.$icon");
+	draw.font(10).text(rc, node[event_nm]);
+	if( node[event_param] ) {
+		w=draw.textWidth(node[event_param]) + 15;
+		draw.font(8).text(rc.move('end',w), "($node[event_param])", 'right');
+	}
+}
+pageEventCombo.onDraw() {
+	this.pageEventComboDraw(@draw, @index, @over);
+}
+pageEventCombo.onChange() {
+	val=@me.value();
+	print("xxxxxx $val xxxxxxx");
+}
+
+pageSelectChange(cur) {
+	page=cur.runtimePage;
+	not( page ) {
+		@pageCodeNode=null;
+		return;
+	}
+	@pageCodeNode=cur;
+	pageVar.makeComboData(cur.runtimePage);
+	pageFunc.makeComboData(cur.runtimePage);
+	this.pageFuncCombo.findLayout().showAll();
+	pageClass.hideAll();
+	this.pageEventCombo.findLayout().hideAll();
+	this.addPageFuncPage('layout');
+	this.pageFuncCombo.focus();
+}
+pageFuncComboChange(val, combo) {
+	not( val ) return;
+	this.addPageFuncPage( val)
+}
+
+classFuncComboChange( cur) {
+	not( cur ) return;
+	classImplPage.pageImpl.initPage(cur); 
+	this.tab.current( classImplPage );
+}
+setClassFunc(cls, funcNm) {
+	pageClass.makeComboData(cls);
+	pageClass.showAll();
+	classFuncCombo.value(funcNm);
+}
+ 
+makeClassImplTab() {
+	not( classImplPage ) {
+		// impl => dev.PreviewFuncImpl
+		@classImplPage=this.widget(tr('page#preview.dev#classImpl'));
+	}
+	this.tab.addPage(classImplPage, '페이지 구현 클래스','ficon.application-blog', flagCurrent);
+}
+makePageFuncTab(funcName) {
+	not( pageFuncPage ) {
+		@pageFuncPage=pageLoad('DevFuncEdit.pageFuncTab');
+		this.initSrcAction( pageFuncPage );
+	}
+	this.addPageFuncPage(funcName); 
+}
+addPageFuncPage(funcName) {
+	not( funcName ) return;
+	this.tab.addPage(pageFuncPage,'페이지 함수','vicon.bricks_defalut', true);
+ 	node=pageCodeNode.addNode();
+	not( node ) node={};
+	if( funcName.eq('onInit') ) {
+		sort=1;
+	} else if( funcName.start('on') ) {
+		sort=2;
+	} else if( funcName.find('.') ) {
+		sort=3;
+	} else {
+		sort=4;
+	} 
+	node.varMap(pageCodeNode, 'runtimePage, cmsCode, pageCode: code');
+	node.put(funcName, sort);
+	not( node[cmsCode] )	node[cmsCode]=pageSelect.pageGroupVal;
+	not( node[pageCode] )	node[pageCode]=pageSelect.pageCodeVal;
+	print("@@ addPageFuncPage: $funcName, node => $node @@");
+	if( funcName.eq('layout', 'new') ) {
+		if( funcName.eq('new') ) {
+			node.sort=9;
+		} else {
+			node.sort=0;
+			db.fetch("select layout as src from pageLayout where cmsCode=#{cmsCode} and pageCode=#{pageCode}",node);
+		}
+	} else if( node[cmsCode] && node[pageCode] ) {
+		db.fetch("select funcData as src, funcParam, note, type, sort from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and funcName=#{funcName} ", node);
+	} else {
+		return;
+	}
+	this.addPageFuncEdit(node);
+}
+
+addPageFuncEdit(node) {
+	tab=pageFuncPage.tab;
+	luid=tr("[#].[#].[#]", node.cmsCode, node.pageCode, node.funcName);
+	while( cur, tab.widget() ) {
+		if( cur.luid.eq(luid) ) {
+			tab.current(cur);
+			return;
+		}
+	}
+	page=this.widget(tr('widget#editor.dev#pageFunc'));
+	// impl => dev.EditSrcImpl
+	tabBtn=page.widget({tag:toolbutton, 
+		onInit() {
+			srcNode=null;
+		}
+		onClick() {
+			mainPage[funcTabPage]=srcNode.page;
+			str="tab.close, tab.closeOther,-, tab.save, tab.run, -, tab.deleteFunc";
+			page.menu(str, 12);
+		}
+		initButton(node) {
+			switch( node[sort] ) {
+			case 0: icon="ficon.application-plus-black";
+			case 1: icon="ficon.document-code";
+			case 2: icon="ficon.document-globe";
+			case 3: icon="ficon.document-epub";
+			case 4: icon="ficon.document-number";
+			case 5: icon="ficon.document-outlook";
+			case 9: icon="ficon.application-table";
+			}
+			this.icon(icon);
+			@srcNode=node;
+		}
+ 	});
+ 	node.page=page;
+ 	tabBtn.initButton(node);
+ 	page.initPage(node);
+	if( node.sort.eq(9) ) {
+		tab.addPage(page, '새페이지', null, true);
+		page.luid="newPage";
+	} else {
+		tab.addPage(page, node[funcName], null, true);
+		page.luid=luid;
+	}
+	tab.tabButton(page, tabBtn, 'left');
+	return page;
+}
+
+initSrcAction(page) { 
+	page.action([
+		{id: 'tab.close',				text: 탭닫기,			icon:ICON.vicon.cancel_defalut },
+		{id: 'tab.closeOther',		text: 다른 탭닫기,	icon:ICON.vicon.application_form_delete },
+		{id: 'tab.save',				text: 저장,				icon:ICON.vicon.database_save },
+		{id: 'tab.run',					text: 실행,				icon:ICON.vicon.monitor_go },
+		{id: 'tab.deleteFunc',		text: 함수삭제,		icon:ICON.vicon.brick_delete },
+	]); 
+	tab=page.tab;
+ 	page.action('tab.close').trigger(callback() {
+		print("tab.close ======> $tab");
+ 		cur=mainPage[funcTabPage];
+		tab.remove(cur);
+		not( tab.count() ) {
+		}  
+	}); 
+ 	page.action('tab.closeOther').trigger(callback() {
+ 		cur=mainPage[funcTabPage];
+		while( sub, tab.widget() ) {
+			if( sub==cur ) continue;
+			tab.remove(sub);
+		}
+	}); 
+}
+
+
+
+makePageSourceTab() {
+	/* 페이지 소스 페이지 처리 */
+	not( pageSourcePage ) {
+		// impl => dev.PreviewFunctionImpl
+		@pageSourcePage=pageLoad('DevFuncEdit.pageSourceTab');
+	}
+	this.tab.addPage(pageSourcePage, '페이지 소스','vicon.database_table', true);
+}
+pageSourceLoad.onClick() {
+	popup=this.pageSourcePopup;
+	not( popup ) {
+		popup=pageLoad('DevFuncEdit.pageSourceLoadPopup');
+		this.pageSourcePopup=popup;
+	}
+	popup.initPage();
+	popup.open(this,'center');
+}
+pageSourceLoadOk(node) {
+	not( node.fullPath ) {
+		this.alert("페이지 소스 경로가 없습니다");
+		return;
+	}
+	if( node[pageGroup] ) {
+		val=this.pageGroup.value();
+		not( val.eq(node[pageGroup]) ) {
+			class('widget').comboReload(this.pageGroup, node[pageGroup]);
+			if( node[pageCode] ) {
+				this.pageCode.value(node[pageCode]);
+			}
+		}
+	}
+	this.makePageSourceTab();
+	pageSourcePage.initPage(node);
+}
+ 
+makeUserFuncTab() {
+	/* 사용자 함수 처리 */
+	not( userFuncPage ) {
+		// impl => dev.PreviewFunctionImpl
+		@userFuncPage=this.widget(tr('page#preview.dev#userFunc'));
+	}
+	this.tab.addPage(userFuncPage, '사용자 함수','ficon.script-stamp', true);
+}
+editorUserFunctionClick(funcNm, param ) {
+	this.makeUserFuncTab(); 
+	userFuncPage.initPage({funcName: $funcNm, funcParam: $param });
+}
+
+makeConfManagerTab() {
+	/* 공통 설정 처리 */
+	not( confManagerPage ) {
+		@confManagerPage=pageLoad('DevFuncEdit.confManager');
+	}
+	this.tab.addPage(confManagerPage, '설정 정보', 'vicon.cog_edit', true);
+}
+editorConfigFunctionClick(funcNm, param, currentNode ) {
+	print("@@  editorConfigFunctionClick $funcNm, $param @@");
+	currentNode[confParam]=param;
+	this.makeConfManagerTab();
+	confManagerPage.initPage(currentNode);
+}
+
+ makeCoreFuncTab() {
+	/* 내부함수 도움말보기 처리 */
+	not( coreFuncPage ) {
+		@coreFuncPage=pageLoad('DevFuncEdit.coreFuncManager');
+	}
+	this.tab.addPage(coreFuncPage, '시스템 함수 정보', 'ficon.balloon-buzz', true);
+}
+
+ 
+editorCoreFunctionClick(funcNm, param, src ) {
+	print("@@@@@ $src");
+	this.makeCoreFuncTab();
+	node=class('util').node('coreFuncNode');
+	coreFuncPage.initPage( node.val(funcNm, param, src ) );
+}
+}
+
+[## 설정관리 ##]
+confManager: {
+layout:
+	<page title="공통설정 관리" icon="ficon.application-list">
+		<hbox>
+			<combo id="conf_type" height=24>
+			<input id="conf_cd" width=125 height=24>
+			<input id="conf_id" width=140 height=24>
+			<combo id="conf_kind" width=140 height=24><space>
+			<button id="search" text="조회">
+		</hbox>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="저장	">
+			<input id="conf_nm" height=24><button id="copy" text="복사">
+			<space>
+			<button id="cancel" text="취소">
+		</hbox>
+	</page>
+onInit() {
+	this.conf_type.check('editable',true);
+	this.conf_kind.check('editable',true);
+	this.conf_type.addItem( class('code').getCodeNode('dev#conf_type'), 'code,value', '=유형=');
+	this.conf_kind.addItem( class('code').getCodeNode('dev#conf_kind'), 'code,value', '=종류=');
+}
+initPage(node) {
+	param=node.confParam;
+	if( param.find('.') ) {
+		param.split('.').inject(type, id);
+		if( type.find('#') ) {
+			type.split('#').inject(t1, t2);
+			this.conf_type.value(t1);
+			this.conf_cd.value(t2);
+		} else {
+			this.conf_type.value(type);
+		}
+		if( id.find('#') ) {
+			id.split('#').inject(confId, kind);
+			this.conf_id.value(confId);
+			this.conf_kind.value(kind);
+		} else {
+			this.conf_id.value(id);
+		}
+	}
+	this.fireEvent('search.onClick');
+}
+
+conf_type.onFocusIn() {
+	this.delay( callback() {
+		this.conf_type.selectText(true);
+	});
+}
+
+conf_kind.onFocusIn() {
+	this.delay( callback() {
+		this.conf_kind.selectText(true);
+	});
+}
+conf_type.onChange() {
+	val=this.conf_type.value();
+	if( val.eq('cc') ) {
+		this.conf_cd.disable();
+	} else {
+		this.conf_cd.enable();
+		this.conf_cd.focus();
+	}
+	this.conf_cd.value('');
+	this.conf_id.value('');
+	this.conf_kind.value('');
+	this.updateConfName();
+}
+
+conf_kind.onChange() {
+	val=this.conf_kind.text();
+	this.updateConfName();
+	not( val ) return;
+	/* 영구히 입력정보를 저장한다. */
+	node=class('code').getCodeNode('dev#conf_kind');
+	cur=node.findOne('code',val);
+	not( cur ) {
+		node.addNode().val(code:val, value:val);
+		s=conf('cc.dev#conf_kind');
+		if( s ) s.add(',');
+		s.add(val);
+		conf('cc.dev#conf_kind',s,true);
+	}
+	this.fireEvent('search.onClick');
+}
+
+conf_cd.onEnter() {
+	this.conf_id.focus();
+	this.updateConfName();
+}
+conf_id.onEnter() {
+	this.conf_kind.focus();
+	this.conf_kind.selectText();
+	this.updateConfName();
+}
+updateConfName() {
+	s=this.conf_type.value();
+	a=this.conf_cd.value();
+	if( s && a ) {
+		s.add("#$a");
+	} else if( a ) {
+		s.add(a);
+	}
+	b=this.conf_id.value();
+	if( b ) {
+		s.add(".$b");
+		c=this.conf_kind.text();
+		if( c ) s.add("#$c");
+	}
+	this.conf_nm.value(s);
+	return s;
+}
+
+search.onClick() {
+	val=this.updateConfName();
+	if( val.find('.') ) {
+		this.src.value( conf(val) );
+	} else {
+		db=instance('config.model');
+		root=class('util').node();
+		db.fetchAll("select grp, cd, data from conf_info where grp='$val'", root );
+		s='';
+		while( cur, root ) {
+			if( s ) s.add("\n");
+			s.add("${cur[grp]}.${cur[cd]} = $cur[data]");
+		}
+		this.src.value(s);
+	}
+}
+
+copy.onClick() {
+	val=this.conf_nm.value();
+	System.copyText("conf('$val')");
+}
+save.onClick() {
+	val=this.updateConfName();
+	not( val.find('.') ) {
+		this.alert("설정코드가 온전히 입력되지 않았습니다");
+		return;
+	}
+	conf(val, this.src.value(), true);
+	if( val.eq('cc.dev#conf_type') ) {
+		this.conf_type.removeAll().addItem( class('code').getCodeNode('dev#conf_type'), 'code,value', '=유형=');
+	}
+}
+}
+[## 내장함수 관리 ##]
+coreFuncManager: {
+layout: 
+<page>
+	<hbox>
+		<combo id="funcCombo"><input id="funcName">
+	</hbox>
+	<tab id="tab">
+</page>
+onInit() {
+	db=instance('help.model');
+	funcSrcPage=null;
+	funcHelpPage=null;
+}
+initPage(node) {
+	db.fetchAll("select idx, object_cd || ':' || func_nm as value  from core_object_func where func_nm=#{funcNm}", node.removeAll() );
+	this.funcCombo.addItem(node,'idx,value');
+	this.funcName.value(node[funcNm]);
+	this.makeFuncSrcPage(node);
+}
+makeFuncSrcPage(node) {
+	not( funcSrcPage ) {
+		@funcSrcPage=this.widget({
+			layout: <page><editor id="src"></page>
+			onInit() {
+				setPageClass('dev.EditorSrcImpl', this,'coreFunc');
+			}
+			initPage(node) {
+				this.pageImpl.initPage(node);
+			}
+		});
+	}
+	funcSrcPage.initPage(node);
+	this.tab.addPage(funcSrcPage, '코어함수 소스', 'vicon.compress_defalut', true); 
+}
+makeFuncHelpPage(node) {
+	not( funcSrcPage ) {
+		@funcSrcPage=this.widget({
+			layout: <page><editor id="src"></page>
+			onInit() {
+				setPageClass('dev.EditorSrcImpl', this,'coreHelp');
+			}
+			initPage(node) {
+				this.pageImpl.initPage(node);
+			}
+		});
+	}
+	funcSrcPage.initPage(node);
+	this.tab.addPage(funcSrcPage, '코어함수 도움말', 'vicon.comment_add', true); 
+}
+}
+[## 페이지함수 관리 탭 ##]
+pageFuncTab: {
+layout: <page>
+	<tab id="tab">
+</page>
+onInit() {
+	tab=this.tab;
+	tab.style("QTabWidget::pane { border: none; } QTabBar::tab { padding-left: 5px; padding-top: 5px; padding-right: 10px;}");
+	// tab.findLayout().margin(2,0,0,0);
+	mainPage.initSrcAction(this);
+}
+status.onDraw() {
+}
+tab.onChange() {
+	this.status.redraw();
+}
+}
+[## 페이지소스 로드팝업 ##]
+pageSourceLoadPopup: {
+layout:	
+<page title="페이지 선택" icon="ficon.application--plus">
+	<group title="페이지 구분">
+		<vbox>
+			<hbox>
+				<label text="페이지 파일선택:"><combo id="pageFileSelectCombo" width=200>
+				<button id="pageOpen" text="페이지 열기"><space>		
+			</hbox>
+			<hbox>
+				<label text="페이지 클래스 선택:"><combo id="pageClassTemplate" width=220><space>
+			</hbox>
+			<grid id="grid">
+		</vbox>
+	</group>
+	<hbox>
+		<label text="페이지 그룹 :"><combo id="pageGroup" height=24>
+		<label text="페이지 코드 :"><combo id="pageCode" width=160 height=24>
+		<button id="save" text="저장">
+		<button id="cancel" text="취소">
+	</hbox>
+</page>
+onInit() {
+	setPageClass('dev.pageClassTemplateImpl',this);
+	pageSelect=newClass('dev.pageSelectCombo', this);
+	this.pageClassTemplate.disable();
+}
+initPage(node) {
+	this.pageImpl.initPage(node);
+	this.pageClassTemplate.value('');
+	this.pageClassTemplate.disable();
+}
+pageClassTemplateChange() {
+}
+pageFileSelectChange() {
+	this.pageClassTemplate.enable();
+	this.pageClassTemplate.focus();
+}
+pageFileSelectCombo.onFocusIn() {
+	this.delay(callback() {
+		this.pageFileSelectCombo.selectText(true);
+	});
+}
+makePageData(pageGroup, pageCode) {
+	fileName=this.pageFileSelectCombo.text();
+	not( fileName ) {
+		this.alert("페이지 파일정보가 입력되지 않았습니다");
+		return null;
+	}
+	impl=this.pageImpl;
+	cur=impl.currentNode;
+	cur[pageFileName]=fileName.findPos('.').trim();
+	templateNode=cur[templateNode];
+	print("makePageData cur===========$cur");
+	if( templateNode ) {
+		not( this.confirm("템플릿 클래스를 저장하시겠습니까 ?")  ) return null;
+		str=fmt( impl.parsePageSrc() );
+		cur[classPath]="data/classes/pages/${pageGroup}_${pageCode}Impl.class";
+		instance('my.file').writeAll(cur[classPath], str);
+	}
+	cur[fullPath]="data/pages/$fileName";
+	if( instance('my.file').isFile(cur[fullPath]) ) {
+		cur.src=instance('my.file').readAll(cur[fullPath]);
+	} else if( templateNode[layout] ) {
+		cur.src=fmt(templateNode[layout]);
+	}
+	return cur;
+}
+pageOpen.onClick() {
+	cur=this.makePageData();
+	not( cur ) return; 
+	pageSourceLoadOk=class('page').getParentFunction(this,'pageSourceLoadOk');
+	if( pageSourceLoadOk ) pageSourceLoadOk(cur);
+	this.hide();
+}
+
+save.onClick() {
+	pageId=pageSelect.getPageId();
+	not( pageId ) {
+		this.alert("페이지 정보가 입력되지 않았습니다");
+		this.pageGroup.focus();
+		return;
+	}
+	pageId.split('.').inject(pageGroup, pageCode);
+	cur=this.makePageData(pageGroup, pageCode);
+	not( cur ) return; 
+	cur.put(pageGroup, pageCode);
+	if( cur[src] ) {
+		cur[pageSrc]="$cur[pageCode] : { $cur[src] }";
+		pageDbCreate(cur, cur[pageGroup]);
+	}
+	pageSourceLoadOk=class('page').getParentFunction(this,'pageSourceLoadOk');
+	if( pageSourceLoadOk ) pageSourceLoadOk(cur);
+	this.hide();
+}
+cancel.onClick() {
+	this.hide();
+}
+}
+
+[## 페이지/클래스 탭 ##]
+pageSourceTab: {
+layout: <page>
+	<hbox>
+		<label text="페이지 소스경로:"><input id="pageSourcePath"><space>
+	</hbox>
+	<hbox>
+		<label text="클래스 소스경로:"><input id="classPath"><space>
+	</hbox>
+	<tab id="tab">
+</page>
+onInit() {
+	sourcePage=null, classPage=null;
+	this.tab.style("QTabWidget::pane { border: none; } QTabBar::tab { padding-left: 5px; padding-top: 5px; padding-right: 10px;}");
+	this.makeSourcePage();
+	this.makeClassPage();
+}
+initPage(node) {
+	this.pageSourcePath.value(node.fullPath);
+	this.classPath.value(node.classPath);
+	sourcePage.initPage(node);
+	classPage.initPage(node);
+	this.tab.current(sourcePage);
+}
+makeSourcePage(node) {
+	not( sourcePage ) {
+		@sourcePage=this.widget(conf('widget#editor.dev#pageSource'));
+	}
+	this.tab.addPage(sourcePage,'페이지소스', 'vicon.overlays_defalut', true);
+}
+makeClassPage(node) {
+	not( classPage ) {
+		@classPage=this.widget(conf('widget#editor.dev#classSource'));
+	}
+	this.tab.addPage(classPage,'클래스소스', 'vicon.package_defalut');	
+}
+}

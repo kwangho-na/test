@@ -1,0 +1,57 @@
+OrderInfo {
+OrderInfo(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	while( cur, tag, n, 0 ) {
+		cur[rect].inject(sx, sy, sw, sh);
+		while( w, this[WidthArray], c, 0 ) {
+			rcCell=Class.rect(sx, sy, w, sh), sx+=w;
+			switch(c) {
+			case 0: cur[rcText]=rcCell.incrX(30);
+			case 1: cur[rcValue]=rcCell.incrW(-40);
+			}
+		}
+	}
+}
+
+draw(draw, tag) {
+	cf.inject(ShoppingCart);
+	while( cur, tag ) {
+		cur.inject(rcText, rcValue);
+ 		switch(cur[tag]) {
+		case OrderQty:
+			drawNodeText(draw, rcText, "주문수량 :", "left", "OrderInfo");
+			drawNodeText(draw, rcValue, "$ShoppingCart[OrderTotalQty] 건", "right", "OrderInfo");
+			rc=cur[rect].incrX(10);
+			draw.rectLine(rc, 4, '#d0d0d0');
+		case OrderPrice:
+			price=util_priceComma( ShoppingCart[OrderTotalPrice] );
+			drawNodeText(draw, rcText, "주문금액 :", "left", "OrderInfo");
+			drawNodeText(draw, rcValue, "$price 원", "right", "OrderInfo");
+		default:
+		}
+	}
+}
+
+initControl() {
+	tag.addNode({tag: OrderQty});
+	tag.addNode({tag: OrderPrice});
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+	width=tag[rect].width();
+	_arr(this, 'WidthArray').recalc( width , '300,180', true);
+}
+
+mouseDown(pos) {
+	
+}
+
+mouseUp(pos) {
+	
+}
+}

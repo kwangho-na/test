@@ -1,0 +1,264 @@
+layout: <page>
+		<hbox>
+			<button id="projectCreate" text="프로젝트 생성" icon="vicon.bricks_defalut"><canvas id="topInfo" stretch=1>
+			<hbox margin="0,0,15,0" spacing=1>
+				<input id="inputSearch" width=120>
+				<toolbutton id="scriptSearch" icon="vicon.zoom_defalut" tip="스크립트 조회">
+			</hbox>
+			<toolbutton id="scriptRun" icon="vicon.script_code_red" tip="스크립트 실행창">
+			<toolbutton id="confManager" icon="vicon.cog_edit" tip="공통 설정보기"> 
+			<toolbutton id="debugPage" icon="vicon.bug_go" tip="디버그 창열기"> 
+		</hbox>
+		<splitter id="splitterMain" stretchFactor="content">
+			<splitter id="splitterLeft" type="vbox" stretchFactor="detail">
+				<tab id="tab">
+				<div id="detail">
+			</splitter>
+			<div id="content">
+		</splitter>
+	</page>
+onInit() {
+	mainPage=this;
+	
+	this.leftTabProjectExplorer();
+	this.leftTabFuncManager();
+	this.leftTabGlobalConf();
+	this.leftTabHelp();
+	this.leftTabSearchFunction();
+	this.contentWebView();
+	this.topInfo.eventMap( onDraw, this.drawTopInfo, 'draw' );
+	this.delay( func() {
+		comm_splitterSizes( this.splitterMain, 480);
+		comm_splitterSizes( this.splitterLeft, 500);
+		this.detail.hide();
+	});
+}
+
+contentWebView(url) {
+	&page=this.widget({
+		layout: <page margin=0>
+			<webview id="web">
+		</page>
+		onInit() {
+			me=this;
+			this.web.linkClick(func() { 
+				me.call(@url); 
+			});
+		}
+		call(url) { 
+			print("웹콜: $url");
+			not( url ) return;
+			this.web.url(url);
+		}
+		callJs(js) { 
+			print("자바스크립트 콜: $js");
+			not( js ) return;
+			this.web.callJs(js) 
+		}
+	});
+	not( url ) {
+		url="http://www.daum.net";
+	}
+	page.call(url);
+	this.content.addPage(page, true);
+	return page;
+}
+
+/*  프로젝트 탐색기 탭  */
+leftTabProjectExplorer() {
+	mainPage=this;
+	
+	&page=this.widget({
+		layout: <page margin=4>
+			<tree id="tree">
+			<hbox>
+				<combo id="projectType">
+				<combo id="pageKind">
+				<combo id="classInherit">
+				<space>
+			</hbox>
+		</page>
+		onInit() {
+			tree=this.tree, tab=this.tab;
+			tree.check('treeMode', true);
+			tree.model(Class.model('PorjectExplorer'), 'value');
+				
+			tree.eventMap(onContextMenu, this.treeContentMenu, 'pos');
+			tree.eventMap(onMouseDown, this.treeMouseDown, 'pos, button, mode');
+			tree.eventMap(onDraw, this.treeDraw, 'draw, node, over');
+			tree.eventMap(onChange, this.treeChange, 'node');
+			tree.eventMap(onChildData, this.treeChildData, 'node');
+			tree.eventMap(onFilter, this.treeFilter, 'node');
+			
+			filterProjectType=null;
+			filterPageKind=null;
+			this.projectType.addItem( codeNode('PROJECT_TYPE', 'D:개발,C:공통,U:사용자,T:테스트'), 'code,value', '=타입=' );
+			this.pageKind.addItem( codeNode('PAGE_KIND', 'P:페이지,C:캔바스,A:공용,T:테스트'), 'code,value', '=종류=' );
+			this.classInherit.hide();
+			this.delay( func() {
+				node=tree.rootNode().child(0);
+				tree.expand(node, true);
+			});
+		}
+		projectType.onChange() {
+			@filterProjectType=this.projectType.value();
+			tree.update();
+		}
+		filterPageKind.onChange() {
+			@filterPageKind=this.filterPageKind.value();
+			tree.update();
+		}
+		classInherit.onChange() {
+			className=@me.value(), cur=tree.current();
+			not( className ) 	return;
+			not( cur[class] ) 	return;
+			db=Class.db('pages');
+			cls=Cf.info('class', className);
+			if( cls[@classBase] ) {
+				cur[class_grp]=cls[@classBase], cur[class_nm]=cls[@className];
+				db.fetchAll("select class_func, class_param, type, note from class_func where class_grp=#{class_grp} and class_nm=#{class_nm} order by type", cur.removeAll() );
+				tree.update();
+				tree.expand(cur, true);
+			}
+		}
+		makeClassCombo(class) {
+			arr=_arr(this, 'ClassInheritArray', true), checkNode=_node(this, 'ClassCheckNode', true);
+			arr.add(class[@className]);
+			클래스추가=func(cls) {
+				while( className, cls[@addClass] ) {
+					if( checkNode[$className] ) continue;
+					checkNode[$className]=true;
+					if( className ) {
+						arr.add(className);
+						클래스추가( Cf.info('class', className) );
+					}
+				}
+			};
+			클래스추가(class);
+			combo=this.classInherit;
+			combo.removeAll().addItem(arr, null, '==클래스정보==');
+			combo.value(arr[0]);
+		}
+		treeDraw(draw, node, over) 	{ Project_treeDraw(this, draw, node, over) }
+		treeChildData(node) 				{ Project_treeChildData(this, node) }
+		treeFilter(node) 						{ Project_treeFilter(this, node, filterProjectType) }
+		treeChange(node) 					{ Project_treeChange(this, node, mainPage) }
+		treeMouseDown(pos, button, mode) { Project_treeMouseDown(this, pos, button, mode) }
+		
+	});
+	this.addLeftTab(page, 'ProjectExplorer');
+	return page;
+}
+
+tabButtonAction() {
+	tab=this.tab;
+	this.action([
+		{id: 'tab.close',				text: 탭닫기,			icon:vicon.cancel_defalut },
+		{id: 'tab.closeOther',		text: 다른 탭닫기,	icon:vicon.application_form_delete },
+		{id: 'tab.save',				text: 저장,				icon:vicon.database_save },
+		{id: 'tab.run',					text: 실행,				icon:vicon.monitor_go },
+		{id: 'tab.delete',				text: 삭제,				icon:vicon.brick_delete },
+		{id: 'tab.reload',				text: 새로고침,		icon:vicon.arrow_refresh_small },
+		{id: 'tab.addProjectChild',	text: 자식추가,	icon:ficon.node-insert-next },
+	]);
+	this.action('tab.close').trigger(callback() {
+		tab.remove(mainPage[currentClickEditor]);
+	});
+	this.action('tab.closeOther').trigger(callback() {
+		while( cur, tab.widget() ) {
+			if( cur==mainPage[currentClickEditor] ) continue;
+			tab.remove(cur);
+		}
+	});
+}
+
+tabDetailButtonAction(detailTab) {
+	not( detailTab ) {
+		return;
+	}
+	tab=detailTab;
+	this.action([
+		{id: 'tab.close',				text: 탭닫기,			icon:vicon.cancel_defalut },
+		{id: 'tab.closeOther',		text: 다른 탭닫기,	icon:vicon.application_form_delete },
+		{id: 'tab.save',				text: 저장,				icon:vicon.database_save },
+		{id: 'tab.run',					text: 실행,				icon:vicon.monitor_go },
+		{id: 'tab.delete',				text: 삭제,				icon:vicon.brick_delete },
+		{id: 'tab.reload',				text: 새로고침,		icon:vicon.arrow_refresh_small },
+		{id: 'tab.addProjectChild',	text: 자식추가,	icon:ficon.node-insert-next },
+	]);
+	this.action('tab.close').trigger(callback() {
+		tab.remove(mainPage[currentClickEditor]);
+	});
+	this.action('tab.closeOther').trigger(callback() {
+		while( cur, tab.widget() ) {
+			if( cur==mainPage[currentClickEditor] ) continue;
+			tab.remove(cur);
+		}
+	});
+}
+
+/*  #[내부함수] 왼쪽탭 페이지 추가  */
+addLeftTab(page, code) {
+	not( page && code ) return;
+	
+	tab=this.tab, mainPage=this;
+	while( cur, tab.widget() ) {
+		if( cur.leftTabCode.eq(code) ) {
+			tab.current(cur);
+			return;
+		}
+	}
+	tabBtn=this.widget({tag:toolbutton,
+		onClick() {
+			page=leftTabPage;
+			switch( page.leftTabCode ) {
+			case ProjectExplorer:		str="tab.addProjectChild, tab.reload, -, tab.deleteCurrent";
+			case FuncManager: 		str="tab.close, -, tab.reload, tab.save, tab.delete";
+			case GlobalConf: 			str="";
+			case Help: 						str="";
+			case SearchFunction: 	str="";
+			}
+			str="tab.close, tab.closeOther,-, tab.save, tab.run, -, tab.deleteFunc";
+			mainPage.currentClickEditor=this.leftTabPage;
+			mainPage.menu(str, 12);
+		}
+		initButton(page, code) {
+			this.leftTabPage=page;
+			switch( code ) {
+			case ProjectExplorer:		this.icon( "ficon.document-globe");
+			case FuncManager: 		this.icon( "ficon.document-epub");
+			case GlobalConf: 			this.icon( "ficon.document-epub");
+			case Help: 						this.icon( "ficon.document-epub");
+			case SearchFunction: 	this.icon( "ficon.document-epub");
+			}
+		}
+	});
+	page.leftTabCode=code;
+	title="";
+	switch( code ) {
+	case ProjectExplorer:		title="프로젝트";
+	case FuncManager: 		title="사용자함수";
+	case GlobalConf: 			title="공통설정";
+	case SearchFunction: 	title="함수조회";
+	case Help: 						title="도움말";
+	}
+	tabBtn.initButton(page, code);
+	tab.addPage(page, title, null, true);
+	tab.tabButton(page, tabBtn, 'left');
+	System.timeout(200);
+	return page;
+}
+
+/*  페이지 초기화  */
+initPage() {
+	config('DataPath', 		'project/MyScript/data');
+	config('ProjectPath',	'project/MyScript/project');
+	this.tabButtonAction();
+	this.leftTabProjectExplorer();
+	this.leftTabGlobalConf();
+	this.leftTabFuncManager();
+	this.leftTabSearchFunction();
+	this.leftTabHelp();
+	this.contentWebView();
+}
+ 

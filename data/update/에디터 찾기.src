@@ -1,0 +1,25 @@
+## dev.EditorSrc
+searchEnterKey() {
+	val=searchInput.value();
+	not( val ) return;
+	@mSearchPrev=val;
+	if( val.eq(mSearchPrev) ) {
+		editor.searchNext(val);
+	} else {
+		editor.findAll(val);
+	}
+	/* editor.focus(); */
+}
+
+## common.EditorSrc
+searchEnterKey() {
+	val=searchInput.value();
+	not( val ) return;
+	@mSearchPrev=val;
+	if( val.eq(mSearchPrev) ) {
+		editor.searchNext(val);
+	} else {
+		editor.findAll(val);
+	}
+	/* editor.focus(); */
+}

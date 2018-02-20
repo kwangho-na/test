@@ -1,0 +1,1384 @@
+@{ProjectId}EditMain : {
+	layout: 
+	<page margin=0>
+		<hbox margin=4>
+			<button id="goProjectGrid" text="프로젝트 선택">
+			<label text="편집모드 : "><combo id="editTypeCombo">
+			<label text="페이지 스타일 : "><combo id="pageStyle">
+			<check id="touchUseCheck" text="터치사용">
+			<check id="selectItemCheck" text="아이템선택 보기">
+			<space>
+			<hbox margin="0,0,15,0" spacing=1>
+				<input id="inputSearch" width=120>
+				<toolbutton id="scriptSearch" icon="vicon.zoom_defalut" tip="스크립트 조회">
+			</hbox>
+			<toolbutton id="scriptRun" icon="vicon.script_code_red" tip="스크립트 실행창">
+			<toolbutton id="confManager" icon="vicon.cog_edit" tip="공통 설정보기"> 
+			<toolbutton id="debugPage" icon="vicon.bug_go" tip="디버그 창열기"> 
+		</hbox>
+		<splitter stretchFactor="content">
+			<tab id="leftTab">
+			<div id="content">
+		</splitter>
+	</page>
+	onInit() {
+		Cf[PageEdit]=true;
+		Cf.reloadClass('common/control.PageBase');
+		include('common.Config'); 
+		include('common/control.PageBase', true); 
+		include('common/widget.EditorSrc');
+		setLogDb('log');
+ 		pageInfo			=pageLoad('PageEdit.@{ProjectId}PageInfo');
+		drawClassInfo	=null;
+		classFuncs		=null;
+		pageFuncs		=null;
+		debugInfo		=null;
+		pageTagInfo	=null;
+
+		pageTemplateType=null;
+		this.currentProjectNode=Cf[projectNode];
+
+		this.leftTab.addPage(pageInfo, '페이지 정보','ficon.application-blog', true);
+		this.content.addPage(pageLoad('PageEdit.@{ProjectId}Canvas'), true );
+		this.editTypeCombo.addItem( class('code').getCodeNode("EditPage#edit_type"), "code,value");
+		this.editTypeCombo.value('A');
+		this.selectItemCheck.checked(true);
+		this.pageStyle.addItems('window, splash');
+		this.delay(callback() {
+			this.tag('splitter').sizes(600);
+			pageInfo.initPage(this.currentProjectNode);
+		});
+	}
+	getCurrentPage() {
+		return this.content.current();
+	}
+	closePage() {
+		while( page, this.content.widget() ) {
+			page.closePage();
+		}
+	}
+	debugPage.onClick() {
+		not( debugInfo ) {
+			@debugInfo=pageLoad('PageEdit.@{ProjectId}DebugPage');
+		}
+		this.leftTab.addPage(debugInfo, '디버그 정보','vicon.bug_edit', true);
+	}
+	onKeyDown() {
+		not( @mode&KEY.ctrl ) return false;
+		switch(@key) {
+		case KEY.D: 	this.fireEvent('debugPage.onClick');
+		case KEY.F:		
+			if( pageTemplateType.eq('draw') ) {
+				this.leftTab.current(drawClassInfo);
+				pageTagInfo.drawClassInfo.update();
+			} else {
+				this.leftTab.current(pageTagInfo);
+				pageTagInfo.tree.update();
+			}
+		case KEY.Q:		this.leftTab.current(drawClassInfo); 
+		case KEY.W:	this.leftTab.current(pageInfo); 
+		}
+		return false;
+	}
+	leftTab.onChange() {
+		page=@me.current();
+		pid=page[id];
+		if( pid.find('DrawClassTree') || pid.find('PageTagTree') ) {
+			page[tree].update();
+		}
+		if( pid.find('PageInfo') ) {
+			node=this.currentPageNode;
+			form=get("PageEdit.@{ProjectId}PageForm"); 
+			not( form[src].value() ) {
+				classPage=form[classPage], src=getClassInfo( Cf.info('funcVar', node[page], 'init') );
+				classPage[src].value( src );
+			}
+		} 
+		if( page.setContentPage ) {
+			page.setContentPage();			
+		} else {
+			this.contentCurrentPage();
+		}
+	}
+	contentCurrentPage(page) {
+		not( page ) {
+			node= this.currentPageNode;
+			page=node.page;
+		}
+		if( page ) {
+			this.content.addPage(page,true);
+		}
+	}
+	addClassFuncsEdit(root, append) {
+		not( root[currentClass] ) {
+			this.alert("클래스 정보가 없습니다. 페이지를 다시 로딩하세요");
+		}
+		not( classFuncs ) {
+			@classFuncs=pageLoad('PageEdit.@{ProjectId}ClassFuncsEdit');
+		}
+		classFuncs.initPage(root, append);
+		this.leftTab.addPage(classFuncs, '클래스 함수', 'ficon.block', true);
+	}
+	addPageFuncsEdit(root, append) {
+		not( root[currentPage] ) {
+			this.alert("페이지 정보가 없습니다. 페이지를 다시 로딩하세요");
+		}
+		not( pageFuncs ) {
+			@pageFuncs=pageLoad('PageEdit.@{ProjectId}PageFuncsEdit');
+		}
+		pageFuncs.initPage(root, append);
+		this.leftTab.addPage(pageFuncs, '페이지 함수', 'vicon.page_code', true);
+	}
+	editTypeCombo.onChange() {
+		val=@me.value();
+		while( page, this.leftTab.widget() ) {
+			fc=page[editTypeChange];
+			if( fc ) fc(val);
+		}
+	}
+	pageStyle.onChange() {
+		val=@me.value();
+		page=getMainPage(this);
+		rc=page.rect();
+		if( val.eq('window') ) {
+			page.flags('top',true);
+			page.flags('window');
+		} else if( val.eq('splash') ) {
+			page.flags('splash,top');
+			rc.incrH(80);
+			page.size(rc);
+		}
+		page.show();
+	}
+	projectAddPorc(type) {
+		tab=this.leftTab;
+		tab.remove(drawClassInfo, true);
+		tab.remove(classFuncs, true);
+		tab.remove(pageFuncs, true);
+		tab.remove(debugInfo, true);
+		tab.remove(pageTagInfo, true);
+		if( type.eq('project') ) {
+			tab.remove(pageInfo, true);
+		}
+	}
+ 
+	pageCreateOk(node) {
+ 		node.inject( page_group, page_code, pageSource, classSource, page_template );
+		page=pageLoad("${page_group}.${page_code}");
+		if( page ) {
+			this.alert("${page_group}.${page_code} 이미 등록된 페이지 입니다. 이전 페이지 정보를 로딩합니다.");
+		} else {
+			pageReload('pages', null, page_group, page_code, pageSource, true);
+			if( classSource ) {
+				not( classReload(classSource.ref(),  "${page_group}/widget", node ) ) {
+					this.alert("페이지 클래스 생성중 오류가 발생했습니다.\n오류내용: $node[error]");
+					return;
+				}
+			}
+		}
+		this.currentPageNode=null;
+		pageInfo.initPage( this.currentProjectNode, page_group, page_code );
+		this.pageSelect(node);
+	}
+	pageEditOk(node) {
+ 		node.inject( page_group, page_code );
+		pageInfo.initPage( this.currentProjectNode, page_group, page_code );
+		if( node[sourceModify] ) {
+			this.pageSelect(node, true);
+		}
+	}
+ 	pageSelect(node, reload) {
+		not( node ) {
+			this.alert("페이지가 선택되지 않았습니다. 선택된 페이지를 확인하세요");
+			return;
+		}
+		node.inject(page_group, page_code, page_template);
+		if( reload ) {
+			page=node[page];
+			not( page ) page=get("${page_group}.${page_code}");
+			if( page ) {
+				this.content.remove(page);
+				pageObjectDelete(page);
+			}
+		}
+		this.currentPageNode=node;
+
+		page=pageLoad("${page_group}.${page_code}", reload);
+		not( page ) {
+			this.alert("페이지 로딩중 오류가 발생했습니다.\n페이지 정보: ${page_group}.${page_code}");
+			return;
+		}
+		tab=this.leftTab;
+		tab.remove(classFuncs, true);
+		tab.remove(pageFuncs, true);
+		tab.remove(debugInfo, true);
+		node[page]=page;
+
+		if( page_template.eq('draw') ) {
+			not( drawClassInfo ) @drawClassInfo=pageLoad('PageEdit.@{ProjectId}DrawClassTree');
+			not( pageTemplateType.eq('draw') ) {
+				tab.remove(pageTagInfo, true); 
+			}
+			file=Class.file();
+			projectCode=Cf[projectCode]; 
+
+			tab.addPage(drawClassInfo, 'Draw 태그','ficon.application-block', true);
+			drawClass=getClassInfo(null, page);
+			drawClass.loadMainPage( node[page_info] ); 
+			drawClassInfo.changeXml(drawClass);
+			pageLoad('PageEdit.@{ProjectId}Attr').removeGrid();
+			@pageTemplateType='draw';
+		} else {
+			not( pageTagInfo ) @pageTagInfo=pageLoad('PageEdit.@{ProjectId}PageTagTree');
+			not( pageTemplateType.eq('page') ) {
+				tab.remove(drawClassInfo, true); 
+			}
+			tab.addPage(pageTagInfo, '페이지 태그','ficon.application-block', true);
+			pageTagInfo.initPage(node, page);
+			@pageTemplateType='page';
+		}
+		this.contentCurrentPage(page);
+	}
+  
+	scriptRun.onClick() {
+		&page=pageLoad('dev.main',true);
+		page.open(this, 'center');
+		page.src.insert(tr('template#script.default'), true);
+	}
+	confManager.onClick() {
+		pageLoad('Common.ConfManager').open();
+	}
+	touchUseCheck.onClick() {
+		if( @me.checked() ) {
+			Cf.touchUse(true);
+		} else {
+			Cf.touchUse(false);
+		}
+	}
+	selectItemCheck.onClick() {
+		node=this.currentPageNode;
+		not( node ) return;
+		page=node[page];
+		x=page[x];
+		x.inject(cf);
+		if( @me.checked() ) {
+			 cf[selectedItem]=true;
+		} else {
+			 cf[selectedItem]=false;
+		}
+	}
+	scriptSearch.onClick() {
+		page=pageLoad('Common.searchFunc');
+		page.initPage( this.inputSearch.value() );
+		page.open();
+	}
+	inputSearch.onEnter() {
+		this.fireEvent('scriptSearch.onClick');
+	}
+	inputSearch.onFocusIn() {
+		input=this.inputSearch;
+		this.delay( callback() {
+			input.select();	
+		});
+	}
+
+	goProjectGrid.onClick() {
+		fc=getParentFunc(this,'addMainPage');
+		if( fc ) fc();
+	}
+}
+ 
+
+[## @{ProjectId} 페이지 추가/삭제 ##]
+@{ProjectId}PageInfo {
+	layout: <page>
+		<hbox>
+			<button id="addPage" text="페이지 추가" icon="ficon.inbox--plus">
+			<space>
+			<button id="deletePage" text="페이지 삭제" icon="ficon.inbox--minus">
+			<button id="openPage" text="페이지 선택" icon="ficon.inbox--arrow">
+		</hbox>
+		<grid id="grid">
+	</page>
+	onInit() {
+		form=pageLoad("PageEdit.@{ProjectId}PageForm");
+		include("common/widget.PageInfoGrid");
+		x=newClass("common/widget.PageInfoGrid", this);
+		pageBlock=false;
+	}
+	pageChange(node) {
+		if( pageBlock ) return;
+		form.initPage(node);
+		this.openPage.enable();
+	}
+	pageSelect(node) {
+		fc=getParentFunc(this,'pageSelect');
+		fc(node); 
+	}
+	setContentPage() {
+		fc=getParentFunc(this,'contentCurrentPage');
+		fc(form);	
+	}
+	setWorkPage(group, code ) {
+		if( group, code ) {
+			@pageBlock=true;
+			find=findQuery( this.grid.rootNode(), "page_group=$group, page_code=$code");
+			if( find ) {
+				this.grid.current(find);
+			}
+			this.delay(callback() {
+				@pageBlock=false;
+			});
+			return;
+		}
+		form.initPage();
+		this.setContentPage();
+	}
+	initPage(node, group, code) {
+		if( node ) {
+			x.initGrid(node);
+			this.openPage.disable();
+		}
+		this.setWorkPage(group,code);
+		this.grid.update();
+	}
+	addPage.onClick() {
+		fc=getParentFunc(this,'projectAddPorc');
+		fc('page');	
+		form.initPage();
+		this.openPage.disable();
+	}
+	openPage.onClick() {
+		node=this.grid.current();
+		if( node ) {
+			this.pageSelect(node);
+		}
+	}
+	deletePage.onClick() {
+		not( this.confirm("선택된 페이지를 삭제하시겠습니까?") ) return;
+		configDb=Class.db('config');
+		db=Class.db('pages');
+		while( cur, this.grid.rootNode() ) {
+			not( cur[checked] ) continue;
+			group=cur[page_group].upper(1);
+			cur[classWidget]="$group/widget";
+			cur[classControl]="$group/$cur[page_code]/control";
+			db.exec("delete from pageLayout where cmsCode=#{page_group} and pageCode=#{page_code}", cur);
+			db.exec("delete from pageObject where cmsCode=#{page_group} and pageCode=#{page_code}", cur);
+			db.exec("delete from pageFunc where cmsCode=#{page_group} and pageCode=#{page_code}", cur);
+			db.exec("delete from class_mst where class_grp=#{classWidget} and class_nm=#{page_code}", cur);
+			db.exec("delete from class_mst where class_grp=#{classControl}", cur);
+			db.exec("delete from class_info where class_grp=#{classWidget} and class_nm=#{page_code}", cur);
+			db.exec("delete from class_info where class_grp=#{classControl}", cur);
+			configDb.exec("delete from page_info where page_group=#{page_group} and page_code=#{page_code}", cur);
+		}
+		node=getParentObject(this,'currentProjectNode');
+		x.initGrid(node);
+	}
+}
+@{ProjectId}PageForm {
+	layout: <page>
+		<layout>
+			<row>
+				<label text="페이지그룹 :" width=90 align=right><input id="page_group">
+				<label text="페이지코드 :" width=90 align=right><input id="page_code"><space>
+			</row>
+			<row>
+				<label text="페이지 타이틀 :" width=90 align=right><hbox colspan=2>
+					<input id="page_title"><toolbutton id="page_icon" icon="ficon.balloon-buzz-left" tip="페이지 아이콘 설정">
+				</hbox>
+			</row>
+			<row>
+				<label text="페이지유형 :" width=90 align=right><combo id="page_kind" width=120>
+				<label text="페이지템플릿 :" width=90 align=right>
+				<hbox>
+					<combo id="page_template" width=120>
+					<toolbutton id="applyTemplate" icon="ficon.table--pencil" tip="템플릿 관리">
+					<space>
+				</hbox>
+				<space>
+			</row>
+		</layout>
+		<group id="pageInfoGroup">
+			<hbox>
+				<label text="페이지 설명:"><input id="note" stretch=1>
+				<toolbutton id="pageSetup" icon="vicon.folder_table" tip="페이지 설정 열기">
+			</hbox>
+		</group>
+		<space>
+		<tab id="pageSourceTab">
+		<hbox>
+			<button id="pageCreate" text="페이지 생성" icon="vicon.bricks_defalut"><space>
+			<button id="pageInit" text="초기화">
+		</hbox>
+	</page>
+	onInit() {
+		db=Class.db('config');
+		projectCode=Cf[projectCode];
+		dataNode={};
+		layoutPage	=pageLoad("PageEdit.@{ProjectId}PageSrc",true);
+		classPage	=pageLoad("PageEdit.@{ProjectId}PageSrc",true);
+		xmlPage		=pageLoad("PageEdit.@{ProjectId}PageSrc",true);
+		tab=this.pageSourceTab;
+		this.page_group.maxWidth(220);
+		this.page_code.maxWidth(220);
+		this.page_kind.addItem( getCommCodeNode('pageKind'), "code,value", "=선택=");
+		this.page_template.addItem( getCommCodeNode('pageTemplate'), "code,value", "=선택=");
+		tab.addPage(layoutPage, "페이지 소스", "ficon.script-code");
+		tab.addPage(classPage, "페이지 클래스", "ficon.script-block");
+		tab.addPage(xmlPage, "XML 소스", "ficon.script-import");
+		tab.current(layoutPage);
+		layoutPage.setType('layout');
+		classPage.setType('class');
+		xmlPage.setType('xml');
+	}
+	templateSaveClick( type ) {
+		&page=pageLoad('Common.ConfManager', true);
+		switch( type ) {
+		case layout:		page.initPage('template#layout');
+		case class:		page.initPage('template#class');
+		case xml:			page.initPage('template#xml');
+		}
+		page.open(this,'center');
+	}
+	initPage(node) {
+		if( node ) {
+			dataNode.pageMode='edit';
+			db.fetch("select page_title, page_icon, page_info, page_kind, page_template, note from page_info where page_group=#{page_group} and page_code=#{page_code}", node);
+			this.pageCreate.value("페이지 정보수정");
+			node.inject(page_group, page_code);
+			page=get("${page_group}.${page_code}");
+			node[pageSource]=getPageString(node);
+			node[classSource]=getClassInfo( Cf.info('funcVar', page, 'init') );
+			dataNode[page_icon]=node[page_icon];
+			layoutPage.setValue(node[pageSource]);
+			classPage.setValue(node[classSource]);
+			xmlPage.setValue(node[page_info]);
+			
+			this.page_icon.icon(node[page_icon]);
+			setFormValue(this,node);
+			this.page_template.disable();
+		} else {
+			dataNode.pageMode='create';
+			setFormValue(this);
+			dataNode[page_icon]=null;
+			this.pageCreate.value("페이지 생성");
+			this.page_group.value(Cf[projectCode]);
+			this.page_code.focus();
+			layoutPage.setValue('');
+			classPage.setValue('');
+			xmlPage.setValue('');
+			tab.remove(xmlPage, true);
+			this.page_icon.icon("vicon.add_defalut");
+			this.page_template.enable();
+		}
+	}
+	page_kind.onChange() {
+		val=@me.value();
+		not( val ) return;
+		if( val.eq('C') ) {
+			this.page_template.value('draw');
+			this.page_template.disable();
+			this.setDefaultPageSource('canvas');
+			tab.addPage(xmlPage, "XML 소스", "ficon.script-import", true);
+		} else {
+			this.page_template.value('');
+			this.page_template.enable();
+			tab.remove(xmlPage, true);
+		}
+	}
+	page_template.onChange() {
+		this.setDefaultPageSource();
+	}
+	setDefaultPageSource(val) {
+		not( dataNode.pageMode.eq('create') )  return;
+		not( val ) {
+			val=this.page_template.value();
+			not( val ) return;
+		}
+		projectCode=this.page_group.value();
+		pageCode=this.page_code.value();
+		not( pageCode ) {
+			this.alert("페이지 그룹, 페이지 코드를 입력하세요");
+			this.page_group.focus();
+			@me.value('');
+			return;
+		}
+		page=pageLoad("${projectCode}.${pageCode}");
+		if( page ) {
+			if( this.confirm("${projectCode}.${pageCode} 는 이미 등록된 페이지입니다. 기존 정보를 로딩할까요?") ) {
+				dataNode[page_group]=projectCode;
+				dataNode[page_code]=pageCode;
+				classInfo=getClassInfo( Cf.info('funcVar', page, 'init') );
+				layoutPage.setValue( getPageString(dataNode) );
+				classPage.setValue( classInfo );
+				this.page_template.value('');
+				return;
+			}
+		}
+
+		layoutText=fmt( tr("template#layout.$val") );
+		classText=fmt( tr("template#class.$val") );
+		if( val.eq('canvas') ) {
+			xmlPage.setValue( tr("template#xml.canvas") ) ;
+		}
+		layoutPage.setValue( layoutText );
+		classPage.setValue( classText );	
+	}
+	applyTemplate.onClick() {
+		page=pageLoad('Common.ConfManager', true);
+		page.initPage('cc.pageTemplate');
+		page.modal(this, 'center');
+		combo=this.page_template;
+		combo.removeAll().addItem( getCommCodeNode('pageTemplate', true), "code,value", "=선택=");
+		combo=this.page_kind;
+		combo.removeAll().addItem( getCommCodeNode('pageKind', true), "code,value", "=선택=");
+	}
+	iconSelect(node) {
+		node.inject(id, type);
+		dataNode[page_icon]="${type}.${id}";
+		this.page_icon.icon("${type}.${id}");
+	}
+	page_icon.onClick() {
+		pageLoad('Common.Image').open(this,'center');
+	}
+	pageCreate.onClick() {
+		 src=layoutPage.src.value();
+		 not( src ) {
+			this.setDefaultPageSource();
+		}
+		getFormValue(this, dataNode);
+		not( formValid(this, dataNode, 'page_title') ) {
+			return;
+		}		
+		dataNode[page_info]		=when( dataNode[page_template].eq('draw'), xmlPage.getSrc() ); 
+		switch( dataNode.pageMode ) {
+		case create:
+			dataNode[project_idx]		=getParentObject( this, 'currentProjectNode').get('project_idx');
+			if( db.count("select count(1) from page_info where page_group=#{page_group} and page_code=#{page_code}",dataNode) ) {
+				dataNode.inject(page_group, page_code);
+				this.alert("${page_group}.${page_code} 는 이미등록된 페이지 입니다.");
+				return;
+			}
+			db.exec( getQuery('page_info', 'page_group, page_code, page_title, page_icon, page_kind, page_template, page_info, project_idx, note'), dataNode );
+			if( db.error() ) {
+				this.alert("페이지 생성중 오류가 발생했습니다\n에러: $db.error() ");
+				return;
+			}
+			dataNode[pageSource]	=layoutPage.getSrc();
+			dataNode[classSource]	=classPage.getSrc();  
+			fc=getParentFunc(this,'pageCreateOk');
+			fc(dataNode);
+		case edit:
+			dataNode.inject(page_group, page_code);
+			dataNode[sourceModify]=false;
+			if( layoutPage.isModify() ) {
+				if( this.confirm("페이지 레이아웃 소스가 변경되었습니다. 페이지를 다시로딩할까요?") ) {
+					pageLayout=layoutPage.getSrc(true);
+					pageReload('pages', null, page_group, page_code, pageLayout, true);
+					dataNode[sourceModify]=true;
+				}
+			}
+			if( classPage.isModify() ) {
+				if( this.confirm("페이지 클래스 소스가 변경되었습니다. 클래스를 다시로딩할까요?") ) {
+					pageClass=classPage.getSrc(true);
+					not( classRealod(pageClass.ref(),  "${page_group}.widget", dataNode, this) ) return;
+					dataNode[sourceModify]=true;
+				}
+			} 
+			if( xmlPage.isModify() ) {
+				if( this.confirm("페이지 XML 소스가 변경되었습니다. XML를 다시로딩할까요?") ) {
+					dataNode[page_info]=xmlPage.getSrc(true); 
+					dataNode[sourceModify]=true;
+ 				}
+			} 
+			db.exec( getQuery('page_info', 'page_group, page_code, page_title, page_icon, page_kind, page_template, page_info, note', 'page_group, page_code'), dataNode );
+			if( db.error() ) {
+				this.alert("페이지 정보 수정중 오류가 발생했습니다\n에러: $db.error() ");
+				return;
+			}
+			fc=getParentFunc(this,'pageEditOk');
+			fc(dataNode);
+			this.alert("페이지 정보가 수정되었습니다");
+		default:
+			this.alert("페이지 모드가 정의되지 않았습니다.");
+		}
+	}
+} 
+@{ProjectId}PageSrc: {
+	layout: <page>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="미리보기" icon="vicon.database_save">
+			<label id="editorStatus" stretch=1>
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+		</hbox>
+	</page>
+	onInit() {
+		x=newClass('common/widget.EditorSrc', this);
+	}
+	save.onClick() {
+		fc=getParentFunc(this,'templateSaveClick');
+		if( fc ) fc(this.editType);
+	}
+	setType(type) {
+		this.editType=type;
+	}
+	setValue(text) {
+		x.setSrc(text);
+	}
+	getSrc(flag) {
+		if( flag ) this.save.disable();
+		return this.src.value();
+	}
+	isModify() {
+		return this.save.is('enable');
+	}
+}
+[## @{ProjectId} - <tree> ##]
+@{ProjectId}DrawClassTree : {
+	layout: 
+	<page margin=4>
+		<splitter stretchFactor="treePage" type="vbox">
+			<vbox id="treePage" margin=0>
+				<hbox>
+					<combo id="classInheritCombo" width=120>
+					<hbox spacing=0>
+						<combo id="classFuncCombo" width=220>
+						<toolbutton id="classFuncGrid" icon="vicon.add_default">
+					</hbox>
+					<button id="createClass" text="클래스 추가">
+					<space>
+				</hbox>
+				<tree id="tree">
+				<hbox>
+					<label text="공용변수: "> <combo id="classVarCombo" width=120>
+					<space>
+					<button id="editNode" text="노드수정">
+					<button id="reloadNode" text="새로고침">
+				</hbox>
+			</vbox>
+			<div id="sourcePages">
+		</splitter>
+	</page>
+	onInit() {
+		DrawClass=null;
+		tagNode=null;
+		classFuncGridPopup=null;
+		classFuncGridPage=null;
+		tree=this.tree;
+		include('common/widget.EditPageTree');
+		include('common/widget.ClassComboSelect');
+		impl_TagTree=newClass('common/widget.EditPageTree', this);
+		impl_ClassCombo=newClass('common/widget.ClassComboSelect', this); 
+		
+		this.sourcePages.addPage(pageLoad('PageEdit.@{ProjectId}SrcTab'), true); 
+		this.delay( callback() {
+			this.sourcePages.hide();
+		});
+		this.editType='A';
+	}
+	classFuncGridOpen() {
+		popup=classFuncGridPopup;
+		not( popup ) {
+			popup=this.widget(conf('page#dev.ClassFuncGrid'));
+			popup.size(850,560);
+			@classFuncGridPopup=popup;
+		}
+		mainPage=getMainPage(this);
+		popup.initPage();
+		popup.open(mainPage,'center');
+		return popup;
+	}
+	classFuncGrid.onClick() {
+		this.classFuncGridOpen();
+	}
+	changeXml(ctrl) {
+		ctrl.inject(cf, xmlNode);
+		Class.model('EditPageTree').rootNode(xmlNode);
+		tree.selectClear();
+		tree.update();
+		root=xmlNode.child(0);
+		if( root ) {
+			tree.expand(root, true );
+		}
+		@DrawClass=ctrl;
+	}
+	editTypeChange(type) {
+		this.editType=type;
+		this.changeTag();
+	}
+	changeTag(node) {
+		if( node[tag] ) {
+			DrawClass.inject(cf); 
+			this.setClassFuncCombo(node);
+			cf.selectedItem=node;
+			DrawClass.update();
+			this.classFuncGrid.enable();
+		}
+		if( this.editType.eq('A') ) {
+			not( classFuncGridPage ) {
+				@classFuncGridPage=this.widget(conf('page#dev.ClassFuncGrid')); 
+			}
+			classFuncGridPage.initPage(impl_ClassCombo,'@{ProjectId}');
+			this.sourcePages.addPage(classFuncGridPage, true);
+			this.classFuncGrid.disable();
+			this.sourcePagesShow();
+		} else if( this.editType.eq('B') ) {
+			not( node ) node=this.tree.current();
+			page=pageLoad('PageEdit.@{ProjectId}Attr');
+			page.initPage(node);
+			this.sourcePages.addPage(page, true);
+			this.sourcePagesShow();
+		} else {
+			this.sourcePages.hide();
+		}
+		@tagNode=node;
+	}
+	initClassCombo() {
+		if( this.editType.eq('A') ) {
+			classFuncGridPage.initPage();
+		}
+	}
+	setClassFuncCombo(node) {
+		if( node[tag].eq('Window', 'Page') ) {
+			this.createClass.value('클래스 수정');
+			impl_ClassCombo.makeComboData( DrawClass );
+			return;
+		}
+
+		control=null;
+		if( node[tag].eq('page') ) {
+			control=node[x];
+		} else if( node[@control] ) {
+			control=node[@control];
+		} else if( node[@classBase] ) {
+			control=node;
+		}
+		if( control ) {
+			this.createClass.value('클래스 수정');
+		} else {
+			this.createClass.value('클래스 추가');
+		}
+		impl_ClassCombo.makeComboData( control );
+	}
+	sourcePagesShow() {
+		this.sourcePages.show();
+		arr=this.tag('splitter').sizes();
+		if( arr[1].eq(0) ) {
+			sz=arr[0];
+			sz-=450;
+			if( sz<0 ) {
+				sz=arr[0];
+				arr[1]=min(250,sz);
+				arr[0]=sz-arr[1];
+			} else {
+				arr[0]=sz;
+				arr[1]=450;
+			}
+			this.tag('splitter').sizes(arr);
+		}
+	}
+	classFuncComboChange(node) {
+		not( node[class_grp] ) {
+			return false;
+		}
+		page=pageLoad('PageEdit.@{ProjectId}SrcTab');
+		this.sourcePages.addPage(page, true); 
+		tab=page[tab];
+		luid="${node[class_grp]}.${node[class_nm]}.${node[class_func]}";
+		while( page, tab.widget() ) {
+			if( page.luid.eq(luid) ) {
+				tab.current(page);
+				return;
+			}
+		}
+ 		page=pageLoad('PageEdit.@{ProjectId}SrcEdit',true);
+		page.luid=luid;
+		page.addTabPage(tab, node);
+		this.sourcePagesShow();
+	}
+	createClassOk(type, editNode) {
+		tag=editNode.tag;
+		pageCode=getParentObject(this, 'currentPageNode').get('page_code');
+		not( pageCode ) {
+			this.alert("페이지 코드가 존재하지 않습니다. 생성 클래스를 확인하세요");
+			return;
+		}
+		err=saveClass("@{ProjectId}/$pageCode/control",tag,editNode[src].ref() );
+		if( err ) {
+			this.alert("페이지 저장중 오류가 발생했습니다\n에러내용: $err");
+			return;
+		}
+		p=editNode.parent();
+		not( p ) return;
+		pctrl=p[@control];
+		not( pctrl ) {
+			pctrl=DrawClass;
+		}
+		editNode[@control]=newClass("@{ProjectId}/$pageCode/control.$tag", editNode, pctrl);
+		DrawClass.conf();
+		this.tree.update();
+	}
+	createClass.onClick() {
+		page=pageLoad('PageEdit.@{ProjectId}CreateClass');
+		page.initPage(tagNode, this.createClassOk);
+		mainPage=getMainPage(this);
+		page.size(850,560);
+		page.open(mainPage,'center');
+	}
+	editNode.onClick() {
+		node=tagNode;
+		if( node.kind ) {
+			s=tr('template#kiosk.editNodeKind', node[tag], node[kind]);
+		} else {
+			if( node.id ) {
+				id="#$node[id]";
+			} else {
+				p=node.parent();
+				if( p.id ) {
+					id="#$p[id]#$node[tag]";
+				} else {
+					id=node[tag];
+				}
+			}
+			s=tr('template#kiosk.editNode', id);
+		}
+		p=pageLoad('dev.main');
+		p.src.append(s);
+		p.open();
+	}
+	reloadNode.onClick() {
+	}
+}
+
+ 
+
+[## @{ProjectId} - <AttributeGrid> ##]
+@{ProjectId}Attr : {
+	layout: <page margin=0>
+		<grid id="grid">
+		<hbox>
+			<button id="initGridData" text="초기화"><space>
+		</hbox>
+	</page>
+	onInit() {
+		tagNode=null;
+		include('common/widget.TagAttributeGrid');
+		impl_grid=newClass('common/widget.TagAttributeGrid', this);
+	}
+	initPage(node) {
+		@tagNode=node;
+		impl_grid.makeTagAttribute(node);
+	}
+	removeGrid(node) {
+		impl_grid.initGridData(node);
+	}
+	initGridData.onClick() {
+		this.removeGrid(tagNode);
+	}
+}
+[## @{ProjectId} - <CreateClass> ##]
+@{ProjectId}CreateClass: {
+	layout: <page>
+		<hbox>
+			<label text="클래스명 : "><input id="className">
+			<label text="컨트롤 클래스 참조 : "><combo id="controlClass" width=220>
+			<check id="newPageCheck" text="새창에서 열기">
+			<space>
+			<button id="commonClassCreate" text="공통 클래스 생성" icon="vicon.brick_go">
+			<button id="templateEdit" text="템플릿 수정" icon="ficon.blog-blue">
+		</hbox>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="저장" icon="vicon.database_save">
+			<label id="editorStatus" stretch=1>
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+			<button id="close" text="닫기" icon="vicon.cancel_defalut">
+		</hbox>
+	</page>
+
+	onInit() {
+		db=Class.db('pages');
+		include('common/widget.CreateClassEditor');
+		x=newClass('common/widget.CreateClassEditor', this);
+		classNames={};
+		db.fetchAll("select class_nm from class_mst where class_grp='common/control' order by class_grp", classNames);
+		this.controlClass.addItem( classNames, 'class_nm', '==선택==');
+		currentNode=null;
+	}
+	initPage(node, callback) {
+		if( node[@control] ) {
+			if( typeof( node[@control], 'class') ) {
+				node[src]=getClassSrc(node[@control]);
+			}
+		}
+		x.initPage(node);
+		tag=node[tag];
+		this.callbackSave=callback;
+ 		this.className.value(tag);
+		this.src.focus();
+		this.controlClass.value(tag);
+		@currentNode=node;
+	}
+	setClassEditor(val, type) {
+		not( val ) return;
+		cur=classNames.findOne('class_nm', val);
+		tag=currentNode[tag];
+		not( cur ) {
+			this.alert("$val 클래스 함수를 찾을수 없습니다.");
+		}
+		db.fetchAll("select class_func, class_param, 	
+				case when length(class_src)=0 then class_data else class_src end as class_data, 
+				note, type 
+			from class_info where class_grp='common/control' and class_nm=#{class_nm} order by type", cur.removeAll() );
+		s='';
+		check=this.newPageCheck.checked();
+		while( sub, cur, n, 0 ) {
+			if( n ) s.add("\r\n");
+			sub.inject(class_func, class_param, class_data, note, type);
+			if( note ) {
+				funcDesc=note.trim();
+				s.add("/* $funcDesc */\r\n");	
+			}
+			if( type.eq('A'), not(check) ) {
+				s.add("${tag}( $class_param ) {$class_data }\r\n");
+			} else {
+				s.add("${class_func}( $class_param ) {$class_data }\r\n");
+			}
+		}
+		if( check ) {
+			p=pageLoad('dev.main').open();
+			p.src.append("\r\n/* $val 클래스 정보 */\r\n\r\n$s");
+			p.open();
+		} else {
+			x.setSrc(s);
+		}
+	}
+	controlClass.onChange() {
+		val=@me.value();
+		this.setClassEditor(val);
+	}
+	save.onClick() {
+		currentNode.src=this.src.value(); 
+		if( typeof(this.callbackSave,'function') ) {
+			this.callbackSave('save',currentNode);
+			this.alert("$currentNode[tag] 클래스를 저장했습니다.");
+		}
+	}
+ 	close.onClick() {
+		this.hide();
+	}
+	templateEdit.onClick() {
+		page=pageLoad('Common.ConfManager');
+		page.initPage('template#class.control');
+		page.open(this,'center');
+	}
+	commonClassCreate.onClick() {
+		db.exec("delete from class_mst where class_grp='common/control' and class_nm<>'PageBase' ");
+		db.exec("delete from class_info where class_grp='common/control' and class_nm<>'PageBase' ");
+		ff=Class.filefind();
+		path='data/classes/common/control';
+		page=this;
+		_save=func(&s) {
+			while( s.valid() ) {
+				c=s.ch();
+				not( c ) break;
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') ) note.add( s.findPos("\n") );
+					else if( s.ch(1).eq('*') ) note.add( s.match() );
+					continue;
+				}
+				break;
+			}
+			className=s.move().trim();
+			c=s.ch();
+			print("className=$className, err=$c");
+			if( c.eq('{') ) {
+				src=s.match(1);
+				saveClass('common/control', className, src, page);
+			}
+		};
+		
+		while( c, ff.fetchAll(path) ) {
+			not( c[type].eq('file') ) continue;
+			if( c[fileName].eq('PageBase.class') ) continue;
+			src=fileRead("$path/$c[fileName]");
+			_save( src.ref() );
+		}
+		db.fetchAll("select class_nm from class_mst where class_grp='common/control' order by class_grp", classNames.removeAll() );
+		this.controlClass.removeAll();
+		this.controlClass.addItem( classNames, 'class_nm', '==선택==');
+	}
+}
+[## @{ProjectId} 페이지 <source_tab> ##]
+@{ProjectId}SrcTab: {
+	layout: <page>
+		<tab id="tab">
+	</page>
+	onInit() {
+		tab=this.tab;
+		tab.style("QTabWidget::pane { border: none; } QTabBar::tab { padding-left: 5px; padding-top: 5px; padding-right: 10px;}");
+		this.initTabAction();
+	}
+	initTabAction() {
+		page=this;
+		page.action([
+			{id: 'tab.close',				text: 탭닫기,			icon:ICON.vicon.cancel_defalut },
+			{id: 'tab.closeOther',		text: 다른 탭닫기,	icon:ICON.vicon.application_form_delete },
+			{id: 'tab.deleteFunc',		text: 함수삭제,		icon:ICON.vicon.brick_delete },
+		]); 
+		page.action('tab.close').trigger(callback() {
+			tab.remove(tab[buttonClickPage] );
+			not( tab.widget().size() ) getParentObject('sourcePages').hide();
+		}); 
+		page.action('tab.closeOther').trigger(callback() {
+			clickPage=tab[buttonClickPage];
+			while( sub, tab.widget() ) {
+				if( sub==clickPage ) continue;
+				tab.remove(sub);
+			}
+		}); 
+	}
+}
+
+[## @{ProjectId} - <source editor> ##]
+@{ProjectId}SrcEdit : {
+	layout:
+	<page margin=0>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="저장" icon="vicon.database_save">
+			<button id="run" text="실행" icon="vicon.monitor_go">
+			<label id="editorStatus" stretch=1>
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+		</hbox>
+	</page>
+	onInit() {
+		include('common/widget.ClassFuncEditor');
+		x=newClass('common/widget.ClassFuncEditor', this);
+	}
+	addTabPage(tab, node) {
+		x.initPage(node);
+		page=this;
+		tabBtn=page.widget({tag:toolbutton, 
+			onClick() {
+				tab[buttonClickPage]=page; 
+				page.menu("tab.close, tab.closeOther,-, tab.save, tab.deleteFunc", 12);
+			}
+			initButton(node) {
+				if( node[class_nm].eq(node[class_func]) ) {
+					icon="ficon.document-code";
+				} else if( node[class_func].eq('initControl','conf','draw','mouseDown','mouseUp') ) {
+					icon="ficon.application-plus-black";
+				} else {
+					icon="ficon.document-globe";
+				} 
+				this.icon(icon);
+				this.currentNode=node;
+			}
+		});
+		node.page=page;
+		tabBtn.initButton(node);
+		page.initPage(node);
+		if( node[class_nm].eq(node[class_func]) ) {
+			tab.addPage(page, "node[class_func]" , null, true);
+		} else {
+			tab.addPage(page, "$node[class_nm]/$node[class_func]" , null, true);
+		}
+		
+		tab.tabButton(page, tabBtn, 'left');
+	}
+}
+[## @{ProjectId} - <ClassFuncsEdit> ##]
+@{ProjectId}ClassFuncsEdit : {
+	layout: <page>
+		<hbox>
+			<label text="클래스 정보 : ">
+			<input id="classInfo"><space>
+		</hbox>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="저장" icon="vicon.database_save">
+			<button id="run" text="실행" icon="vicon.monitor_go">
+			<label id="editorStatus" stretch=1>
+			<check id="autoRunCheck" text="저장시 자동실행">
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+		</hbox>
+	</page>
+	onInit() {
+		include('common/widget.ClassFuncsManager');
+		x=newClass('common/widget.ClassFuncsManager', this);
+		this.autoRunCheck.checked(true);
+	}
+	initPage(root, append) {
+		x.inject(cf);
+		x.initPage(root, append);
+		this.classInfo.value( root[inherit] );
+	}
+	src.onKeyDown() {
+		if( x.editorKeyDown( @key, @mode) ) 
+			return true;
+		not( @mode&KEY.ctrl ) return false;
+		switch(@key) {
+		case KEY.R: 			this.fireEvent('run.onClick');
+		case KEY.S: 			this.fireEvent('save.onClick');
+		}
+		return false;
+	}
+	save.onClick() {
+		not( this.confirm("클래스 함수를 저장하시겠습니까?") ) {
+			return;
+		}
+		x.saveSrc();
+		if( x.error ) {
+			this.alert("클래스 함수 저장중 오류가 발생했습니다. 오류내용: $x[error]");
+		}
+		templateType=getParentObject(this,'pageTemplateType');
+		if( templateType.eq('page') ) { 
+			page=get('PageEdit.@{ProjectId}PageTagTree');
+			page.reloadClassFunc();
+		}
+	}
+	run.onClick() {
+		x.runSrc();
+		if( x.error ) {
+			this.alert("클래스 함수 실행중 오류가 발생했습니다. 오류내용: $x[error]");
+		}
+	}
+}
+[## @{ProjectId} - <PageFuncsEdit> ##]
+@{ProjectId}PageFuncsEdit : {
+	layout: <page>
+		<hbox>
+			<label text="페이지 정보 : ">
+			<input id="pageInfo"><space>
+		</hbox>
+		<editor id="src">
+		<hbox>
+			<button id="save" text="저장" icon="vicon.database_save">
+			<button id="run" text="실행" icon="vicon.monitor_go">
+			<label id="editorStatus" stretch=1>
+			<check id="autoRunCheck" text="저장시 자동실행">
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+		</hbox>
+	</page>
+	onInit() {
+		include('common/widget.PageFuncsManager');
+		x=newClass('common/widget.PageFuncsManager', this);
+		this.autoRunCheck.checked(true);
+	}
+	initPage(root, append) {
+		page=root.currentPage;
+		root[cmsCode]=page[@cms.code];
+		root[pageCode]=page[id];
+		root.inject(cmsCode, pageCode);
+		x.initPage(root, append);
+		this.pageInfo.value("${cmsCode}.${pageCode}");
+	}
+	src.onKeyDown() {
+		if( x.editorKeyDown( @key, @mode) ) 
+			return true;
+		not( @mode&KEY.ctrl ) return false;
+		switch(@key) {
+		case KEY.R: 			this.fireEvent('run.onClick');
+		case KEY.S: 			this.fireEvent('save.onClick');
+		}
+		return false;
+	}
+	save.onClick() {
+		not( this.confirm("페이지 함수를 저장하시겠습니까?") ) {
+			return;
+		}
+		x.saveSrc();
+		if( x.error ) {
+			this.alert("페이지 함수 저장중 오류가 발생했습니다. 오류내용: $x[error]");
+		}
+		page=get('PageEdit.@{ProjectId}PageTagTree');
+		page.reloadPageFunc();
+	}
+	run.onClick() {
+		x.runSrc();
+		if( x.error ) {
+			this.alert("페이지 함수 실행중 오류가 발생했습니다. 오류내용: $x[error]");
+		}
+	}
+}
+
+@{ProjectId}PageTagTree : {
+	layout:
+	<page margin=4>
+		<splitter stretchFactor="treePage" type="vbox">
+			<vbox id="treePage" margin=0>
+				<hbox>
+					<label text="페이지 클래스 : ">
+					<combo id="pageClassCombo" stretch=1>
+				</hbox>
+				<hbox>
+					<combo id="classInheritCombo" width=120>
+					<combo id="classFuncCombo" width=220> 
+					<space>
+					<label text="공용변수: "> <combo id="classVarCombo" width=120>
+				</hbox>
+				<tree id="tree">
+			</vbox>
+			<tab id="gridTab">
+		</splitter>
+	</page>
+	onInit() {
+		currentPage=null;
+		currentClass=null;
+		currentNode=null;
+		classComboNode={};
+		include('common/widget.PageTagTree');
+		comboImpl 				= newClass('common/widget.ClassComboSelect', this);
+		treeImpl 					= newClass('common/widget.PageTagTree', this);
+		
+		pageFuncGridPage		= this.widget(conf('page#dev.PageFuncGrid'));
+		classFuncGridPage		= this.widget(conf('page#dev.ClassFuncGrid')); 
+		
+		tab=this.gridTab;
+		tab.addPage(pageFuncGridPage, '페이지 함수', 'vicon.basket_put');
+		tab.addPage(classFuncGridPage, '클래스 함수', 'vicon.bricks_defalut');
+		tab.current(pageFuncGridPage);
+	}
+	treeChange(node) {
+		Cf[currentTreeNode]=node;
+ 		if( node[tag].eq('page') ) {
+			parent=node.parent();
+			if( parent[tag].eq('page') ) {
+				this.initPage(node, parent);
+			}
+			tab.current(pageFuncGridPage);
+		} else if( node[tag].eq('subPage') ) {
+			this.initPage(node, node[page], true);
+			tab.current(pageFuncGridPage);
+		} else if( node[classObject] || node[@control] ) {
+			class= nvl( node[classObject], node[@control]);
+			comboImpl.makeComboData( class );
+			classFuncGridPage.initPage(comboImpl);
+			tab.current(classFuncGridPage);
+			combo=this.pageClassCombo;
+			combo.value('');
+		} else {
+			pageFuncGridPage.initPage(page, page);
+			classFuncGridPage.initPage();
+		}
+	}
+	initClassCombo() {
+		classFuncGridPage.initPage(comboImpl);
+		tab.current(classFuncGridPage);
+	}
+	reloadPageFunc() {
+		page=currentPage;
+		pageFuncGridPage.initPage(page, page);
+		tab.current(pageFuncGridPage);
+	}
+	reloadClassFunc() {
+		page=currentPage;
+		info=Cf.info('funcVar', page, 'init');
+		map=getClassInfo(info, 'classMap', classComboNode.initNode() );
+		combo=this.pageClassCombo;
+		combo.removeAll().addItem(map, 'key,value', '= 페이지 클래스 선택 =');
+		classFuncGridPage.initPage();
+		tab.current(classFuncGridPage);
+	}
+	initPage(node, page, subpage) {
+		not( page ) return;
+		if( page==currentPage ) {
+			this.reloadPageFunc();
+			return;
+		}
+		@currentNode=node;
+		@currentPage=page;
+		@currentClass=null;
+		info=Cf.info('funcVar', page, 'init');
+		map=getClassInfo(info, 'classMap', classComboNode.initNode() );
+		combo=this.pageClassCombo;
+		combo.removeAll().addItem(map, 'key,value', '= 페이지 클래스 선택 =');
+		
+		comboImpl.makeComboData();
+		not( subpage ) treeImpl.initTree(page);
+		
+		pageFuncGridPage.initPage(page, page);
+		classFuncGridPage.initPage();
+		tab.current(pageFuncGridPage);
+	}	
+	pageClassCombo.onChange() {
+		val=@me.value();
+		not( val ) return;
+		currentClass=currentPage[$val];
+		comboImpl.makeComboData( currentClass );
+		classFuncGridPage.initPage(comboImpl);
+		tab.current(classFuncGridPage);
+	}
+}
+
+[## @{ProjectId} - debug ##]
+@{ProjectId}DebugPage: {
+	layout: <page>
+		<editor id="src">
+		<hbox>
+			<button id="clearEditor" text="지우기">
+			<label id="messageFilter" text="메시지 필터 : ">
+			<input id="inputFilter" width=100>
+			<label id="editorStatus" stretch=1>
+			<hbox margin="4,0,0,0" spacing=4>
+				<label text="찾기 : ">
+				<input id="inputSearch" width=115 height=24>
+				<toolbutton id="btnSearchReplace" icon="ficon.table-draw" tip="찾기 & 찾아바꾸기">
+			</hbox>	
+		</hbox>
+	</page>
+	onInit() {
+		include('common/widget.DebugEditor');
+		x=newClass('common/widget.DebugEditor', this);
+		w=instance('print.worker'); 
+		me=this;
+		w.start(callback(node) {
+			me.postEvent(1, node);
+		});
+		this.src.check('wrapUse', true);
+		this.inputFilter.value("#");
+	}
+	inputFilter.onTextChange() {
+		this.filterValue=@me.value();
+	}
+	onEvent() {
+		node=@node;
+		not( node.message ) return;
+		if( node.message.ch() ) {
+			msg=node.message.match();
+		} else {
+			msg=node.message;
+		}
+		if( this.filterValue ) {
+			not( msg.start(this.filterValue) ) return;
+		}
+		tm=System.date('HH-mm-ss');
+		this.src.append("[$tm] $msg");
+	}
+	clearEditor.onClick() {
+		this.src.clear();
+	}
+}

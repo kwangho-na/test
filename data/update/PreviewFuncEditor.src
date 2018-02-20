@@ -1,0 +1,66 @@
+## common/widget.PreviewFuncEditor
+PreviewFuncEditor(page, saveButton ) {
+	this.addClass( dev.EditorSrcChange   );
+	not( cf ) cf={};
+	mSearchPrev=null;
+	editor=page.editor;
+	editor.syntax( conf('syntax.dev') );
+	editor.eventMap( onChange, this.editorChange );
+	editor.eventMap( onKeyDown, this.editorKeyDownCheck, 'key,mode' );
+	editor.eventMap( onMouseClick, this.editorMouseClick, 'pos, keys' );
+	not( saveButton ) {
+		saveButton=page.save;
+	}
+	searchInput=null;
+	if( page.inputSearch ) {
+		searchInput=page.inputSearch;
+		searchInput.eventMap(onEnter, this.searchEnter );
+	}
+}
+editorChange() {
+	if( saveButton ) {
+		if( editor.isModify() ) {
+			saveButton.enable();
+		} else {
+			saveButton.disable();
+		}
+	}
+	this.editorTextChange();
+}
+editorMouseClick(pos, keys) {
+	not(  keys&KEY.ctrl ) {
+		return;
+	}
+	editor.select('word');
+}
+
+searchEnter() {
+	val=searchInput.value();
+	not( val ) return;
+	if( val.eq(mSearchPrev) ) {
+		editor.searchNext(val);
+	} else {
+		editor.findAll(val);
+		System.timeout(20);
+		editor.focus();
+	}
+}
+
+editorKeyDownCheck(key, mode) {
+	if( mode&KEY.ctrl ) {
+		if( key.eq(KEY.F) ) { 
+			searchInput.focus();
+			System.timeout(20);
+			searchInput.select();
+			return;
+		}
+	}
+	this.editorKeyDown(key, mode);
+}
+
+setSrc(src) {
+	editor.clear();
+	editor.insert(src).clearUndo();
+	editor.move(0);
+	if( saveButton ) saveButton.disable();
+}

@@ -1,0 +1,514 @@
+ShoppingCart {
+ShoppingCart(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+addMenu(menu, itemQty) {
+	list=findTag('List', tag);
+	menu.inject( menu_cd, menu_nm, sale_price);
+	row=list.findOne('menu_cd', menu_cd);
+	if( row ) {
+		if( itemQty ) {
+			row[qty+=itemQty];
+		} else {
+			row[qty++];
+		}
+	} else {
+		row=list.addNode({tag:OrderItem});
+		row[qty]=nvl(itemQty, 1);
+		row.put(menu_cd, menu_nm, sale_price);
+	}
+	this.setCurrentPage('ShoppingCart');
+	this.currentRow=row;
+	this.recalcList(list);
+	this.inject( currentPageBlock, rowCount );
+	this[prevPageBlock]=currentPageBlock;
+	this[currentPageBlock]=row.index()/rowCount;
+	this.drawList(list);
+	this.movePage();
+}
+
+conf() {
+ 	confNodeLayout(tag);
+	while( cur, tag ) {
+		switch(cur[tag]) {
+		case Header:
+			cur[rect].inject(sx,sy, sw, sh);
+			arr=_arr(this,'HeaderWidthArray').recalc( sw, '486,168,250,176', true);
+			while( w, arr, c, 0 ) {
+				sub=cur.addNode({tag:HeaderNode});
+				sub[rect]=Class.rect(sx, sy, w, sh);
+				switch( c) {
+				case 1:	_arr(this,'QtyRateArray').recalc(w,'55,*,55', true);
+				case 2:	_arr(this,'PriceRateArray').recalc(w,'*,55', true);
+				}
+			}
+			this.drawHeader(cur);
+		case List:
+			cur[rect].inject(x,y,w,h);
+			print(cur, cur[rect]);
+ 			_arr(this,'ListHeightArray').recalc( h , 5);
+			_arr(this,'ScrollHeightArray').recalc( h, '200,20,200', true);
+			_arr(this,'ScrollRateArray').recalc(h, 30);
+			this[rcList]=Class.rect(x,y,w-176,h), listRightTop=this[rcList].rt();
+			this[rcScrollBar]=Class.rect( listRightTop, 176, h);
+			getDrawObject(this, 'ListBackgroundDC', w, h*2);
+		default:
+		}	
+	}
+}
+
+draw(draw, tag, timeline) {
+	while( cur, tag ) {
+		switch( cur[tag] ) {
+		case Header:
+			draw.drawImage( cur[rect], getDrawObject(this, 'HeaderDrawObject') );
+		case List:
+			page=this.getPage();
+			not( page ) return;
+			this.inject( rcList, rcScrollBar);
+			draw.fill(cur[rect],'#ffffff');
+			isAnimation=false;
+			
+			if( timeline ) {
+				if( timeline[tid].eq('ShoppingCart') && Cf.timeLine('ShoppingCart.running') ) {
+					isAnimation=true;
+				}
+			}
+ 			if( isAnimation  ) {
+			/* 애니메이션 모드일 경우*/
+				frame=Cf.timeLine('ShoppingCart.current'); 
+				style=timeline[timelineStyle];
+				switch( style ) {
+				case [ScrollUp,ScrollDown] :
+					block=this[currentPageBlock];
+					if( frame >18 ) {
+						Cf.timeLine('ShoppingCart.stop');
+						if( style.eq('ScrollUp') ) {
+							this[currentPageBlock]=block-1;
+						} else {
+							this[currentPageBlock]=block+1;							
+						}
+						print("xxxxxxxx $this[currentPageBlock] $block xxxxxxxxxx");
+						this.drawScrollBar(cur);
+						this.update();
+						return;
+					}
+					dc=getDrawObject(this, 'ListBackgroundDC');
+					if( style.eq('ScrollUp') ) {
+						startY=rcList.height();
+						if( frame.eq(0) ) {
+							dc.fill();
+							rc=Class.rect(0,0,rcList.size());
+							prev=this.getPage(block-1);
+							dc.drawImage(rc,prev[drawObject]); 
+							dc.drawImage(rc.move('down'),page[drawObject]);
+						} else {
+							 sy=frame*19;
+							 startY-=sy;
+						}
+					} else {
+						startY=0;
+						if( frame.eq(0) ) {
+							dc.fill();
+							rc=Class.rect(0,0,rcList.size());
+							next=this.getPage(block+1);
+							dc.drawImage(rc,page[drawObject]);
+							dc.drawImage(rc.move('down'),next[drawObject]);
+						} else {
+							 sy=frame*19;
+							 startY+=sy;
+						}
+					}
+					draw.drawImage( rcList, dc, 0, startY);
+				case [QtyMinus,QtyPlus] :
+					draw.drawImage( rcList, page[drawObject]);
+					row=this[modifyRow];
+					draw.fill(row[rcQty].incr(2), '#ffffff');
+					if( frame.eq(0) ) {
+						if( style.eq('QtyMinus') ) {
+							row[qty--];	
+						} else {
+							row[qty++];
+						}
+					} else {
+						qty=row[qty];
+						fontSize=20;
+						fontSize+=frame;
+						if( frame>10 ) {
+							Cf.timeLine('ShoppingCart.stop');
+							this.drawListPage(cur, page);
+							this.recalcList(cur);
+						}
+						drawNodeText(draw, row[rcQty], qty, 'center', fontSize, 'bold', "#505050" );
+					}
+				case RowDelete:
+					draw.drawImage( rcList, page[drawObject]);
+					row=this[modifyRow];
+					if( frame<15 ) {
+						opa=20;
+						opa+=frame*10;
+						draw.opacity(opa);
+						draw.fill(row[rect], '#ffffff');
+						draw.opacity(100);
+					} else {
+						Cf.timeLine('ShoppingCart.stop');
+						this.removeMenu(row);
+					}
+				default:
+				}
+			} else {
+			/* 애니메이션 모드가 아닐때(수량 삭제버튼 처리) */
+				draw.drawImage( rcList, page[drawObject]);
+				rcDown=this.mouseDownRect;
+				if( this.mouseDownRow ) {
+					row=this.mouseDownRow;
+					row.inject(rcQtyMinus, rcQtyPlus, rcRowDelete);
+					if( rcQtyMinus.eq(rcDown) ) {
+						drawNodeImage(draw, rcDown, tag, 'OrderMinusImage', 'p' );
+					} else if( rcQtyPlus.eq(rcDown) ) {
+						drawNodeImage(draw, rcDown, tag, 'OrderPlusImage', 'p' );
+					} else if( rcRowDelete.eq(rcDown) ) {
+						drawNodeImage(draw, rcDown, tag, 'OrderDeleteImage', 'p' );
+					}
+				} else if( this.mouseDownRect ) {
+					this.inject(rcScrollUp, rcScrollDown);
+					if( rcScrollUp.eq(rcDown) ) {
+						drawNodeImage(draw, rcDown, tag, 'ScrollUp', 'p' );
+					} else if( rcScrollDown.eq(rcDown) ) {
+						drawNodeImage(draw, rcDown, tag, 'ScrollDown', 'p' );
+					}
+				}
+			}
+			if( this.currentRow ) {
+				selectRow=this[currentRow];
+				if( selectRow[rect] ) draw.fill(selectRow[rect], '#dac0ba4d');
+			}	
+			/* 스크롤 버튼 그리기 */
+			draw.drawImage( rcScrollBar,getDrawObject(this, 'ScrollDrawObject') );
+			draw.rectLine(cur[rect], 134, '#6A4000');
+		default:	
+		}
+	}
+}
+
+drawHeader(header) {
+	drawObject=getDrawObject(this, 'HeaderDrawObject',  header[rect] );
+	drawObject.fill();
+	sx=0, sy=0, sh=header[rect].height();
+	arr=this[HeaderWidthArray];
+	while( w, arr, c, 0 ) {
+		rc=Class.rect(sx,sy,w,sh), sx+=w;
+		switch(c) {
+		case 0:
+			drawObject.rectLine(rc, 0, '#6A4000');
+			drawObject.fill(rc.incr(1), '#FF9900');
+			drawNodeText(drawObject, rc.incrX(80), "메뉴", "left", 'TableHeader'); 
+		case 1:
+			drawObject.rectLine(rc, 234, '#6A4000');
+			drawObject.fill(rc.incr(1), '#FF9900');
+			drawNodeText(drawObject, rc, "수량", "center", 'TableHeader');  
+		case 2:
+			rcBk=rc.incrW( arr.get(3) );
+			drawObject.rectLine(rcBk, 234, '#6A4000');
+			drawObject.fill(rcBk.incr(1), '#FF9900');
+			drawNodeText(drawObject, rc, "가격", "center", 'TableHeader');  
+			break;
+		default:			
+		}
+	}
+}
+
+drawList(list, redraw) {
+	this.inject(pageNode, currentPageBlock, rowCount, rcList );
+	totalCount=list.childCount();
+	pageBlockCount=totalCount/rowCount, mod=totalCount%rowCount;
+	if( mod ) pageBlockCount++;
+
+	/* 페이지 정보 계산 */	
+	rcList.inject(sx, sy, sw, sh);
+	offset=Class.point(sx,sy);	
+	page=this.getPage( pageBlockCount-1);
+	not( page ) {
+		page=pageNode.addNode({tag:PageNode});
+		page[drawObject]=Class.draw(rcList);
+	}
+	
+	/* 페이지 정보 리셋 */
+	startRow=0;
+	while( n, pageBlockCount ) {
+		page=pageNode.child(n); 
+		page[startRow]=startRow, startRow+=rowCount;
+		page[endRow]=min(totalCount,  startRow);
+		page[endPage]=when( page[endRow].eq(totalCount), true, false); 
+		
+		if( redraw || n.eq(currentPageBlock) ) {
+			this.drawListPage(list, page);
+		} 
+		if( page[endPage] ) break;
+	}
+	this[pageBlockCount]=pageBlockCount;
+	this.drawScrollBar(list);
+}
+
+drawListPage(list, page) { 
+	/* 주문내역 페이지 처리(페이지당 주문 5개)*/
+	page.inject(startRow, endRow, drawObject);
+	ha=this[ListHeightArray];	// 페이지에 그려질 row 높이 배열
+	offset=this[rcList].lt();
+	rowIndex=0;
+	rc=drawObject.rect();
+	dw=rc.width(), dy=0;
+	drawObject.fill('#ffffff');
+	while( n, endRow, startRow ) {
+		/* List 태그의 자식 영역 세팅 & 메모리에 주문내역 그리기 */
+		row=list.child(n);
+		dx=0;
+		dh=ha.get(rowIndex), rowIndex++;
+		rcRow=Class.rect(dx, dy, dw, dh);
+		row[rect]=rcRow.incrXY(offset);
+		print("offset=$offset,  $row[rect], $rcRow");
+		while( w, this[HeaderWidthArray], c, 0 ) {
+			rcCell=Class.rect(dx, dy, w, dh), dx+=w;
+			switch( c ) {
+			case 0:
+				/* 메뉴 */
+				drawNodeText(drawObject, rcCell.incrX(20), row[menu_nm], 'left', 'TableList');
+			case 1:
+				/* 수량 */
+				qx=rcCell.x();
+				while( qw, this[QtyRateArray], x, 0 ) {
+					r=Class.rect(qx, dy, qw, dh), qx+=qw;
+					switch(x) {
+					case 0:
+						r0=r.center(45,45);
+						ty=when( row[qty].eq(1), 'd', 'n' );
+						drawNodeImage(drawObject, r0, tag, 'OrderMinusImage', ty);
+						row[rcQtyMinus]=r0.incrXY(offset);
+					case 1:
+						r0=r.center( r.width(), 45);
+						drawObject.rectLine(r0, 0, '#c0c0c0', 2);
+						drawNodeText(drawObject, r0, row[qty], 'center', 'TableList');
+						row[rcQty]=r0.incrXY(offset);
+					case 2:
+						r0=r.center(45,45); 
+						drawNodeImage(drawObject, r0, tag, 'OrderPlusImage', 'p'); 
+						row[rcQtyPlus]=r0.incrXY(offset);
+					}
+				}
+			case 2:
+				/* 가격 */
+				qx=rcCell.x();
+				while( qw, this[PriceRateArray], x, 0 ) {
+					r=Class.rect(qx, dy, qw, dh), qx+=qw;
+					switch(x) {
+					case 0:
+						row.inject(sale_price, qty);
+						sum=sale_price*qty;
+						r0=r.center( r.width(), 45);
+						price=util_priceComma(sum);
+						drawNodeText(drawObject, r0, "$price 원", 'right', 'TableList');
+					case 1:
+						r0=r.center(45,45); 
+						drawNodeImage(drawObject, r0, tag, 'OrderDeleteImage', 'p'); 
+						row[rcRowDelete]=r0.incrXY(offset);
+					}
+				}
+			default:
+			}
+		}
+		drawObject.rectLine(rcRow, 4, '#d0d0d0',1 );
+		dy+=dh;
+	}
+}
+
+drawScrollBar(list) {
+	not( list ) list=findTag('List', tag);
+	this.inject(rcScrollBar, ScrollHeightArray, currentPageBlock, pageBlockCount);
+	drawObject=getDrawObject(this, 'ScrollDrawObject', rcScrollBar);
+	drawObject.fill();
+	offset=rcScrollBar.lt();
+	rc=drawObject.rect();
+	rc.inject(sx,sy,sw,sh);
+	page=this.getPage();
+	while( h, ScrollHeightArray, n, 0 ) {
+		rcCur=Class.rect(sx, sy, sw, h), sy+=h;
+		switch(n) {
+		case 0:
+			ty='d';
+			if( currentPageBlock>0 ) ty='n';
+			r0= drawNodeImage(drawObject, rcCur, tag, 'ScrollUp', ty, true);
+			this[rcScrollUp]=r0.incrXY(offset);
+			last=pageBlockCount-1; 
+		case 2:
+			ty='d';
+			if( currentPageBlock<last ) ty='n'; 
+			r0= drawNodeImage(drawObject, rcCur, tag, 'ScrollDown', ty, true);
+			this[rcScrollDown]=r0.incrXY(offset);
+		}
+	}
+}
+
+getOrderList() {
+	list=findTag('List', tag);
+	return list;
+}
+
+getPage(block) {
+	not( isset(block) ) block=this[currentPageBlock];
+	return this[pageNode].child(block);
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	tag.addNode({tag:Header, Height:72});
+	tag.addNode({tag:List} );
+	setNodeSize(tag, true);
+	
+	this[OrderTotalQty]		=0;
+	this[OrderTotalPrice]		=0;
+	this[pageNode]				={};
+	this[currentPageBlock]	=0;
+	this[rowCount] 				=5;
+}
+
+mouseDown(pos) {
+	this.inject(rcScrollUp, rcScrollDown, currentPageBlock, pageBlockCount);
+	/* 마우스 클릭영역 초기화 */
+	this.mouseDownRect=null;
+	this.mouseDownRow=null;
+	
+	/* 마우스 영역 처리 */
+	if( rcScrollUp.contains(pos) ) {
+		if( currentPageBlock >0 ) {
+			this.mouseDownRect=rcScrollUp;
+		}
+	} else if( rcScrollDown.contains(pos) ) {
+		last= pageBlockCount-1;
+		if( currentPageBlock<last ) {
+			this.mouseDownRect=rcScrollDown;	
+		}
+	} else {
+		list=findTag('List', tag);
+		page=this.getPage();
+		page.inject(startRow, endRow);
+		while( n, endRow, startRow ) {
+			row=list.child(n);
+			not( row[rect].contains(pos) ) continue;
+			row.inject(rcQtyMinus, rcQtyPlus, rcRowDelete);
+			if( rcQtyMinus.contains(pos) ) {
+				if( row[qty]>1 ) {
+					this.mouseDownRect=rcQtyMinus;		
+				} else {
+					return;
+				}
+			} else if( rcQtyPlus.contains(pos) ) {
+				this.mouseDownRect=rcQtyPlus;
+			} else if( rcRowDelete.contains(pos) ) {
+				this.mouseDownRect=rcRowDelete;
+			}
+			if( this.mouseDownRect )
+				this.mouseDownRow=row;		
+			break;
+		}		
+	}
+	/* 마우스 영역이 있다면 다시 그리기 */
+	if( this.mouseDownRect ) {
+		this.update();
+	}	
+}
+
+mouseUp(pos) {
+	not( this.mouseDownRect ) {
+		return;
+	}
+	page=this.getPage();
+	page.inject(startRow, endRow, endPage);
+	this.inject(rcScrollUp, rcScrollDown);
+	if( rcScrollUp.contains(pos) ) {
+		this.currentRow=null;
+		_canvasEvent(this, KIOSK.CartScrollUp );
+	} else if( rcScrollDown.contains(pos) ) {
+		this.currentRow=null;
+		_canvasEvent(this, KIOSK.CartScrollDown );
+	} else if( this.mouseDownRow ) {
+		row=this.mouseDownRow;
+		if( row[rect].contains(pos) ) {
+			row.inject(rcQtyMinus, rcQtyPlus, rcRowDelete);
+			/* 변경된 주문을 저장한후 애니메이션 끝난후 초기화 해준다 */
+			this.modifyRow=row;
+			if( rcQtyMinus.contains(pos) ) {
+				_canvasEvent(this, KIOSK.CartQtyMinus );	
+			} else if( rcQtyPlus.contains(pos) ) {
+				_canvasEvent(this, KIOSK.CartQtyPlus );
+			} else if( rcRowDelete.contains(pos) ) {
+				_canvasEvent(this, KIOSK.CartRowDelete );
+			}
+		}	
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.mouseDownRow=null;
+		this.update();
+	}	
+}
+
+movePage() {
+	this.inject(prevPageBlock, currentPageBlock);
+	this.update();
+}
+
+recalcList(list) {
+	totalQty=0, totalPrice=0;
+	not( list ) list=findTag('List', tag);
+	while( row, list ) {
+		row.inject(sale_price, qty);
+		sum=sale_price * qty;
+		row[sum_price]=sum;
+		totalPrice+=sum;
+		totalQty+=qty;
+	}
+	this[OrderTotalQty]=totalQty;
+	this[OrderTotalPrice]=totalPrice;
+	this.update();
+}
+
+removeAllMenu() {
+	list=findTag('List', tag);
+	list.removeAll();
+	this.setCurrentPage('AdPanel');
+	this.recalcList(list);
+	
+	target=this.mainControl().findTag('CornerTab');
+	_timeline('ShiftMenu', target, 'ExpandLeft');	
+}
+
+removeMenu(menu) {
+	list=findTag('List', tag);
+	row=list.findOne('menu_cd', menu[menu_cd]);
+	if( row ) {
+		if( row==this[currentRow] ) {
+			this[currentRow]=null;
+		} 
+		list.remove(row);
+		not( list.childCount() ) {
+			this.removeAllMenu();
+		}
+	}
+	this.drawList(list, true);
+	this.recalcList(list);
+}
+
+setCurrentPage(pageTag) {
+	gridNode		= tag.parent();
+	cur				= findTag(pageTag, gridNode);
+	if( pageTag.eq('ShoppingCart') ) { 
+		while( page, cf[didWidgets] ) {
+			page.hide();
+		}
+	}
+	this.getControl(gridNode).setCurrentPage(cur);
+}
+}

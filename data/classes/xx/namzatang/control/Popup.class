@@ -1,0 +1,80 @@
+Popup {
+Popup(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+}
+
+closePopup() {
+	root=tag[pageNode].child(0);
+	_log("closePopup : $root");
+	this.getControl(root).closePopup();
+}
+
+conf() {
+	this.confLayout(tag[pageNode]);
+}
+
+draw(draw, tag, timeline) {
+	not( cf[popupControl] ) return;
+	if( cf[popupControl] != this ) return;
+	this.drawControl(draw, tag[pageNode], timeline);
+}
+
+getMainNode() {
+	return tag[pageNode].child(0);
+}
+
+loadPage(reload) {
+	if( tag[pageNode], not(reload) ) return tag[pageNode];
+	file=Class.file();
+	fileName="$cf[pageXmlPath]/${tag[id]}.xml";
+	if( file.isFile(fileName) ) {
+		this.loadXml(fileName, tag.removeAll() );
+	}
+	not( tag.childCount() ) {
+		_log("loadPage error={page Xml loading fail}");
+		return null;
+	} 
+	pageNode=tag.child(0);
+	if( pageNode[tag].eq('Page') ) {
+		rect=tag[rect];
+		if( tag[padding] ) {
+			rect.incr(tag[padding] );
+		}
+		rect.inject(x,y,w,h);
+		if( pageNode[Width] ) 	pw=pageNode[Width];
+		if( pageNode[Height] )	ph=pageNode[Height];
+		if( pw || ph ) {
+			not( pw ) pw=w;
+			not( ph ) ph=h;
+			pageNode[rect]=rect.center(pw, ph);
+		} else {
+			pageNode[rect]=rect;
+		}
+		if( pageNode[offset] ) {
+			pageNode[rect].incrXY( pageNode[offset], true);
+		}
+		pageNode[popupId]=tag[id];
+	}
+	_log("loadPage : success={id:$pageNode[popupId], rect:$pageNode[rect]}");
+	
+	not( pageNode[type] ) pageNode[type]='vbox';
+	setNodeSize(pageNode, true);	
+	this.conf();
+	
+	tag[pageNode]=pageNode;
+	return pageNode;
+}
+
+mouseDown(pos) {
+	not( cf[popupControl] ) return;
+	if( cf[popupControl] != this ) return;
+	this.mouseDownControl(tag[pageNode],pos);
+}
+
+mouseUp(pos) {
+	not( cf[popupControl] ) return;
+	if( cf[popupControl] != this ) return;
+	this.mouseUpControl(tag[pageNode],pos);
+}
+}

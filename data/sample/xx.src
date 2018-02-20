@@ -1,0 +1,307 @@
+pageReload();
+p=pageLoad('PageEdit.ProjectManagerMain');
+p.open();
+
+
+
+
+<Page Width="1080" Height="1920">
+    <AdminTitle Width="1080" Height="127" Margin="0,0,0,0" class="layer" ClassPath="KioskAdmin/AdminHome" BackgroundImage="${imagePath}/admin/admin_title.png"/>
+    <AdminHome Width="1080" Height="1793" Margin="0,127,0,0" class="layer" BackgroundImage="${imagePath}/admin/admin_home_bg.png"/>
+	<Popup id="Loading" class="popup"/>
+	<Popup id="PopupLoading" padding="20" class="popup"/>
+	<Popup id="MessageWindow" class="popup"/>
+</Page>
+
+## 선택 클래스 복사
+src=Class.db('pages');
+dest=Class.db('dest');
+dest.close();
+dest.open('data/template/pages.db');
+
+field='class_grp, class_nm, class_func, class_param, class_data, class_src, tm, type, note';
+upt=getQuery('class_info', field, 'class_grp, class_nm, class_func');
+ins=getQuery('class_info', field);
+while( cur, src.fetchAll("select $field from class_info where  class_nm in ('PageBase', 'Config')  ") ) {
+	print("## $cur[class_nm] > $cur[class_func] ## $cur[tm]" );
+	cur[tm]=tm;
+	not( dest.exec(upt,cur) ) {
+		dest.exec(ins, cur);
+	}
+}
+
+
+## 클래스 함수 변경내용 복사
+src=Class.db('src');
+dest=Class.db('pages');
+not( src.open() ) src.open('project/KioskAdmin/data/pages.db');
+ 
+lastTm = dest.value("select max(tm) from class_info where  1=1  and tm<>''");
+tm=System.localtime();
+
+print("##$lastTm");
+
+while( cur, src.fetchAll("select class_grp, class_nm, class_func, class_param, class_data, class_src from class_info where class_nm='PageBase' and tm>$lastTm  ") ) {
+	sql=getQuery('class_info', 'class_grp, class_nm, class_func, class_param, class_data, class_src, tm', 'class_grp, class_nm, class_func');
+	print("sql=$sql");
+	dest.exec(sql, cur);
+}
+
+## 클래스 함수 변경내용 템플릿 DB에 복사
+src=Class.db('src');
+dest=Class.db('dest');
+src.close(), dest.close();
+not( src.open() ) src.open('project/KioskAdmin/data/pages.db');
+not( dest.open() ) dest.open('data/template/pages.db');
+ 
+lastTm = dest.value("select max(tm) from class_info where  1=1  and tm<>''");
+tm=System.localtime();
+
+print("##$lastTm");
+
+field='class_grp, class_nm, class_func, class_param, class_data, class_src, tm, type, note';
+
+upt=getQuery('class_info', field, 'class_grp, class_nm, class_func');
+ins=getQuery('class_info', field);
+while( cur, src.fetchAll("select $field from class_info where  tm>$lastTm  ") ) {
+	print("## $cur[class_nm] > $cur[class_func] ## $cur[tm]" );
+	cur[tm]=tm;
+	not( dest.exec(upt,cur) ) {
+		dest.exec(ins, cur);
+	}
+}
+
+
+
+## 함수 복사(최종변경 시간 이후의 함수 적용)
+src=Class.db('src');
+dest=Class.db('pages');
+not( src.open() ) src.open('project/KioskAdmin/data/pages.db');
+ 
+lastTm = dest.value("select max(tm) as tm from cmsFunc");
+not( lastTm ) lastTm=0;
+
+tm=System.localtime();
+
+fields='cmsCode, funcName, funcParam, funcData, funcSrc, note, type, status,tm, funcDesc';
+insert		=getQuery("cmsFunc", fields);
+update	=getQuery("cmsFunc", fields, "cmsCode, funcName");
+print( insert, update);
+while( cur, src.fetchAll("select $fields from cmsFunc where tm>$lastTm") ) {
+	cur[tm]=tm;
+	not( dest.exec(update,cur) ) {
+		dest.exec(insert, cur);
+	}
+}
+
+
+## 템플릿 복사 
+src=Class.db('src');
+dest=Class.db('dest');
+src.close(), dest.close();
+not( src.open() ) src.open('project/KioskAdmin/data/config.db');
+not( dest.open() ) dest.open('data/template/config.db');
+
+field='grp, cd, data, note, type';
+ins		=getQuery('conf_info', field);
+upd		=getQuery('conf_info', field, 'grp, cd');
+
+while( cur, src.fetchAll("select grp, cd from conf_info_hist group by grp, cd") ) {
+	src.fetch("select  data, note, type from conf_info where grp=#{grp} and cd=#{cd}", cur);
+	not( dest.exec(upd, cur) ) {
+		dest.exec(ins, cur);
+	}
+}
+src.exec("delete from conf_info_hist");
+dest.exec("delete from conf_info_hist");
+
+## 함수 정보 파일로 저장
+	db=Class.db('pages');
+	cmsCode='function';
+	root=db.fetchAll("select funcName, funcParam, funcData, note from cmsFunc where cmsCode='$cmsCode'");
+
+	s='';
+	while( a, root ) {
+		if( a[note] ) {
+			s.add("\n/* $note */");
+		}
+		if( s ) s.add("\n");
+		s.add("${a[funcName]}($a[funcParam]) {$a[funcData]}\n");
+	}
+	print("s=$s");
+	Class.file().writeAll("data/funcs/${cmsCode}.src", s);
+
+## 클래스 정보 파일로 저장
+
+	db=Class.db('pages');
+	root={group: dev, name:EditorSrcClick};
+	db.fetchAll("select class_nm, class_func, class_param, case when length(class_src)>0 then class_src else class_data end src 
+		from class_info 
+		where class_grp=#{group} and class_nm=#{name} 
+		order by type, class_func", root);
+
+	s=root[name];
+	s.add(" {");
+	while( a, root ) {
+		if( a[note] ) {
+			s.add("\r\n/* $a[note] */");
+		}
+		s.add("\r\n\t${a[class_func]}($a[class_param]) {$a[src]}\r\n");
+	}
+	s.add("}");
+	path=getLocalPath("/data/classes/$root[group]");
+
+	print("## $path");
+	Class.file().mkdir(path, true);
+	Class.file().writeAll("data/classes/${root[group]}/${root[name]}.class", s);
+
+## 페이지 정보 파일로 저장
+
+	db=Class.db('pages');
+	root={group: dev, name:main};
+	db.fetch("select layout from pageLayout where cmsCode=#{group} and pageCode=#{name} ", root);
+
+	file=Class.file(); 
+	s='';
+	s.add("\r\n", root[name]);
+	s.add(" : {\r\n\tlayout: ", $root[layout]);
+	db.fetchAll("select objectCode, objectData
+		from pageObject
+		where cmsCode=#{group} and pageCode=#{name}", root.removeAll() );
+	while( a, root ) {
+		s.add("\n\t$a[objectCode]: $a[objectData],");
+	}
+	db.fetchAll("select funcName, funcParam, funcData, note
+		from pageFunc 
+		where cmsCode=#{group} and pageCode=#{name} 
+		order by sort", root.removeAll() );
+		
+	_body=func(s) {
+		d='';
+		s.ch();
+		while(s.valid(), n, 0 ) {
+			line=s.findPos("\n");
+			if( n ) 
+				d.add("\r\n\t" );
+			else
+				d.add("\r\n\t\t" );
+			d.add(line);
+		}
+		return d;
+	}
+	while( a, root ) {
+		if( a[note] ) {		x=newClass('common.EditSrc', this );
+
+			s.add("\r\n/* $a[note] */");
+		}
+		body=_body(a[funcData].ref());
+		s.add("\r\n\t${a[funcName]}($a[funcParam]) {$body\r\n\t}\r\n");
+	}
+	s.add("}");
+	file.writeAll("data/pages/${root[group]}.pages", s);
+
+## 페이지 삭제
+
+db=Class.db('pages');
+pageGrp='ProjectManager';
+db.exec("delete from pageLayout where cmsCode='$pageGrp'");
+
+db.exec("delete from pageFunc where cmsCode||pageCode not in (select cmsCode||pageCode from pageLayout)");
+db.exec("delete from pageObject where cmsCode||pageCode not in (select cmsCode||pageCode from pageLayout)");
+
+
+
+<!---------------------------------------------------------------- 
+	서브 페이지 정보
+----------------------------------------------------------------->
+
+<Popup id="Loading" Width="360" Height="360" KioskVersion="1.0">
+	<Loading Width path="${imagePath}/main/loading2.gif"/> 
+</Popup>
+
+<Popup id="PopupLoading" >
+    <MainLoading TitleImage="${imagePath}/main/intro_logo.png" FooterImage="${imagePath}/type/intro_logo.png">
+        <Box id="title" Height=400></Box>
+        <Box id="loadingBox" Height=300></Box>
+        <Box id="footer"></Box>
+    </MainLoading>
+</Popup>
+ 
+<Popup id="MessageWindow" Width="936" Height="484">
+    <MessageWindow BackgroundImage="${imagePath}/Type/popoup/pop_notice_bg.png">
+        <Title Height="120" title="알림"/>
+        <Message id="message"/>
+        <Buttons Height="140">
+            <OkButton src="${imagePath}/main/btn/pop_confirm_.png" text="OK"/>
+        </Buttons>
+    </MessageWindow>
+</Popup>
+
+
+## postgres Wave 파일경로 저장
+
+db=Class.db('kiosk_hitec');
+x=Class.filefind();
+root=x.fetchAll('C:\dev\ProjectManager\project\KioskHiTec\wav');
+ins=getQuery('comm_wave', 'id, file_nm, full_path'); 
+db.exec("delete from comm_wave");
+while( c, root , n, 0) {
+	not( c[type].eq('file') ) continue;
+	idx=lpad(n,4);
+	root[id]="w$idx";
+	root[file_nm]=c[fileName].utf8();
+	root[full_path]="wav/$root[file_nm]";
+	
+	db.exec(ins, root);
+}
+
+Cf.debug(true);
+x=System.processInfo();
+while( c, x ) print("c-$c");
+
+
+## 로그 파일 감시
+page=Cf.widget({
+	layout: 
+<page>
+	<editor id="e">
+	 
+</page>
+	onInit() {
+		log='data/logs/test.log';
+		file=Class.file();
+		not( file.isFile(log) ) {
+			file.writeAll(log,'== log start ==');
+		}
+		Cf.debug(true, log);
+		me=this;
+		node=_node('watcherTickNode');
+		node[@path]='C:\dev\Kiosk\SRC\data\logs';
+		
+		System.watchFolder(node[@path], callback(path,file,type) {
+			filenm=file.utf8();
+			node=Cf[watcherTickNode];
+			switch( type ) {
+			case 1: node[$filenm] = System.tick();
+			case 3: 
+				if( node[$filenm] ) {
+					dist = System.tick()-node[$filenm];
+					if( dist<500 ) return;	
+				}
+				node[$filenm] = System.tick();
+				node.inject( log, logPos);
+				not( log ) {
+					log=Class.file('log');
+					log.open("${node[@path]}/test.log");
+					logPos=log.size();
+					node[log]=log;
+				}
+				str=log.read(logPos, true);
+				me[e].append(str);
+				node[logPos]=log.size();
+			default:
+			}
+		});
+	}
+});
+page.open();

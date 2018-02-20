@@ -1,0 +1,164 @@
+ClassFuncsManager {
+	ClassFuncsManager(page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+		page.save.eventMap(onClick, saveSrc);
+		page.run.eventMap(onClick, runSrc);
+	 	db=Class.db('pages');
+		currentNode=null;
+ 	}
+	initPage(root, append) {
+		if( root ) {
+			@currentNode=root;
+		}
+		map=_node(cf,'ClassFuncsMap');
+		not( append ) {
+			map.initNode();
+		}
+		root.inject(class_grp, class_nm);
+		if( class_grp, class_nm ) {
+			classInfo="${class_grp}.${class_nm}";
+		} else {
+			classInfo=root[inherit];
+		}
+		editor.thisClass=root.currentClass;
+		src='';
+		while( cur, root ) {
+			not( cur[checked] ) continue;
+			note=when( cur[note], "/* $cur[note] */");
+			if( note ) src.add("$note\r\n");
+			key=cur[class_func];
+			map[$key]=Class.pair(classInfo, root.currentClass);
+			body=makeSourceIndentText(cur[src].ref(), "\t");
+			src.add("${cur[class_func]}($cur[class_param]) {$body}\r\n\r\n");
+		}
+		if( append ) {
+			editor.append("\r\n$src", true);
+		} else {
+			this.setSrc(src);
+		}
+ 	}
+	saveSrc() {
+		me=this;
+		_save=func(&s) {
+			map=_node(cf,'ClassFuncsMap');
+			root=currentNode;
+			tm=System.localtime();
+			err='';
+			while( s.valid() ) {
+				c=s.ch();
+				not( c ) break;
+				note='';
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') ) note.add( s.findPos("\n") );
+					else if( s.ch(1).eq('*') ) note.add( s.match() );
+					continue;
+				}
+				func=s.move();
+				c=s.ch();
+				not( c.eq('(') ) {
+					err.add("함수 시작오류 : 함수명 : $func");
+					break;
+				}
+				pair=map[$func];
+				if( pair ) {
+					pair.inject(info, classNode);
+					info.split('.').inject(class_grp, class_nm);
+					root.put(class_grp, class_nm);
+				}
+				param=s.match().trim();
+				c=s.ch();
+				not( c.eq('{') ) {
+					err.add("함수 매개변수 오류: $param");
+					break;
+				}
+				body=s.match(1);
+				root.varMap('class_func: func, class_param: param, note');
+				if( body.find('//') || body.find('/*') ) {
+					root[class_src]=body;
+					root[class_data]=makeSrc(body);			
+				} else {
+					root[class_src]='';
+					root[class_data]=body;			
+				}
+				root[note]=note;
+				num=db.exec("update class_info set class_src=#{class_src}, class_data=#{class_data}, class_param=#{class_param}, note=#{note}, tm='$tm' where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", root);
+				not( num ) {
+					db.exec("insert into class_info( class_grp, class_nm, class_func, class_param, class_src, class_data, note, tm ) values (#{class_grp}, #{class_nm}, #{class_func}, #{class_param}, #{class_src}, #{class_data}, #{note}, '$tm')", root);
+				}
+			}
+			me[error]=err;
+		};
+		_parse=func(&s) {
+			if( s.find("#>") ) {
+				src=s.findPos("#>");
+				_save( src );
+			} else {
+				_save(s);
+			}
+		}; 
+		_parse( page[src].value() );
+
+		if( page[autoRunCheck].checked() ) {
+			this.runSrc(true);
+		}
+		page.save.disable();
+ 	}
+	runSrc( flag ) {
+		me=this;
+		_run=func(&s) {
+			map=_node(cf,'ClassFuncsMap');
+			err='';
+			root=currentNode;
+			classNode=null;
+			while( s.valid() ) {
+				c=s.ch();
+				not( c ) break;
+				if( c.eq('/') ) {
+					if( s.ch(1).eq('/') )  
+						s.findPos("\n");
+					 else if( s.ch(1).eq('*') ) 
+						s.match();
+					continue;
+				}
+				func=s.move();
+				c=s.ch();
+				not( c.eq('(') ) {
+					err.add("함수 시작오류 : 함수명 : $func");
+					break;
+				}
+				pair=map[$func];
+				print("xxx $pair xxx");
+				
+				
+				if( pair ) {
+					pair.inject(info, classNode);
+				} else {
+					classNode=root.currentClass;
+				}
+				param=s.match().trim();
+				c=s.ch();
+				not( c.eq('{') ) {
+					err.add("함수 매개변수 오류: $param");
+					break;
+				}
+				body=s.match(1);
+ 				Cf.call("classNode.function('$func', func($param) { $body });");
+			}
+			me[error]=err;
+			return classNode;
+		};
+		parse=func(&s) {
+			if( s.find("#>") ) {
+				class=_run( s.findPos("#>") );
+				cmd=s.findPos("\n").trim();
+				Cf.call("class.$cmd");				
+			} else {
+				_run(s);
+			}
+		}; 
+		parse( page[src].value() );
+	}
+
+	update() {
+ 	}
+}

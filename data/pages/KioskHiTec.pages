@@ -1,0 +1,623 @@
+
+OrderTool : {
+	layout: <page>
+		<vbox stretch=3>
+			<hbox>
+				<label text="코너: "><combo id="cornerCombo">
+				<label text="품절여부: "><combo id="soldOutCombo"><space>
+				<button id="search" text="조회">
+			</hbox>
+			<grid id="g1">
+			<hbox>
+				<button id="cartSelect" text="주문담기">
+				<button id="cartDelete" text="주문취소">
+				<label id="gridStatus" stretch=1>
+			</hbox>
+		</vbox>
+		<group title="주문정보" stretch=2>
+			<vbox>
+				<grid id="g2">
+				<hbox>
+					<button id="printBill" text="영수증 출력">
+					<button id="printKitchen" text="주방프린터 출력">
+					<button id="cardConfirm" text="카드결제">
+					<button id="cardCancle" text="카드취소">
+					<button id="xmlSend" text="전문 보내기">
+					<space>
+				</hbox>
+			</vbox>
+		</group> 
+	</page>
+
+ onEvent() {
+	node=@node;
+	switch( @type ) {
+	case 1:		x.qtMonRecvData( node[recvData], node );
+	case 11:	x.easyCardReadData( node[data], node );
+	case 12:	x.easyCardError( node[data], node );
+	case 21:	x.hitecResponseOk( node[data], node );
+	case 22:	x.hitecResponseError( node[data], node );
+	}
+}
+	node=_node(page,'QtMonNode');
+
+
+order_completeProcess(db, order, main, items) {
+
+	not( order ) return false;
+	not( order[InputCashOk] ) {
+		order[error]="입금이 완료되지 않았씁니다. 관리자에 문의하세요");
+		return false;
+	}
+	
+	not( items ) {
+		cf=main.cf;
+		items=cf[ShoppingCart].getOrderList();
+	}
+	
+	main.closePopup();
+	main.openPopup('Loading');
+	order[error]='';
+	
+	today			= System.date('yyyyMMdd');
+	totalPrice		= cf[ShoppingCart.OrderTotalPrice]; 
+	totalQty		= cf[ShoppingCart.OrderTotalQty];
+	vat			= totalPrice/10;
+	datetime	= System.date('yyyy-MM-dd HH:mm:dd');
+	not( cf[OpenDate] ) {
+		cf[OpenDate]=today;
+	}
+	/*주문기본 정보 생성 */
+	order[StoreNo]			= cf[storeCd];
+	order[PosNo]				= cf[PosNo];
+	order[SaleTmnl] 		= 'K';
+	order[SaleType]			= 'O';
+	order[SaleDate]			= cf[OpenDate];
+	order[DealDate]			= today;
+	order[PmtCnt]			= totalQty; 
+	order[MenuCnt]			= items.childCount();
+	order[NormalAmt]		= totalPrice;
+	order[SaleAmt]			= totalPrice; 
+	order[TakeOutYn]		= when( cf[OrderSelectType].eq('Hall'), 'N', 'Y' );
+	order[VatAmt]			= vat;
+ 	
+	/*주문번호 생성 */
+	order_dealNo(db, order);
+	
+	/*잔돈 배출*/
+	remain=0;
+	price= order[OrderTotalPrice];
+	price-=order[InputCashPrice];
+	if( price<0 ) {
+		remain=abs(price);
+		main.qtMonSendData("04,1,$remain");
+ 		while( n,10 ) {
+ 			print(" 잔돈배출 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 			System.sleep(500);
+ 			if( kioskDeviceNode[recvData] ) break;
+ 		}
+	}
+		
+	/* 영수증 인쇄*/
+	db.fetch("select store_nm, biz_no, tel, addr1 as addr from tb_store_mst where store_no=#{StoreNo}", order);
+	order.inject(store_nm, biz_no, tel, addr);
+	
+	printStr = "$store_nm,$addr,$biz_no,$tel,$datetime,$order[PosNo],$order[DealNo],"; 
+	while( sub, items ) {
+		sub[sum_price]=sub[qty*sale_price];
+		printStr.add("$sub[menu_nm]^$sub[sale_price]^$sub[qty]^$sub[sum_price]\t");
+	}
+	val=totalPrice-vat;
+	printStr.add(",$totalPrice,$val,$vat,$totalPrice,$order[InputCashPrice],$remain");
+	s="21,03,14,$printStr";
+	/* local8bit 로 변환*/
+	print("영수증 인쇄 : $s");
+	main.qtMonSendData(s.kr() );
+ 	while( n,10 ) {
+ 		print(" 영수증 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 		System.sleep(500);
+ 		if( kioskDeviceNode[recvData] ) break;
+ 	}
+ 	/* 주방프린터 인쇄 */
+ 	order_kitchenPrint(order, items, main);
+	
+	
+	/*매출 헤더 저장*/
+	sql=order_makeQuery('tb_sale_header', tr('sql#kiosk.InsertSale#Header') );
+	db.exec(sql, order);
+	
+	/*매출 상세 저장*/
+	order[Seq]=1;
+	while( sub, items ) {
+		order[MenuCd]		= sub[menu_cd];
+		order[Qty]				= sub[qty];
+		order[SalePrice]		= sub[sale_price];
+		sql=order_makeQuery('tb_sale_detail', tr('sql#kiosk.InsertSale#Detail') );
+		db.exec(sql, order);
+		order[Seq++];
+	}
+
+	/*매출 지불정보 저장*/
+	order[Trdata1]=order[InputCashPrice];
+	order[Trdata2]=remain;
+	
+	sql=order_makeQuery('tb_sale_payment', tr('sql#kiosk.InsertSale#Payment') );
+	db.exec(sql, order);
+	
+
+	
+	if( order[error] ) {
+		order[error]="주문처리중 오류가 발생했습니다. 관리자에 문의하세요");
+		return false;
+	} 
+	main.openPopup('CompleteOrder');
+	return true;
+	
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+	onInit() {
+		db=Class.db('kiosk_hitec');
+		web=Class.web('EasyCard');
+		req={ url: 'http://127.0.0.1:10000', method:'GET', param:{}, header:{} };
+		response=func(type, data) {
+			switch(type) {
+				case read:
+					req.status='read';
+					data = data.utf8();
+					this.cardInfoAdd(data);
+					print("> EasyCard Read Ok [요청노드: $req, 응답데이터: $data]");
+				case finish:
+					req.status=null;
+				case error:
+					print("> EasyCard Read Ok [요청노드: $req, 응답데이터: $data]");
+			}
+		};
+		grid=this[g1], cart=this[g2];
+		grid.model( Class.model('g1'), 'value' );
+		cart.model( Class.model('g2'), 'value' );
+		this.makeGrid();
+		this.makeCombo();
+	}
+
+	onEvent() {
+		node=@node;
+		switch( @key ) {
+		case 1: 	this.alert(node[recvData]);
+		}
+	}
+
+	cartDelete.onClick() {
+		arr=_arr();
+		grid=this[g1], cart=this[g2];
+		src=cart.rootNode(), dest=grid.rootNode();
+		while( cur, src ) {
+			not( cur[checked] ) continue;
+			cur[checked]=false;
+			arr.add(cur);
+			dest.addNode(cur);
+		}
+		while( cur, arr ) {
+			src.remove(cur);
+		}
+		grid.update(), cart.update();
+	}
+
+	g1.onClicked() {
+		if( @column.eq(0) ) {
+			gridCheck(@me, @node, this.cartSelect );
+		}
+	}
+
+	g1.onDraw() {
+		this.drawGrid(@draw, @node, @me );
+	}
+
+	g2.onClicked() {
+		if( @column.eq(0) ) {
+			gridCheck(@me, @node, this.cartDelete );
+		}
+	}
+
+	g2.onDraw() {
+		this.drawGrid(@draw, @node, @me );
+	}
+
+	cartSelect.onClick() {
+		arr=_arr();
+		grid=this[g1], cart=this[g2];
+		src=grid.rootNode(), dest=cart.rootNode();
+		while( cur, src ) {
+			not( cur[checked] ) continue;
+			cur[checked]=false;
+			arr.add(cur);
+			dest.addNode(cur);
+		}
+		while( cur, arr ) {
+			src.remove(cur);
+		}
+		grid.update(), cart.update();
+	}
+
+	search.onClick() {
+		this.searchMenu();
+	}
+
+	printBill.onClick() {
+		node=_node(this,'QtMonNode');
+		socket=Class.socket("QtDevice");
+		worker = Class.worker("QtDevice");
+		me=this;
+		worker.start( func() {
+			recv= socket.readBuffer();
+			if( recv ) {
+				node[recvData]=recv;
+				print("kioskDeviceSocketWorker [$node]");
+				me.postEvent(1, node);
+			}
+		});
+		
+		cart=this[g2];
+		printStr = "";
+		datetime	= System.date('yyyy-MM-dd HH:mm:dd');
+		node = {};
+		node[deal_no] = '' ;
+		totalPrice = 0;
+		db.fetch( conf('sql#hitec.hitec_m40s'),node);
+		
+		printStr = "$node[head_msg],$node[bill_addr],$node[biz_no],$node[tel_no],$datetime,$node[hi_pos_no],100,"
+		
+		while( cur, cart.rootNode() ) {
+				totalPrice += cur[uprice];
+				qty = cur[uprice]/10;
+				sale_price = cur[uprice]-qty;
+				
+			   printStr.add("$cur[goods_nm]^$sale_price^$qty^$cur[uprice]\t");
+		}
+		
+		vat= totalPrice/10;
+		val=totalPrice-vat;
+		remain = 20000 - totalPrice;
+		printStr.add(",$totalPrice,$val,$vat,$totalPrice,20000,$remain");
+		send="21,03,14,$printStr";
+		
+		socket.close();
+		if(socket.connect('127.0.0.1','9010')){
+			not( send ) return;
+			send = send.kr();
+			node[recvData]=null;
+			if( send.ch().eq('$') ) {
+				socket.sendBuffer("$send\n");
+			} else {
+				if( send.start('02,3') ) {
+					node[status]='02,3';
+				} else {
+					node[status]=null;
+				}
+				s='$';
+				s.add(send);
+				socket.sendBuffer("$s\n");
+			}
+		}
+	}
+
+	cardConfirm.onClick() {
+		cart=this[g2];
+		cartStr = "";
+		sum = 0;
+		while(cur,cart.rootNode()){
+			sum += cur[uprice];
+		}
+		reqCd = 'D1';
+		money = sum;
+		depth = '00';
+		saleNo = System.date('yyyyMMddHHmmss');
+		keyInYn = 'Y';
+		timeout = '30';
+		vat = 'A';
+		cartStr = "${reqCd}^^${money}^${depth}^^^^${saleNo}^^${keyInYn}^^${timeout}^${vat}^^^^^^^"
+		
+		this.reqCheck('D1',cartStr);
+	}
+
+	xmlSend.onClick() {
+		xmlStr = '<?xml version="1.0" encoding="utf-8" ?><DRIM-RH2><TELEX-HD TELEX_ID="A10R" MSG_CD="0000" />';
+		today			= System.date('yyyyMMdd');
+		datetime	= System.date('yyyyMMddHHmmdd');
+		
+		src_h = conf('page#xml.kiosk#header');
+		cf.inject(today, datetime);
+		header = fmt(src_h);
+		xmlStr.add("$header");
+		
+		src_d =  conf('page#xml.kiosk#detail');
+		while( cur, cart.rootNode() ) {
+			clplu_cd = $cur[clplu_cd];
+			goods_cd = $cur[goods_cd];
+			uprice = $cur[uprice];
+			qty = cur[uprice]/10;
+			sale_price = cur[uprice]-qty;
+			
+			cf.inject(clplu_cd, goods_cd,uprice,qty,sale_price);
+			detail = fmt(src_d);
+			xmlStr.add("$detail");
+		}
+		src_s =  conf('page#xml.kiosk#A10R'); 
+		slip = fmt(src_s);
+		xmlStr.add("$slip") ;
+	
+		&req={  method:'POST', header: {} };
+		web=Class.web('kiosk');
+		web[data] = xmlStr;
+		req[url]='http://61.78.39.134/telex_rh2/A10_Rcv.php';
+		me=this;
+		web.call( req, callback(type,data) {
+			switch(type) {
+				case read:
+					data = data.utf8();
+					print("$data");
+				case finish:
+		
+				case error:
+			}
+		});
+	}
+
+	printKitchen.onClick() {
+		node=_node(this,'QtMonNode');
+		socket=Class.socket("QtDevice");
+		worker = Class.worker("QtDevice");
+		me=this;
+		worker.start( func() {
+			recv= socket.readBuffer();
+			if( recv ) {
+				node[recvData]=recv;
+				print("kioskDeviceSocketWorker [$node]");
+				me.postEvent(1, node);
+			}
+		});
+	
+		db=Class.db('kiosk_hitec');
+	 	info=_node(this, 'OrderInfo');
+	 	
+	 	cart=this[g2];
+		db.fetchAll("SELECT clplu_cd FROM hitec_m03s", info.removeAll() );
+		while( cur, cart.rootNode() ) {
+			sub=info.findOne( 'clplu_cd', cur[clplu_cd] );
+			sub.addNode().varMap(cur, 'clplu_cd, goods_cd, goods_nm, uprice');
+		}
+		
+		time=System.date('HH시 mm분 ss초');
+		while( cur, info ) {
+			send='22,4,';
+			send.add("$cur[clplu_cd],$time,");
+			cnt = cur.childCount();
+			if(cnt > 0){
+				while(sub,cur){
+					send.add("$sub[goods_nm]^1\t");	
+				}
+				send.add(",192.168.1.87");
+				
+				print(send);
+				
+				if(socket.connect('127.0.0.1','9010')){
+					
+					not( send ) return;
+					send = send.kr();
+					node[recvData]=null;
+					if( send.ch().eq('$') ) {
+						socket.sendBuffer("$send\n");
+					} else {
+						if( send.start('02,3') ) {
+							node[status]='02,3';
+						} else {
+							node[status]=null;
+						}
+						s='$';
+						s.add(send);
+						socket.sendBuffer("$s\n");
+					}
+					
+				}
+			
+			
+			}	
+		}
+	}
+
+	cardCancle.onClick() {
+		cart=this[g2];
+		cartStr = "";
+		sum = 0;
+		while(cur,cart.rootNode()){
+			sum += cur[uprice];
+		}
+		
+		reqCd = 'D4';
+		money = sum;
+		timeout = '30';
+		node = {};
+		
+		db.fetch( conf('sql#hitec.payment'),node);
+	
+		cartStr = "${reqCd}^^${money}^^${node[arv_dt]}^06093541^${timeout}^1234567890^WEB1234567890^^"
+		
+		print("##### $cartStr");
+		
+		this.reqCheck('D4',cartStr);
+	}
+
+	drawGrid(d, node, grid) {
+		rc=d.rect();
+		modify = drawGridModify(d,node,rc);
+		not( modify ) {
+			if( d.state(STYLE.Selected) ) {
+				d.fill( rc, '#f0f0f0' );
+			} else {
+				d.fill();
+			}
+		}
+		field=grid.field(d.index());
+		switch( field ) {
+		case check:
+			if( node[checked] )
+				d.icon(rc.center(16.16), Icon.func.check);
+			else
+				d.icon(rc.center(16.16), Icon.func.add);
+		case pwd:
+			d.text( rc.incrX(2), node[$field].decode() );
+		default:
+			d.text( rc.incrX(2), node[$field] );
+		}
+		d.rectLine(rc,4,'#d0d0d0');
+		if( modify ) this[apply].show();
+	}
+
+	makeCombo() {
+		node={};
+		db.fetchAll("SELECT clplu_cd, clplu_nm FROM hitec_m03s", node);
+		combo=this.cornerCombo;
+		combo.removeAll();
+		combo.addItem(node,'clplu_cd, clplu_nm', '=전체=');
+		setCommCombo(this.soldOutCombo,'kiosk#soldOut', '=전체=');
+	}
+
+	makeGrid() {
+		root=grid.rootNode();
+		db.fetchAll("SELECT * FROM hitec_m10s limit 1 offset 0", root.removeAll(), true ), err=db.error();
+		if( err ) {
+			this.alert("DB조회 오류 :\n $err");
+			grid.update();
+			return;
+		}
+		node= root.child(0);
+		if( node ) {
+			s="";
+			while( field, root[@fields], n, 0) {
+				w=gridMaxFiledWidth(root, field);
+				if( n ) s.add(",");
+				s.add("$field:$field #", min(w,350) );
+			}
+			fields=grid.fields();
+			gridMakeField(s, true, fields);
+			grid.fields(fields);
+			cart.fields(fields);
+		}
+		root.removeAll();
+		grid.update();
+		cart.update();
+		this.searchMenu();
+	}
+
+	searchMenu() {
+		root=grid.rootNode();
+		root[clplu_cd]=this.cornerCombo.value();
+		db.fetchAll("SELECT * FROM hitec_m10s where 1=1 #[clplu_cd? and clplu_cd=#{clplu_cd}]", root.removeAll(), true ), err=db.error();
+		total=root.childCount();
+		this[gridStatus].value("(총 $total 건) ");
+		this[cartSelect].hide();
+		this[cartDelete].hide();
+		grid.update();
+	}
+
+	reqCheck(func, value) {
+		if( req.status ) {
+			dist=System.tick()-req.startTick;
+			if( dist>6000 ) {
+				this.alert("$req[status] 대기시간 초과. 연결을 초기화 합니다");
+				req.status=null;
+			}
+			return false;
+		}
+		
+		print("xxxxxxxxxx $func, $value xxxxxxxxxxxxx");
+		param=req.param;
+		tick=System.tick();
+		param[REQ]=value;
+		param[callback]="result_${tick}";
+		req.funcType=func;
+		req.status='start';
+		req.startTick=tick;
+		web.call(req, response);
+	}
+
+	startQtMon() {
+		node=_node(this,'QtMonNode');
+		socket=Class.socket("QtDevice");
+		worker = Class.worker("QtDevice");
+		me=this;
+		
+		worker.start( func() {
+			recv= socket.readBuffer();
+			if( recv ) {
+				node[recvData]=recv;
+				print("kioskDeviceSocketWorker [$node]");
+				me.postEvent(1, node);
+			}
+		});
+		
+	}
+
+	cardInfoAdd(&jsonData) {
+		&param={};
+		
+		val = jsonData.valid();
+		while( jsonData.valid() ) {
+		line = jsonData.findPos("\n");
+		
+		not( line.ch() ) continue;
+		prev = line.prevChar();
+		
+		while( line.valid() ) {
+			field = line.move().trim();
+			ch= line.ch();
+			
+			if( ch.eq(":") ) {
+		 		line.incr();
+		 		ch=line.ch();
+			}
+			
+			if( ch.eq("{") ) {
+				sp = line.cur();
+				line.match();
+				ep = line.cur();
+				param.reuse().parseJson( line.value(sp,ep,true) );
+			}
+			
+			not( field ) break;
+		}
+		}
+		print("#############  $param");
+		dataNode = {};
+		dataNode[arv_dt] = System.date('yyMMdd');
+		dataNode[trdata1] = param[RQ04];
+		dataNode[trdata2] = '20';
+		dataNode[trdata3] =  param[RQ04];
+		dataNode[trdata4] = '0';
+		dataNode[trdata5] =  param[RQ11];
+		dataNode[trdata6] =  param[RQ10];
+		dataNode[trdata7] = '1';
+		dataNode[trdata8] = param[RS08];
+		dataNode[trdata9] = param[RS09];
+		dataNode[trdata10] = param[RS11];
+		dataNode[trdata11] = param[RS12];
+		dataNode[trdata12] = param[RS14];
+		dataNode[trdata13] = param[RS13];
+		dataNode[trdata14] = param[RS16];
+		
+		db.exec('delete from tb_sale_payment' );
+		db.exec( getQuery('tb_sale_payment', 'arv_dt,trdata1 ,trdata2 ,trdata3, trdata4 ,trdata5 ,trdata6 ,trdata7 ,trdata8 ,trdata9 ,trdata10, trdata11, trdata12, trdata13 ,trdata14'), dataNode );
+		
+	}
+}

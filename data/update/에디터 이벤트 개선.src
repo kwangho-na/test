@@ -1,0 +1,539 @@
+## dev.EditorSrcClick
+srcMouseClick(pos ) {
+	editor.select('word');
+}
+
+## dev.EditorSrcChange
+editorTextChange() {
+ 	key = editor[prevKey];
+	not( key ) return;
+	if( key>256 ) return;
+	prev = editor.sp().spText('prevWord', 'prevChar');
+	ch = prev.ch();
+	switch( ch ) {
+	case '#':
+		val = prev.value(1);
+		if( val.eq('pr') ) {
+			sp = editor.pos('ep'), ep = editor.pos();
+			editor.move(sp).move(ep,true);
+			this.insertIndent('print("^|");' );
+		} else if( val.eq('func') ) {
+			sp = editor.pos('ep'), ep = editor.pos();
+			editor.move(sp).move(ep,true);
+			this.insertIndent(".func( template(func) {\n\t^|\n});");
+		} else if( val.eq('test') ) {
+			sp = editor.pos('ep'), ep = editor.pos();
+			editor.move(sp).move(ep,true);
+			this.insertIndent("test() {\n\t^|\n}\n#> test();\n\n");
+		} else if( val.eq('page') ) {
+			sp = editor.pos('ep'), ep = editor.pos();
+			editor.move(sp).move(ep,true);
+			this.insertIndent("page() {\n\t&page=this.widget({\n\t\tlayout:<page>\n\t\t\t\n\t\t</page>\n\t\tonInit() {\n\t\t}\n\t});\n\treturn page;\n}\n#>\n\n");
+			ep=sp+4;
+			editor.move(sp).move(ep,true);
+		} else if( val.eq('fc') ) {
+			sp = editor.pos('ep'), ep = editor.pos();
+			editor.move(sp).move(ep,true);
+			this.insertIndent("^|() {\n\t^|\n}");
+		}
+	case '<':
+		tag = prev.value(1);
+		if( tag.eq('page','layout','row','group','splitter','hbox','vbox') ) {
+			this.insertIndent(">\n\t\n</$tag>", null, 'lineEnd');
+		} else if( tag.eq('button') ) {
+			editor.insert(' id="^|" text="^|">', true);
+		} else if( tag.eq('tree','grid','editor','combo','radio','div','check','date','time','webview', 'canvas', 'input', 'tab') ) {
+			editor.insert(' id="^|">', true);
+		} else if( tag.eq('label') ) {
+			editor.insert(' text="^|">', true);
+		} else if( tag.eq('spa') ) {
+			editor.insert("ce>");
+		}
+	default: break;
+	}
+}
+
+## dev.EditorSrcChange
+
+editorKeyDown(key, mode) {
+	editor[prevKey] = 0;
+	nextCharCheck=func(c) {
+		ch = editor.text('nextChar');
+		if( ch.eq(c) ) {
+			cur=editor.pos();
+			editor.pos(cur+1);
+			return true;
+		}
+		return false;
+	};
+	_makeSubPageFunc=func(data) {
+		if( editor.searchPrev(".widget({") ) {
+			editor.move('selectStart');
+			if( editor.searchPrev("{") ) {
+				editor.move('selectStart');
+				editor.move('prevChar');
+				val=editor.sp('lineStart').spText().str();	
+				sv=val.pos();
+				val.move();
+				if( val.ch().eq('.') ) {
+					val.incr();
+					val.move();
+				}
+				ev=val.cur();
+				if( val.ch().eq('(') ) {
+					funcName=val.value(sv,ev,true).trim();
+					editor.move('start');
+					editor.insert("test() {\n\tpage=this.${funcName}();\n\tpage.func( template(func) {\n$data^|\n\t});\n}\n#> test();\n\n",true);
+				}
+			}
+		} else {
+			System.beep();
+		}		
+	};
+	
+	_funcReplace=func(data) {
+		sp=editor.pos('lineStart');
+		src=editor.sp('lineStart').spText();
+		val=editor.sp().spText(4096).str();
+		sv=0;
+		c=val.ch();
+		if( c.eq('(') ) {
+			param=val.match();
+			c=val.ch();
+			if( c.eq('{') ) {
+				body=val.match(1);
+				ev=val.cur();
+				src.add( val.value(sv,ev,true) );
+			}	
+		}
+		indent=indentText(src);
+		ep=sp+src.length();
+		editor.move(sp).move(ep,true); 
+		src=makeIndent(data, indent);
+		print( src, sp, ep, data);
+		this.insertIndent(src);
+		
+	};
+	_funcAdd=func(data) {
+		if( editor.search(".widget({") ) {
+			sp=editor.pos('lineStart');
+			val=editor.sp('lineStart').spText('end').str();
+			src='';
+			left=val.findPos("{",1,1);
+			body=val.match(1);
+			src.add(left,"{$body");
+			ep=sp+src.length();
+			editor.move(ep);
+			src=makeIndent(data, "\t");
+			print(src, ep);
+			this.insertIndent("$src\n\n");
+		}
+	};
+
+	switch( key ) {
+	case KEY.Escape: 
+		editor.pos('mp',true);
+	case KEY.F2:
+		str = this.matchBraket();
+		mode=cf.braketMode;
+		if( str ) {
+			pos = editor.pos();
+			if( mode.eq(1,4) ) {
+				ep=pos-str.length();
+			} else {
+				ep = pos+str.length();
+			}
+			if( mode.eq(1) ) {
+				pos++;
+			} else if( mode.eq(3) ) {
+				pos--;
+			} else if( mode.eq(4) ) {
+				ep--;
+			}
+			editor.mark(pos, ep);
+		}
+	case KEY.F3:
+		str = editor.text('select');
+		not( str ) str=mSearchPrev;
+		not( str ) return;
+		@mSearchPrev=str;
+		if( mode&KEY.shift ) {
+			editor.searchPrev(str);
+		} else {
+			editor.searchNext(str);
+		}
+		searchInput.value(str);
+		return true;
+	case KEY.F4:
+		editor.pos('findPos',true);
+		return true;
+	case KEY.F5:
+		val=editor.sp('prevWord','prevChar').spText();
+		c=val.ch();
+		if( c.eq('.') ) {
+			val=editor.sp('prevWord','prevChar','prevWord').spText();
+			page.alert("객체함수는 향후 구현 예정");
+		} else {
+			val=editor.sp('prevWord').spText(50).str();
+			fnm=val.move().trim();
+			if( val.ch().eq('(') ) {
+				if( fnm.eq('conf','tr') ) {
+					p=pageLoad('Common.ConfManager');
+					p.open();
+					val.incr();
+					if( val.ch().eq() ) {
+						param=val.match().trim();
+						p.initPage(param);
+					}
+				} else if( help.count("select count(1) from core_object_func where object_cate='func' and func_nm='$fnm'") ) {
+					page.alert("내장 함수는 향후 구현 예정");
+				} else {
+					p=pageLoad('Common.PreviewFunction');
+					p.open();
+					p.setCommFunc(fnm);
+				}
+			}
+		}
+		return true;
+	case KEY.F6:
+		str = editor.text('select');
+		not( str ) str = editor.text('word');
+		editor.findAll(str);
+		return true;
+	case KEY.F8:
+		not( mode&KEY.ctrl ) return;
+		sp=editor.pos(), ep=0;
+		editor.move('start');
+		while( n,128 ) {
+			if( editor.search("#>") ) {
+				pos=editor.pos();
+				if( sp<pos ) {
+					break;
+				}
+				ep=pos;
+			} else {
+				break;
+			}
+		}
+		not( ep ) {
+			editor.move(sp);
+			return;
+		}
+		editor.move(ep);
+		ep=editor.pos('lineEnd');
+		editor.move('start').move(ep,true);
+		editor.insert(""); 
+		sp-=ep;	
+		if( sp>0 ) {
+			editor.move(sp);
+		}
+	case KEY.F9:
+		sp=editor.pos('lineStart');
+		val=editor.sp('lineStart').spText(4096).str();
+		
+		sv=val.pos();
+		val.move();
+		if( val.ch().eq('.') ) {
+			val.incr();
+			val.move();
+		}
+		ev=val.cur();
+		src=val.value(sv,ev,true);
+		sv=ev;
+		c=val.ch();
+		if( c.eq('(') ) {
+			param=val.match();
+			c=val.ch();
+			if( c.eq('{') ) {
+				body=val.match(1);
+				ev=val.cur();
+				src.add( val.value(sv,ev,true) );
+				ep=sp+src.length();
+				editor.move(ep);
+				_makeSubPageFunc(src);
+			} else {
+				System.beep();
+			}
+		} else {
+			System.beep();
+		}		
+	case KEY.F10:
+		sp=editor.pos('lineStart');
+		val=editor.sp('lineStart').spText(4096).str();
+		
+		sv=val.pos();
+		val.move();
+		if( val.ch().eq('.') ) {
+			val.incr();
+			val.move();
+		}
+		ev=val.cur();
+		src=val.value(sv,ev,true);
+		funcName=src.trim();
+		sv=ev;
+		c=val.ch();
+		if( c.eq('(') ) {
+			param=val.match();
+			c=val.ch();
+			if( c.eq('{') ) {
+				val.match(1);
+				ev=val.cur();
+				src.add( val.value(sv,ev,true) );
+				ep=sp+src.length();
+				editor.move(ep);
+				ok=false;
+				while( n,16 ) {	
+					if( editor.search(funcName) ) {
+						str=editor.sp().spText(64).str();
+						c=str.ch();
+						if( c.eq('(') ) {
+							str.match();
+							c=str.ch();
+							if( c.eq('{') ) {
+								ok=true;
+								break;
+							}
+						}
+					} else {
+						break;
+					}
+				}
+				if( ok ) {
+					_funcReplace(src);
+				} else {
+					_funcAdd(src);
+				}
+			} else {
+				System.beep();
+			}
+		} else {
+			System.beep();
+		}
+	case KEY.Tab:
+		if( editor.isSelect() ) return false;
+		if( editor.pos('nextTab',true) ) return true;
+	case KEY.Up:
+		not( mode&KEY.ctrl )  return false; 
+		ok=false;
+		if( editor.isSelect() ) {
+			sp=editor.pos('selectStart', 'lineStart'), ep=editor.pos('selectEnd','lineEnd'); 
+			if( editor.pos('selectEnd')==editor.pos('selectEnd','lineStart') ) {
+				ep=editor.pos('selectEnd') - 1;
+			} else {
+				ep=editor.pos('selectEnd','lineEnd');
+			}
+			str=editor.move(sp).move(ep,true).text('select');
+			if( str.find("\n") ) {
+				ok=true;
+			}
+		}
+		not( ok ) {
+			sp=editor.pos('lineStart'), ep=editor.pos('lineEnd');
+			str=editor.move(sp).move(ep,true).text('select');
+		}
+		editor.move(sp).move(ep+1,true);
+		editor.insert('');
+		usp=editor.pos('up','lineStart'), uep=editor.pos('up','lineEnd');
+		upLine=editor.move(usp).move(uep,true).text('select');
+		indent=indentText( upLine );
+		upVal=upLine.trim();
+		if( upVal ) {
+			if( upVal.eq('}') ) {
+				indent.add("\t");
+			}
+			str=incrTab(str.ref(), indent, true);
+		}
+		len=str.length();
+		sp=usp, ep=usp+len;
+		editor.insert("$str\n$upLine");
+		editor.move(sp).move(ep,true);
+		return true;
+	case KEY.Down:
+		not( mode&KEY.ctrl )  return false; 
+		ok=false;
+		if( editor.isSelect() ) {
+			sp=editor.pos('selectStart', 'lineStart'), ep=editor.pos('selectEnd','lineEnd'); 
+			if( editor.pos('selectEnd')==editor.pos('selectEnd','lineStart') ) {
+				ep=editor.pos('selectEnd') - 1;
+			} else {
+				ep=editor.pos('selectEnd','lineEnd');
+			}
+			str=editor.move(sp).move(ep,true).text('select');
+			if( str.find("\n") ) {
+				ok=true;
+			}
+		}
+		not( ok ) {
+			sp=editor.pos('lineStart'), ep=editor.pos('lineEnd');
+			str=editor.move(sp).move(ep,true).text('select');
+		}
+		end=editor.pos('end');
+		dsp=editor.pos('down','lineStart'), dep=editor.pos('down','lineEnd');
+		if( dep >= end ) return;
+		if( dsp < dep ) {
+			downLine=editor.sp(dsp).spText(dep,true);
+			indent=indentText( downLine );
+			downVal=downLine.trim();
+			if( downVal ) {
+				if( downVal.ch(-1).eq('{') ) {
+					indent.add("\t");
+				}
+				str=incrTab(str.ref(), indent, true);
+			}
+			len=str.length(), dlen=downLine.length();
+			dep+=1;
+			editor.move(sp).move(dep,true);
+			editor.insert("$downLine\n$str\n");
+			dlen+=1;
+			sp+=dlen, ep=sp+len;
+			editor.move(sp).move(ep,true);
+		} else {
+			editor.move(sp).move(dep,true);
+			editor.insert("$downLine\n$str");
+			sp+=1;
+			len=str.length();
+			ep=sp+len;
+			editor.move(sp).move(ep,true);
+		}
+		return true;
+	case KEY.Return:
+		pos=editor.pos();
+		if( pos == editor.pos('lineStart') ) return false;
+		line = editor.sp('lineStart').spText();
+		indent = indentText(line.ref());
+		ch = line.prevChar();
+		if( ch.eq("{", ":") ) {
+			indent.add("\t");
+		}
+		remain=editor.sp().spText('lineEnd');
+		if( remain ) {
+			blank=indentText(remain);
+			pos=editor.pos() + blank.size();
+			editor.move(pos, true);
+		}
+		editor.insert("\n$indent");
+		return true;
+	case 34:
+		if( nextCharCheck('"') ) return true;
+		str=editor.text('prevWord');
+		ch=str.prevChar();
+		if( ch.eq('=',',','(') ) {
+			editor.insert('"^|"', true);
+			return true;
+		} 
+		return false;
+	case 39:
+		if( nextCharCheck("'") ) return true;
+		str=editor.text('prevWord');
+		ch=str.prevChar();
+		if( ch.eq('=',',','(') ) {
+			editor.insert("'^|'", true);
+			return true;
+		} 
+		return false;
+	case 41:
+		str = editor.sp().spText(-2048);
+		str.add(")");
+		return this.braketStartMark( str.ref(), '(', ')', true);
+	case 47: 
+		not( mode&KEY.ctrl ) {
+			return false;
+		}
+		if( editor.isSelect() ) {
+			sp=editor.pos('selectStart', 'lineStart'), ep=editor.pos('selectEnd','lineEnd'); 
+			if( editor.pos('selectEnd')==editor.pos('selectEnd','lineStart') ) {
+				ep=editor.pos('selectEnd');
+			}
+			str=editor.move(sp).move(ep,true).text('select');
+			if( str.find("\n") ) {
+				indent=indentText( str.find("\n") );
+				editor.insert( "$indent/*\n$str\n$indent*/", true);
+			} else {
+				sp=editor.pos('selectStart'), ep=editor.pos('selectEnd');
+				str=editor.move(sp).move(ep,true).text('select');
+				editor.insert("/* $str */");
+			}
+		} else {
+			line=editor.sp('lineStart').spText('lineEnd');
+			sp=editor.pos('lineStart');
+			sp+=indentText(line).size();	
+			editor.move(sp);
+			editor.insert('// ');
+		}
+		return true;
+	case 91:	 
+		not( mode&KEY.ctrl )  return;
+		
+		if( editor.isSelect() ) {
+			ep=editor.pos('selectEnd','lineEnd'); 
+			if( editor.pos('selectEnd')==editor.pos('selectEnd','lineStart') ) {
+				ep=editor.pos('selectEnd');
+			}
+			cur=editor.pos('selectStart');
+			editor.pos(cur);
+		} else {
+			cur=editor.pos();
+			ep=editor.pos('lineEnd');
+		}
+		
+		/* 선택 시작위치 기억 */
+		pos=cur; 
+			
+		/* Braket 시작위치를찾는다 */		
+		while( n, 16 ) { 
+			prev = editor.pos('prevWord',true);
+			txt=editor.text( prev, cur);
+			val=txt.trim();
+			ch=val.prevChar();
+			if( val.eq('else') || ch.eq(')') ) {
+				sp=cur;
+				break;
+			}
+			cur=prev;
+		}
+		if( sp<pos ) {
+			s=editor.sp(sp).spText(pos,true);
+			if( s.find("\n") ) {
+				editor.pos(pos);
+				pos=editor.pos('lineStart');
+			} else {
+				pos=sp;
+			}
+		}
+		line=editor.sp(sp,'lineStart').spText();
+		indent=indentText( line );
+		str=editor.sp(pos).spText(ep,true);
+		editor.move(sp).move(ep,true); 
+		if( str.find("\n") ) {
+			str=incrTab(str.ref(), "$indent\t", true);
+			editor.insert("{\n$str\n$indent}");
+		} else {
+			val=str.trim();
+			editor.insert("{\n${indent}\t${val}\n$indent}");
+		} 
+		return true;
+	case 123:	 
+		str=editor.text('prevWord');
+		ch=str.prevChar();
+		if( str.start('else') || ch.eq(')') ) return this.insertIndent("{\n\t^|\n}");
+	case 125:
+		str=editor.sp().spText('start');
+		str.add("}");
+		indent = this.braketStartIndet(str.ref() );
+		if( indent ) {
+			editor.insert(indent);
+		}
+	case 93:
+		str = editor.sp().spText(-1024);
+		str.add("]");
+		return this.braketStartMark( str.ref(), '[', ']', true);
+	case KEY.Home:	  
+		indent = indentText( editor.sp('lineStart').spText() );
+		pos=editor.pos();
+		if( pos.eq(indent.size()) ) return false;
+		editor.pos('sp', indent.size(), true);
+		return true;
+	default: editor[prevKey] = key;
+	}	
+	return false;
+}

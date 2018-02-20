@@ -1,0 +1,84 @@
+MessageWindow {
+MessageWindow(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	setChildSize=func(root) {
+		while( cur, root ) {
+			not( cur[type] ) cur[type]='vbox';
+			setNodeSize(cur,true);
+			confNodeLayout(cur);
+			setChildSize(cur);
+		}
+	};
+	setChildSize(tag);	
+}
+
+draw(draw, tag) {
+	draw.effect(
+		DRAW.RoundBox, tag[rect].incr(-1), 5, '#cacaca', '#ffffff', 2
+	);
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag]) {
+		case Title:
+			drawNodeText( draw, cur[rect].incrX(40), cur[title], "left", 40, "#8080a0");
+		case Message:
+			drawNodeText( draw, cur[rect], cur[message], "center", 24, "#909090");	
+		case Buttons:
+			while( sub, cur ) {
+				drawNodeButton(draw, sub, 'PopupButton', this); 
+			}
+		default:
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		switch(cur[tag]) {
+		case Title:
+		case Message:
+		case Buttons:
+			while( sub, cur ) {
+				if( sub[rcButton].contains(pos) ) {
+					this.mouseDownRect=sub[rcButton];
+				}
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		switch(cur[tag]) {
+		case Title:
+		case Message:
+		case Buttons:
+			while( sub, cur ) {
+				if( sub[rcButton].contains(pos) ) {
+					this.mainControl().closePopup();
+				}
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}	 
+}
+}

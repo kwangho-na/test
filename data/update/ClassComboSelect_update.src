@@ -1,0 +1,90 @@
+## common/widget.ClassComboSelect
+ClassComboSelect(page) {
+	this.addClass(common.Config);
+	not( cf ) cf={};
+	db=Class.db('pages');
+	inheritCombo	=page.classInheritCombo;
+	funcCombo		=page.classFuncCombo;
+	varCombo		=page.classVarCombo;
+	currentClass=null;
+	varCombo.delegate(true, 24);
+	
+	funcCombo.delegate(true, 24);
+	funcCombo.check('editable', true);
+	
+	inheritCombo.eventMap(onChange, this.inheritComboChange);
+	varCombo.eventMap(onDraw, this.varComboDraw, 'draw, index, state' );
+	varCombo.eventMap(onDraw, this.varComboChange );
+	if( funcCombo ) {
+		funcCombo.eventMap(onChange, this.funcComboChange );
+		funcCombo.eventMap(onDraw, this.funcComboDraw, 'draw, index, state' );
+		funcCombo.eventMap(onFocusIn, this.funcComboFocus);
+	}
+}
+initClassCombo(cls, all) {
+	str=Cf.info('funcVar', cls, 'member').str();
+	str=Cf.info('funcVar', cls, 'member').str();
+	node=Class.model('ClassVarInfo').rootNode();
+	node.removeAll();
+	maxStr='';
+	while( str.valid() ) {
+		line=str.findPos("\n");
+		not( line.ch() ) break;;
+		not( line.find('=') ) continue;
+		var=line.findPos('=').trim();
+		if( var.ch().eq('@') ) continue;
+		cur=node.addNode();
+		cur[var]=var;
+		cur[type]=line.trim();
+		val="$cur[var]\t    [$cur[type]]";
+		if( maxStr.size() < val.size() ) maxStr=val;
+	}
+	varCombo.addText(maxStr, true);
+	varCombo.removeAll().addItem(node,'var','==클래스 변수==');
+	
+	funcCombo.removeAll();
+	node=Class.model('ClassFuncInfo').rootNode();
+	node.removeAll();
+	if( all ) {
+		arr=cls.keys().sort();
+		while( key,  arr ) {
+			if( key.ch().eq('@') ) continue;
+			fc=cls[$key];
+			not( typeof(fc).eq("function") ) continue;
+			cur=node.addNode();
+			cur[class_func]=key;
+			cur[class_param]=Cf.funcParam(fc);
+		}
+	} else {
+		if( cls[@classBase] ) {
+			inherit="${cls[@classBase]}.${cls[@className]}";
+			inherit.split('.').inject(a,b);
+			node[class_grp]=a, node[class_nm]=b;
+			db.fetchAll("select class_func, class_param, type, note from class_func where class_grp=#{class_grp} and class_nm=#{class_nm} order by type", node);
+			node[class_nm]="${a}Base";
+			db.fetchAll("select class_func, class_param, type, note from class_func where class_grp=#{class_grp} and class_nm=#{class_nm} order by type", node);
+			node[inherit]=inherit;
+		} else {
+			inherit=inheritCombo.value();
+			node[inherit]=inherit;
+			if( inherit.find('.') ) {
+				inherit.split('.').inject(a,b);
+				node[class_grp]=a, node[class_nm]=b;
+				db.fetchAll("select class_func, class_param, type, note from class_info where class_grp=#{class_grp} and class_nm=#{class_nm} order by type", node);
+			} else {
+				node[class_nm]=cls[@className];
+				db.fetchAll("select class_func, class_param, note from class_info where class_nm=#{class_nm} order by type", node);
+			}
+		}
+	}
+	if( funcCombo ) {
+		maxStr='';
+		while( cur, node ) {
+			val="$cur[class_func] $cur[type]\t  $cur[class_param] ";
+			if( maxStr.size() < val.size() ) maxStr=val;
+		}
+		funcCombo.addText(maxStr, true);
+		funcCombo.addItem(node, 'class_func', '==클래스 함수==');
+	}
+	page.initClassCombo();
+}

@@ -1,0 +1,38 @@
+EditPageDrawTestEditor {
+	EditPageDrawTestEditor(page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+		page.save.eventMap(onClick, this.saveSrc);
+		page.run.eventMap(onClick, this.runSrc);
+		mainClass=null;
+ 		db=Class.db('pages');
+ 	}
+
+	initPage(node ) {
+		/* node = seq, test_grp, test_cd, test_nm, test_data, note, type */
+		cf.currentNode=node;
+		@mainClass=pageLoad('DrawTest.main').getClass();
+		this.setSrc(node.test_data);
+ 	}
+ 	saveSrc() {
+ 		node=cf.currentNode;
+		node[test_data]=this.editor.value() ;
+		node[note]=page.drawTestInfo.value() ;
+		not( db.exec("update draw_test set test_data=#{test_data}, note=#{note} where test_grp=#{test_grp} and test_nm=#{test_nm}", node) ) {
+			db.exec("insert into draw_test( test_grp, test_nm, test_data, note) values (#{test_grp}, #{test_nm}, #{test_data}, #{note})",node);
+		}
+		// this.runSrc( node[test_data] );
+		page.save.disable();
+	}
+	runSrc(val) {
+		not(val ) val=this.editor.value() ;
+		left=val.findPos(">>",1);
+		@mainClass.update( left );
+		@mainClass.setSrcEditor(this.editor);
+		right=left.right().findPos("\n");
+		if( right ) {
+			src=right.trim();
+			x=mainClass;
+			Cf.call("x.$src");
+		}	
+	}
+}

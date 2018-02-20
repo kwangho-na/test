@@ -1,0 +1,7 @@
+## my
+comm_splitterSizes(splitter, width) {
+	not( width ) width=260;
+	splitter=this.tag('splitter'), arr=splitter.sizes(), sum=arr.sum();
+	arr[0]=width, arr[1]=max(5, sum-width);
+	splitter.sizes(arr);
+}

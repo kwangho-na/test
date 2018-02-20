@@ -1,0 +1,17 @@
+print("=========== Baro Script ============");
+
+inc('common.comm');
+inc('common.dev');
+inc('common.etc');
+inc('common.HotKey');
+inc('common.editor', 'common');
+inc('common.grid', 'common');
+inc('common.tree', 'common');
+inc('common.combo', 'common');
+inc('common.canvas', 'common');
+inc('common.class', 'common');
+inc('common.draw', 'common');
+
+Cf.debug(true);
+page=pageLoad('dev.ScriptRunPage');
+page.open();

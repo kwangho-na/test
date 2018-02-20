@@ -1,0 +1,1314 @@
+setNodeSize(root, sizeSet) {
+
+	total=0, arr=class('util').arr();
+	not( root[Width] ) {
+		p=root.parent();
+		root[Width]=nvl( p[rect].width(), p[Width], true);
+	}
+	not( root[Height] ) {
+		p=root.parent();
+		root[Height]=nvl( p[rect].height(), p[Height], true);
+	}	
+	not( root[rect] ) {
+		x=0, y=0;
+		w=nvl(root[Width]), 64), h=nvl(root[Height]), 32 );
+		if( root[Margin] ) {
+			str=root[Margin].ref();
+			while( str.valid(), n, 0 ) {
+				val=str.findPos(',').trim();
+				v=_rate(val,0);
+				switch(n) {
+				case 0: x+=v; 
+				case 1: y+=v; 
+				case 2: w-=v;
+				case 3: h-=v;
+				}
+			}
+		}
+		root[rect]=Class.rect(x, y, w, h);
+	}
+	
+	root[rect].inject(sx,sy,sw,sh);
+	_proc=func(attr) {
+		ca=root[${attr}Array];
+		if( ca ) {
+			while( cur, root, n, 0 ) {
+				if( cur[class].eq('popup', 'layer') ) {
+					continue;
+				} 
+				if( cur[$attr] ) continue;
+				if( ca[$n], not(ca[$n].eq('*')) ) { 
+					cur[$attr]=ca[$n];
+				}
+			}
+		}
+		while( cur, root ) {
+			if( cur[class].eq('popup', 'layer') ) {
+				if( cur[class].eq('popup') ) {
+					not( cur[Width] ) 	cur[Width]=sw;
+					not( cur[Height] ) 	cur[Height]=sh;
+				}		
+				continue;
+			}
+			if( sizeSet ) {
+				switch( attr ) {
+				case Width: 	not( cur[Height] ) 	cur[Height]=sh;
+				case Height:	not( cur[Width] ) 	cur[Width]=sw;
+				}
+			}
+			not( cur[$attr] ) {
+				arr.add(cur);
+				continue;
+			}
+			total+=cur[$attr];
+		}
+
+		size=arr.size();
+		if( attr.eq('Width') ) {
+			remain=sw-total;
+		} else {
+			remain=sh-total;
+		}
+		if( remain<0 ) {
+			return;
+		}
+		if( size.eq(1) ) {
+			cur=arr[0];
+			cur[$attr]=remain;
+		} else {
+			ca=class('util').arr(), hh=remain/size;
+			while(n, size) ca.add(hh);
+			ca.recalc(remain);
+			while( cur, arr, n, 0 ) cur[$attr]=ca[$n];
+		}
+	};
+	
+	type=root[type];
+	not( type ) type='vbox';
+	switch( type ) {
+	case hbox: 
+		_proc('Width');
+	case vbox:	
+		_proc('Height');
+	case box: 
+		_proc('Width'); 
+		_proc('Height');
+	case stack: 
+		while( cur, root ) {
+			not( cur[width] ) 	cur[Width]=root[Width];
+			not( cur[Height] ) 	cur[Height]=root[Height];
+		}
+	}
+
+}
+
+findNodeKind(root, tag, kind) {	
+	while( cur, root ) {
+		if( cur[tag].eq(tag) ) {
+			not( kind ) return cur;
+			if( cur[kind].eq(kind) ) return cur;
+		}
+		find=findNodeKind(cur,tag,kind);
+		if( find ) return find;
+	} 
+	return null;
+}
+
+findNodeId(root, id) {
+	while( cur, root ) {
+		if( cur[id].eq(id) ) return cur;
+		find=findNodeId(cur, id);
+		if( find ) return find;
+	}
+	return null;
+}
+
+confStyle(root, style) {
+	
+	rc=root[rect];
+	switch( style ) {
+	case vc: 
+		args(2, hh, space, leftMargin);
+		total=0;
+		while( cur, root ) {
+			total+=cur[rect].width();
+		}
+		rc.width(total);
+		rcCur=rc.center(total,hh);
+		rcCur.incrX(leftMargin);
+		sx=rcCur.x(), sy=rcCur.y();
+		while( cur, root ) {
+			w=cur[rect].width();
+			sw=w-space;
+			cur[rect]=Class.rect(sx,sy,sw,hh);
+			sx+=w;
+		}
+	default: break;
+	}
+}
+
+findPageNode(node) {
+	p=node;
+	while( p ) {
+		if( p[tag].eq('Page', 'Window') ) return p;
+		p=p.parent();
+	}
+	return null;
+}
+
+drawButton(draw, btn, page, fonts) {
+	rc=btn[imageRect];
+	not( rc ) rc=btn[rect];
+
+	type='n';
+	if( btn[disable] ) {
+		type='d';
+	} else if( rc.eq(page[mouseDownRect]) ) {
+		type='p';
+	}
+	img=btn[img$type];
+	
+	not( img ) {
+		img=Cf.loadImage( tr(btn[src],type), true );
+		btn[img$type]=img;
+	}
+	draw.drawImage(rc, img);
+	
+	if( btn[text] ) {
+		if( typeof(fonts,'array') ) {
+			drawNodeText(draw, rc, btn[text], "center", fonts, page);		
+		} else {
+			drawNodeText(draw, rc, btn[text], "center", 13);		
+		}
+	}
+}
+
+drawNodeText(draw, rc, text, align, style, tag) {
+	not( rc ) {
+		print("drawNodeText rect not define: $text, $style");
+		return;
+	} 
+	fontDef='맑은 고딕';
+	ok=false;
+	if( typeof(style,'number') ) {
+		fontSize=style;
+		args(5, fontColor, fontWeight, fontName);
+		not( fontName ) {
+			fontName=fontDef;
+		}
+		draw.save().font(fontSize, fontWeight, fontColor, fontName);
+		ok=true;
+	} else if( typeof(style,'array') ) {
+		args(5, ctrl);
+		style.inject(fontSize, fontColor, fontWeight, fontName);
+		not( fontName ) {
+			fontName=fontDef;
+		}
+		if( ctrl ) {
+			fontSize=ctrl.rate(fontSize);
+		}
+		draw.save().font(fontSize, fontWeight, fontColor, fontName);
+		ok=true;
+	} else if( style ) {
+		draw.save();
+		switch( style ) {
+		case TableHeader:
+			draw.font(24, 'bold', "#eacaa0", fontDef );
+			draw.text( rc.incrXY(4,2,true), text, align);
+			draw.pen('#624320');
+			draw.text( rc, text, align);
+		case PopupTitle:
+			rc.incrX(45);
+			colorBk	=Class.color('#708a80');
+			draw.font(28, 'bold', colorBk, fontDef );
+			draw.text( rc.incrXY(4,2,true), text, align);
+			draw.pen(colorBk.lightColor(200) );
+			draw.text( rc, text, align);
+		case PopupButton:
+			colorBk	=Class.color('#4a4a4a');
+			draw.font(28, 'bold', colorBk, fontDef );
+			draw.text( rc.incrXY(4,2,true), text, align);
+			draw.pen(colorBk.lightColor(220) );
+			draw.text( rc, text, align);
+		case SubTitle:
+			draw.font(24, 'normal', "#505050", fontDef );
+			draw.text( rc, text, align);
+		case TableList:
+			draw.font(24, 'normal', "#505050", fontDef );
+			draw.text( rc, text, align);
+		case OrderInfo:
+			draw.font(16, 'normal', "#505050", fontDef );
+			draw.text( rc, text, align);
+		case OrderPrice:
+			draw.font(14, 'normal', "#808080", fontDef );
+			draw.text( rc, text, align);
+		case OrderHeader:
+			colorBk		=Class.color('#FF9900');
+			draw.fill(rc.incr(1), colorBk);
+			draw.font(18, 'bold', colorBk.darkColor(130), fontDef );
+			if( align.eq('left') ) rc.incrX(40);
+			draw.text( rc, text, align);
+		default:
+			draw.text(rc, text, align);
+		}
+		draw.restore();
+		return;
+	}
+	
+	draw.text(rc, text, align);
+	if( ok ) {
+		draw.restore();
+	}
+}
+
+saveClass(class_grp, class_nm, &s, page) {
+	root={};
+	db=Class.db('pages');
+	tm=System.localtime();
+	root.put(class_grp, class_nm, tm);
+	note='';
+	while( s.valid() ) {
+		c=s.ch();
+		not( c ) break;
+		if( c.eq('/') ) {
+			if( s.ch(1).eq('/') ) note.add( s.findPos("\n") );
+			else if( s.ch(1).eq('*') ) note.add( s.match() );
+			continue;
+		}
+		func=s.move();
+		c=s.ch();
+		not( c.eq('(') ) {
+			page.alert("함수 시작오류 : 함수명 : $func");
+			break;
+		}
+		param=s.match().trim();
+		c=s.ch();
+		not( c.eq('{') ) {
+			page.alert("함수 매개변수 오류: $param");
+			break;
+		}
+		body=s.match(1);
+		root.varMap('class_func: func, class_param: param, note');
+		if( body.find('//') || body.find('/*') ) {
+			root[class_src]=body;
+			root[class_data]=makeSrc(body);			
+		} else {
+			root[class_src]='';
+			root[class_data]=body;			
+		}
+		if( func.eq(class_nm) ) {
+			root[type]='A';
+		} else {
+			root[type]='F';
+		}
+		num=db.exec("update class_info set class_src=#{class_src}, class_data=#{class_data}, class_param=#{class_param}, type=#{type}, note=#{note}, tm=#{tm} where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", root);
+		not( num ) {
+			db.exec("insert into class_info( class_grp, class_nm, class_func, class_param, class_src, class_data, note, type, tm ) values (#{class_grp}, #{class_nm}, #{class_func}, #{class_param}, #{class_src}, #{class_data}, #{note}, #{type}, #{tm})", root);
+		}
+		note='';
+	}
+	cnt=db.count("select count(1) as cnt from class_mst where class_grp=#{class_grp} and class_nm=#{class_nm}", root);
+	not( cnt ) {
+		db.exec("insert into class_mst (class_grp, class_nm, type, tm) values (#{class_grp}, #{class_nm}, 'A', #{tm})", root);
+	}
+	
+	root.delete();
+	include("${class_grp}.${class_nm}",true);
+}
+
+getRectArray(cur, info) { 
+	margin=0;
+	aid=null;
+	if( typeof(cur,'node') ) {
+		rc=cur[rect];
+		args(2, margin, aid, type);
+		not( type ) type=cur[type];
+	} else {
+		rc=cur;
+		args(2, margin, type, arr);
+		not( type ) type='vbox';
+	}
+	
+	tot=0;
+	if( typeof(info,'array') ) {
+		rate=info;
+	} else if( typeof(info,'number') ) {
+		rate=class('util').arr();
+		while( n, info ) rate.add(4);
+	} else {
+		rate=info.split();
+	}
+	if( arr ) {
+		arr.reuse();
+	} else {
+		if( aid ) {
+			arr=_arr(cur,aid).reuse();
+		} else {
+			arr=class('util').arr();
+		}	
+	}
+	
+	switch(type) {
+	case vbox: getRateArray(rate, rc.height(), arr);
+	case hbox: getRateArray(rate, rc.width(), arr);
+	}
+	if( margin ) {
+		margin/=2;
+	}
+
+	rc.inject(sx, sy, w, h);
+	last=arr.size()-1;
+	while( a, arr, n, 0 ) {
+		switch(type) {
+		case vbox: 
+			if( margin ) {
+				cy=sy, ca=a;
+				if( n ) cy+=margin;
+				not( n.eq(last) ) {
+					if( n ) {
+						ca-=margin * 2;
+					} else {
+						ca-=margin;
+					}
+				}
+				arr[$n]=Class.rect(sx,cy,w,ca);
+			} else {
+				arr[$n]=Class.rect(sx,sy,w,a);
+			}
+			sy+=a;
+		case hbox: 
+			if( margin ) {
+				cx=sx, ca=a;
+				not( n.eq(last) ) {
+					if( n ) {
+						ca-=margin * 2;
+					} else {
+						ca-=margin;
+					}					
+				}
+				if( n ) cx+=margin;
+				arr[$n]=Class.rect(cx,sy,ca,h);
+			} else {
+				arr[$n]=Class.rect(sx,sy,a,h);
+			}
+			sx+=a;
+		}	
+	}
+	return arr;
+}
+
+drawNodeButton(draw, btn, sty, page ) {
+	type='n';
+	if( btn[disable] ) {
+		type='d';
+	}
+	_img=func(btn) {
+		img=btn[src$type];
+		not( img ) {
+			if( btn[src].find('[#]') ) {
+				path= tr(btn[src],type);		
+				img=Cf.imageLoad(path, true );
+				btn[src$type]=img;
+			} else {
+				path=btn[src];
+				img=Cf.imageLoad(path, true );
+				btn[src$type]=img;
+			}
+		}
+		return img;
+	};
+ 
+	rcButton=btn[rcButton];
+	if( rcButton ) {
+		if( page && rcButton.eq(page[mouseDownRect]) ) {
+			type='p';
+		}
+		img=_img(btn);
+	} else {
+		rc=btn[rect];
+		img=_img(btn);
+		rcButton=img.center(rc);
+		switch( btn[style] ) {
+		case top:		rcButton.y(rc.y());
+		case left:		rcButton.x(rc.x());
+		case fixed:	
+			img.imageSize().inject(w,h);
+		case right:	
+			w=rc.width();
+			x=rc.right()-rc.width();
+			rcButton.x(x);
+		case bottom:
+			h=rc.height();
+			y=rc.bottom()-rc.height();
+			rcButton.y(y);
+		}
+		if( page && rcButton.eq(page[mouseDownRect]) ) {
+			type='p';
+			img=_img(btn);
+		}
+		btn[rcButton]=rcButton;
+	}
+
+	not( rcButton ) {
+		print("drawNodeButton image rect not define : $btn, $sty");
+		return;
+	} 
+	draw.drawImage(rcButton, img);
+	
+	if( btn[text] ) {
+		if( btn[TextMargin] ) {
+			rcText=setMarginRect(btn[rect], btn, 'TextMargin');
+		} else {
+			rcText=btn[rect];
+		}
+		fonts=btn[Font];
+		not(fonts ) {
+			if( typeof(sty,'node') ) {
+				fonts=sty[Font];
+			}
+		}
+		if( typeof(fonts,'array') ) {
+			drawNodeText(draw, rcText, btn[text], "center", fonts, page);		
+		} else {
+			drawNodeText(draw, rcText, btn[text], "center", sty);		
+		}
+	}
+}
+
+drawNodeStyle(draw, cur) {
+	if( cur[Background] ) {
+		draw.fill(cur[rect], cur[Background]);
+	}
+	if( cur[BackgroundImage] ) {
+		img=cur[background];
+		not( img ) {
+			img=Cf.imageLoad(cur[BackgroundImage], true);
+			cur[background]=img;
+		}
+		not( img ) return;
+		draw.drawImage(cur[rect], img );
+	}
+}
+
+imageLoad(node, type, var ) {
+	path=node[$type];
+	if( path.find('[#]') ) {
+		not( var ) var='n';
+		image=node[$type$var];
+		if( image ) return image;
+		
+		imagePath=tr(path, var);	
+		image=Cf.imageLoad( imagePath, true);
+		node[$type$var]=image;
+		return image;
+	}
+	image=node[@$type];
+	if( image ) return image;
+	if( typeof(var,'node') ) {
+		cf=var;
+		if( type.eq('MenuImage') ) {
+			args(3, menuCd);
+			path="$cf[menuImagePath]/${menuCd}.png";
+		} 
+	} else if( var ) {
+		path=var;
+	}
+	if( path ) {
+		image=Cf.imageLoad( path, true);
+		node[@$type]=image;	
+	}
+	return image;
+}
+
+drawNodeImage(draw, var ) {
+	if( typeof(var,'rect') ) {
+		rcImage=var;
+		args(2, root, key, type, mode);
+		val=root[$key];
+		if( val.find('[#]') ) {
+			not( type ) type='n';
+			img=root[$key$type];
+			not( img ) {
+				if( type.eq("default") ) {
+					path=tr( root[$key], '');
+				} else {
+					path=tr( root[$key], type);
+				}
+				img=Cf.imageLoad(path, true );
+				root[$key$type]=img; 
+			}
+		} else {
+			if( type ) {
+				path=type;
+				img=root[@$key];
+				not( img ) {
+					img=Cf.imageLoad(path, true );
+					root[@$key]=img;
+					
+				}				
+			} else {
+				img=root[@$key];
+				not( img ) {
+					path=root[$key];
+					img=Cf.imageLoad(path, true );
+					root[@$key]=img;
+					
+				}
+			}
+		}
+		if( mode ) {
+			rc=img.center(rcImage);
+			draw.drawImage(rc, img);
+			return rc;
+		} else {
+			draw.drawImage(rcImage, img);
+		}
+		
+	} else if( typeof(var,'node') ) {
+		args(2, box, page);
+		btn=var;
+		_img=func(btn) {
+			img=btn[img$type];
+			not( img ) {
+				path= tr(btn[src],type);
+				img=Cf.imageLoad(path, true );
+				btn[img$type]=img;
+			}
+			return img;
+		};
+		type='n';
+		if( btn[disable] ) {
+			type='d';
+		} 
+		rcImage=btn[imageRect];
+		not( rcImage ) {
+			rc=btn[rect];
+			size=btn[size];
+			not( size ) {
+				size=box[ButtonSize];
+			}
+			if( size ) {
+				size.inject(a,b);
+				w=page.rate(a), h=page.rate(b);
+				rcImage=rc.center(w,h);
+			} else {
+				rcImage=_img(btn).center(rc);
+			}
+			btn[imageRect]=rcImage;
+		}
+		not( rcImage ) {
+			print("drawNodeImage rect not define : $key, $type");
+			return;
+		}
+		if( rcImage.eq(page[mouseDownRect]) ) {
+			type='p';
+		}
+		draw.drawImage(rcImage, _img(btn));	
+	} 
+	return null;
+}
+
+drawButtons(draw, cf, names, rates, totalWidth) {
+	arr=class('util').split(names);
+	not( cf.buttonRect ) {
+		not( totalWidth ) {
+			totalWidth=90*arr.size();
+		}
+		rcBtn = rc.move('end', totalWidth);
+		totalWidth-=14;
+		cf.buttonRect = rcBtn.move('bottom',40).center(totalWidth, 30);
+	}
+	not( rates ) {
+		if( cf.buttonRate ) {
+			rates=cf.buttonRate;
+		} else {
+			a=_arr(cf,'buttonRate').reuse();
+			while( n, arr.size() ) {
+				a.add(4);
+			}
+			rates=cf.buttonRate;
+		}
+	}
+	rects=getRectArray(cf.buttonRect,rates,5,'hbox');
+	while( rc, rects, n, 0 ) { 
+		draw.ctrl('btn', rc, arr[$n]); 
+	}
+}
+
+clickButtons(pos, cf) {
+	while( rc, getRectArray(cf.buttonRect,cf.buttonRate,5,'hbox'), n, 0 ) {
+		if( rc.contains(pos) ) {
+			return n;
+		}
+	}
+	return -1;
+}
+
+timelineCallCheck(tag) {	if( tag.timelineTick ) {
+		dist=System.tick() - tag.timelineTick;
+		if( dist<100 ) {
+			return false;
+		} 
+	} 
+	tag.timelineTick= System.tick();
+	return true;
+}
+
+setMarginRect(rc, node, attr) {
+	not( attr ) attr='Margin';
+	not( node[$attr] ) return rc;
+	
+	rc.inject(x,y,w,h);
+	if( typeof(node[$attr],'string') ) {
+		arr=[];
+		str=node[$attr].ref();
+		while( str.valid(), n, 0 ) {
+			val=str.findPos(',').trim();
+			arr.add(val.toNumber());
+		}
+		node[$attr]=arr;
+	} else {
+		arr=node[$attr];
+	}
+	while( v, arr, n, 0 ) {
+		not( v ) continue;
+		switch(n) {
+		case 0: x+=v, w-=v;
+		case 1: y+=v, h-=v;
+		case 2: w-=v;
+		case 3: h-=v;
+		}
+	}
+	return Class.rect(x,y,w,h);
+}
+
+getRectArr(var) {
+	if( typeof(var,'node') ) {
+		args(1, rect, rate, space, mode, arrVar);
+		not( mode ) mode='hbox';
+		if( arrVar ) {
+			arr=_arr(var, arrVar);
+		} else {
+			arr=class('util').arr();
+		}
+		rect.inject(x,y,w,h);
+		if( mode.eq('vbox') ) {
+			arr.recalc(rect.height(), rate, true);
+			while( hh, arr, n, 0 ) {
+				rc=Class.rect(x,y,w,hh);
+				arr[$n]=rc;
+				y+=hh;
+			}
+		} else {
+			arr.recalc(rect.width(), rate, true);
+			while( ww, arr, n, 0 ) {
+				rc=Class.rect(x,y,h,ww);
+				arr[$n]=rc;
+				x+=ww;
+			}
+		}
+		return arr;
+	}
+	return null;
+}
+
+confNodeLayout(root, offset, space) {
+	layout=root[type];
+	not( layout ) layout="vbox";
+	if( offset ) {
+		offset.inject(ox, oy);
+	}
+	_rect=func(node, x, y, w, h, layer ) {
+		if( node[Margin] ) {
+			if( typeof(node[Margin],'string') ) {
+				arr=[];
+				str=node[Margin].ref();
+				while( str.valid(), n, 0 ) {
+					val=str.findPos(',').trim();
+					arr.add(val.toNumber());
+				}
+				node[Margin]=arr;
+			} else {
+				arr=node[Margin];
+			}
+			sz=arr.size(), chk=false;
+			if( sz<3 ) chk=true;
+			while( v, arr, n, 0 ) {
+				switch(n) {
+				case 0: 
+					x+=v; 
+					not( layer ) {
+						if(chk) {
+							w-=2*v;
+						} else if( arr[2].eq(0) || arr[2].eq(v) ) {
+							w-=v;	
+						}
+					}
+				case 1: 
+					y+=v; 
+					not( layer ) {
+						if(chk) {
+							h-=2*v;
+						} else if( arr[3].eq(0) || arr[3].eq(v) ) {
+							h-=v;
+						}
+					}
+				case 2: w-=v;
+				case 3: h-=v;
+				}
+			}
+		}
+		if( layer && offset ) {
+			x+=ox;
+			y+=oy;
+		}
+		node[rect]=Class.rect(x,y,w,h);
+	};
+	
+	root[rect].inject(sx,sy,sw,sh);
+	while( cur, root ) {
+		w=cur[Width];
+		h=cur[Height];
+		if( cur[class].eq('popup','layer') ) {
+			_rect(cur, 0, 0, w, h, true );
+			continue;
+		}
+		_rect(cur, sx, sy, w, h );
+		if( layout.eq('vbox') ) {
+			sy+=h;
+			if( space ) sy+=space;
+		} else if( layout.eq('hbox') ) {
+			sx+=w;
+			if( space ) sx+=space;
+		}
+	}
+}
+
+getDrawObject(node, var, a, b) {
+	do= node[$var];
+	if( do ) return do;
+	not( a ) return null;
+ 	if( typeof(a,'rect') ) {
+		do=Class.draw(a.size());
+	} else {
+		do=Class.draw(a,b);
+	}
+	node[$var]=do;
+	return do;
+}
+
+popupFadeIn(draw, timeline, style) {
+	if( timeline ) {
+		tid=timeline[tid];
+		if( tid.eq('FadeInPopup') ) {
+			frame=Cf.timeLine("FadeInPopup.current");
+			if( Cf.timeLine("FadeInPopup.running") ) {
+				opa=30;
+				opa+=frame*7;
+				
+			} else {
+				opa=100;
+			}
+			draw.opacity(opa);
+		}
+	}
+}
+
+maxDealNo(db, order) {	
+	order[key_type]='DealNo';
+	not( order[key_date] ) {
+		order[key_date]=System.date('yyyyMMdd');
+	}
+	db.fetch( "select max(seq) as seq from tb_key_gen where key_type=#{key_type} and key_date=#{key_date}", order);
+	order[seq++];
+	db.exec("insert into tb_key_gen (seq, key_type, key_date) values (#{seq}, #{key_type}, #{key_date})", order);
+	order[DealNo]=lpad(order[seq],4,'0');
+	return order[DealNo];
+}
+
+order_completeProcess(db, order, main, items) {
+	not( order ) return false;
+	not( order[InputCashOk] ) {
+		order[error]="입금이 완료되지 않았씁니다. 관리자에 문의하세요");
+		return false;
+	}
+	
+	not( items ) {
+		cf=main.cf;
+		items=cf[ShoppingCart].getOrderList();
+	}
+	
+	main.closePopup();
+	main.openPopup('Loading');
+	order[error]='';
+	
+	today			= System.date('yyyyMMdd');
+	totalPrice	= cf[ShoppingCart.OrderTotalPrice]; 
+	totalQty		= cf[ShoppingCart.OrderTotalQty];
+	vat			= totalPrice/10;
+	datetime	= System.date('yyyy-MM-dd HH:mm:dd');
+	not( cf[OpenDate] ) {
+		cf[OpenDate]=today;
+	}
+	/*주문기본 정보 생성 */
+	order[StoreNo]			= cf[storeCd];
+	order[PosNo]				= cf[PosNo];
+	order[SaleTmnl] 		= 'K';
+	order[SaleType]			= 'O';
+	order[SaleDate]			= cf[OpenDate];
+	order[DealDate]			= today;
+	order[PmtCnt]			= totalQty; 
+	order[MenuCnt]			= items.childCount();
+	order[NormalAmt]		= totalPrice;
+	order[SaleAmt]			= totalPrice; 
+	order[TakeOutYn]		= when( cf[OrderSelectType].eq('Hall'), 'N', 'Y' );
+	order[VatAmt]			= vat;
+ 	
+	/*주문번호 생성 */
+	order_dealNo(db, order);
+	
+	/*잔돈 배출*/
+	remain=0;
+	price= order[OrderTotalPrice];
+	price-=order[InputCashPrice];
+	if( price<0 ) {
+		remain=abs(price);
+		main.qtMonSendData("04,1,$remain");
+ 		while( n,10 ) {
+ 			print(" 잔돈배출 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 			System.sleep(500);
+ 			if( kioskDeviceNode[recvData] ) break;
+ 		}
+	}
+		
+	/* 영수증 인쇄*/
+	db.fetch("select store_nm, biz_no, tel, addr1 as addr from tb_store_mst where store_no=#{StoreNo}", order);
+	order.inject(store_nm, biz_no, tel, addr);
+	
+	printStr = "$store_nm,$addr,$biz_no,$tel,$datetime,$order[PosNo],$order[DealNo],"; 
+	while( sub, items ) {
+		sub[sum_price]=sub[qty*sale_price];
+		printStr.add("$sub[menu_nm]^$sub[sale_price]^$sub[qty]^$sub[sum_price]\t");
+	}
+	val=totalPrice-vat;
+	printStr.add(",$totalPrice,$val,$vat,$totalPrice,$order[InputCashPrice],$remain");
+	s="21,03,14,$printStr";
+	/* local8bit 로 변환*/
+	print("영수증 인쇄 : $s");
+	main.qtMonSendData(s.kr() );
+ 	while( n,10 ) {
+ 		print(" 영수증 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 		System.sleep(500);
+ 		if( kioskDeviceNode[recvData] ) break;
+ 	}
+ 	/* 주방프린터 인쇄 */
+ 	order_kitchenPrint(order, items, main);
+	
+	
+	/*매출 헤더 저장*/
+	sql=order_makeQuery('tb_sale_header', tr('sql#kiosk.InsertSale#Header') );
+	db.exec(sql, order);
+	
+	/*매출 상세 저장*/
+	order[Seq]=1;
+	while( sub, items ) {
+		order[MenuCd]		= sub[menu_cd];
+		order[Qty]				= sub[qty];
+		order[SalePrice]		= sub[sale_price];
+		sql=order_makeQuery('tb_sale_detail', tr('sql#kiosk.InsertSale#Detail') );
+		db.exec(sql, order);
+		order[Seq++];
+	}
+
+	/*매출 지불정보 저장*/
+	order[Trdata1]=order[InputCashPrice];
+	order[Trdata2]=remain;
+	
+	sql=order_makeQuery('tb_sale_payment', tr('sql#kiosk.InsertSale#Payment') );
+	db.exec(sql, order);
+	
+
+	
+	if( order[error] ) {
+		order[error]="주문처리중 오류가 발생했습니다. 관리자에 문의하세요");
+		return false;
+	} 
+	main.openPopup('CompleteOrder');
+	return true;
+}
+
+order_makeQuery(table, &s, updateWhere) {
+	a='', b='';
+	while( s.valid() ) {
+		left=s.findPos(',');
+		rst='';
+		field=left.trim();
+		while( left.valid() ) {
+			fa=left.findPos('_').trim().lower(); 
+			rst.add(fa.upper(1));
+		}
+		if( updateWhere ) {
+			if( updateWhere.find(rst) ) {
+				if( b ) b.add(" and ");
+				b.add("$field=#{$rst}");
+			} else {
+				if( a ) a.add(', ');
+				a.add("$field=#{$rst}");
+			}
+		} else {
+			if( a ) a.add(",");
+			if( b ) b.add(",");
+			a.add(field);
+			b.add("#{$rst}");
+		}
+	}
+	if( updateWhere ) {
+		sql="update $table set $a where $b";
+	} else {
+		sql="insert into $table ($a) values( $b)";
+	}
+	return sql;
+}
+
+order_cashOutError(db, totalOut, currentOut, order, cf, main ) {
+ 	date = System.date('yyyy-MM-dd HH:mm:ss');
+	not( order[DealNo] ) {
+		/*주문기본 정보 생성 */
+		order[StoreNo]			= cf[storeCd];
+		order[PosNo]				= cf[PosNo];
+ 		order[SaleDate]			= date;
+		
+		/*주문번호 생성 */
+		db.fetch( "select max(seq) as seq from tb_key_gen where key_type='DealNo' and key_date=#{SaleDate}", order);
+		order[seq++];
+		db.exec("insert into tb_key_gen (seq, key_type, key_date) values (#{seq}, 'DealNo', #{SaleDate})", order);
+		order[DealNo]=lpad(order[seq],4,'0');
+		
+		/*교환번호 생성*/
+		seq=order[DealNo].value(2);
+		order[ChangeNo]="05$seq";		
+	}
+	order[StoreNo]			= cf[storeCd];
+	order[PosNo]				= cf[PosNo];
+	db.fetch("select store_nm, owner_nm, biz_no, tel, addr1 as addr from tb_store_mst where store_no=#{StoreNo}", order);
+	order.inject(store_nm, owner_nm, biz_no, tel, addr);
+	remain=totalOut - currentOut;
+	s='21,09,12,';
+	s.add("$order[ChangeNo],$order[DealNo],$store_nm,$owner_nm,$biz_no,$addr,$date,");
+	s.add("$totalOut,$currentOut,$remain,$order[PosNo],$tel");
+	print("cash out : $order,  $s");
+	main.qtMonSendData(s.kr());
+ 	while( n,20 ) {
+ 		print(" 현금배출 오류(잔액교환권 출력) xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 		System.sleep(500);
+ 		if( kioskDeviceNode[recvData] ) break;
+ 	}	
+}
+
+order_kitchenPrint(order, items, main) {
+	time=System.date('HH시 mm분 ss초');
+	s='21,10,8,';
+	s.add("$order[DealNo],$time,");
+	while( sub, items ) {
+		s.add("$sub[menu_nm]^$sub[qty]\t");
+	}
+	s.add(",Y,Y,Y,Y,Y");
+	print("order_kitchenPrint : $s");
+	main.qtMonSendData(s.kr());
+ 	while( n,20 ) {
+ 		print(" 주방프린트 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 		System.sleep(500);
+ 		if( kioskDeviceNode[recvData] ) break;
+ 	}
+	order_mobildSale(item, main);
+}
+
+order_dealNo(db, order) {
+	/* 주문 번호 생성 */
+	date=System.date('yyyyMMdd');
+	db.fetch( "select max(seq) as seq from tb_key_gen where key_type='DealNo' and key_date='$date'", order);
+	order[seq++];
+	db.exec("insert into tb_key_gen (seq, key_type, key_date) values (#{seq}, 'DealNo','$date')", order);
+	order[DealNo]=lpad(order[seq],4,'0');
+
+	/*교환번호 생성*/
+	seq=order[DealNo].value(2);
+	order[ChangeNo]="05$seq";
+}
+
+order_completeCardProcess(db, node, order, main, items) {
+	not( order ) return false;
+	
+	cf=main.cf;
+	not( items ) {
+		items=cf[ShoppingCart].getOrderList();
+	}
+	System.sleep(250);
+	
+	main.openPopup('Loading');
+	order[error]='';
+	
+	today			= System.date('yyyyMMdd');
+	totalPrice	= cf[ShoppingCart.OrderTotalPrice]; 
+	totalQty		= cf[ShoppingCart.OrderTotalQty];
+	vat			= totalPrice/10;
+	datetime	= System.date('yyyy-MM-dd HH:mm:dd');
+	not( cf[OpenDate] ) {
+		cf[OpenDate]=today;
+	}
+	
+	/*주문기본 정보 생성 */
+	order[StoreNo]			= cf[storeCd];
+	order[PosNo]				= cf[PosNo];
+	order[SaleTmnl] 		= 'K';
+	order[SaleType]			= 'C';
+	order[SaleDate]			= cf[OpenDate];
+	order[DealDate]			= today;
+	order[PmtCnt]			= totalQty; 
+	order[MenuCnt]			= items.childCount();
+	order[NormalAmt]		= totalPrice;
+	order[SaleAmt]			= totalPrice; 
+	order[TakeOutYn]		= when( cf[OrderSelectType].eq('Hall'), 'N', 'Y' );
+	order[VatAmt]			= vat;
+ 	
+	/*주문번호 생성 */
+	order_dealNo(db, order); 
+	
+	
+	/* 영수증 인쇄*/
+	db.fetch("select store_nm, biz_no, tel, addr1 as addr from tb_store_mst where store_no=#{StoreNo}", order);
+	order.inject(store_nm, biz_no, tel, addr);
+	
+	s="21,04,21,";
+	s.add("$store_nm,$addr,$biz_no,$tel,$datetime,$order[PosNo],$order[DealNo],"); 
+	while( sub, items ) {
+		sub[sum_price]=sub[qty*sale_price];
+		s.add("$sub[menu_nm]^$sub[sale_price]^$sub[qty]^$sub[sum_price]\t");
+	}
+	val=totalPrice-vat;
+	s.add(",$totalPrice,$val,$vat,$totalPrice,$order[InputCashPrice],0");
+	getArvDt=func(s) {
+		yy=s.value(0,2), mm=s.value(2,4), dd=s.value(4,6);
+		date="20${yy}-${mm}-${dd}";
+		hh=s.value(6,8), mm=s.value(8,10), ss=s.value(10,12);
+		time="${hh}:${mm}:${ss}";
+		return "$date $time";		
+	};
+	order[ArvDt]=getArvDt(node[RS07].ref() );
+	
+	/* 카드종류	,	승인일시	,	승인금액	,	할부조건	,	승인번호	,	가맹점번호	,	알림 */
+	s.add(",$node[RS12],$order[ArvDt],$totalPrice,일시불,$node[RS09],$node[RS13],카드승인");
+	print("카드 영수증 인쇄 : $s");
+	
+	/* local8bit 로 변환*/
+	main.qtMonSendData(s.kr() );
+ 	while( n,10 ) {
+ 		print("카드 영수증 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx $n");
+ 		System.sleep(500);
+ 		if( kioskDeviceNode[recvData] ) break;
+ 	}
+ 	
+ 	/* 주방프린터 인쇄 */
+ 	order_kitchenPrint(order, items, main);
+	
+	
+	/*매출 헤더 저장*/
+	sql=order_makeQuery('tb_sale_header', tr('sql#kiosk.InsertSale#Header') );
+	db.exec(sql, order);
+	
+	/*매출 상세 저장*/
+	order[Seq]=1;
+	while( sub, items ) {
+		order[MenuCd]		= sub[menu_cd];
+		order[Qty]				= sub[qty];
+		order[SalePrice]		= sub[sale_price];
+		sql=order_makeQuery('tb_sale_detail', tr('sql#kiosk.InsertSale#Detail') );
+		db.exec(sql, order);
+		order[Seq++];
+	}
+
+	/*매출 지불정보 저장*/
+	pi=cf.posInfo;
+	order[Trdata1]=node[RQ04];
+	order[Trdata2]='20';
+	order[Trdata3]=node[RQ06];
+	order[Trdata4]='0';
+	order[Trdata5]=node[RQ11];
+	order[Trdata6]=node[RQ10];
+	order[Trdata7]='1';
+	order[Trdata8]=node[RQ08];
+	order[Trdata9]=node[RQ09];
+	order[Trdata10]=node[RQ11];
+	order[Trdata11]=node[RQ12];
+	order[Trdata12]=node[RQ14];
+	order[Trdata13]=node[RQ13];
+	order[Trdata14]=node[RQ16];
+	order[Trdata15]=pi[VanCode];
+	order[Trdata16]=pi[VanName];
+	order[Trdata17]=pi[VanIp];
+	order[Trdata18]=pi[VanPort];
+ 	order[Trdata19]=pi[VanData1];
+ 	order[Trdata20]=pi[VanTermID];
+		
+	sql=order_makeQuery('tb_sale_payment', tr('sql#kiosk.InsertSale#Payment') );
+	db.exec(sql, order);
+		
+	main.openPopup('CompleteOrder');
+	return true;	
+}
+
+sql_makeQuery(db, table, root, &fieldInfo, updateWhere) {
+ 	fa='', fb='';
+	arr=null;
+	if( updateWhere ) {
+		arr=updateWhere.split();
+	}
+	while( fieldInfo.valid() ) {
+		left=fieldInfo.findPos(',');
+		field=left.trim();
+		if( field.find('_yn') ) {
+			if( root[$field].eq('true') ) {
+				root[$field]='Y';
+			} else {
+				root[$field]='N';
+			}
+		}
+		if( arr ) {
+			find=false;
+			while( cur, arr ) {
+				if( cur.eq(field) ) {
+					find=true;
+					break;
+				}
+			}
+			if( find ) {
+				if( fb ) fb.add(" and ");
+				fb.add("$field=#{$field}");
+			} else {
+				if( fa ) fa.add(', ');
+				fa.add("$field=#{$field}");
+			}
+		} else {
+			if( fa ) fa.add(",");
+			if( fb ) fb.add(",");
+			fa.add(field);
+			fb.add("#{$field}");
+		}
+	}
+	if( updateWhere ) {
+		sql="update $table set $fa where $fb";
+	} else {
+		sql="insert into $table ($fa) values( $fb)";
+	}
+	print("sql=$sql");
+	db.exec(sql, root);
+	
+	err=db.error();
+	if( err ) {
+		return "({success:false,error:'$err'})";
+	}
+	return "({success:true})";
+}
+
+order_kitchenPrintMobile( items, main) {
+	s='';
+	
+	/* 향후 쓰레드에서 여러장 인쇄하도록 수정필요 */
+	_sendPrint=func(s) {
+		not(s ) return;
+		s.add(",Y,N,N,N,N");
+		main.qtMonSendData(s.kr());
+	};
+	
+	time=System.date('HH시 mm분 ss초');
+	dealNo='';
+	while( cur, items ) {
+		not( dealNo.eq(cur[deal_no]) ) {
+			if( s ) {
+				/* 우선 한장만 출력 !!!. */
+				_sendPrint(s);
+				s='';
+				break;
+			}
+			dealNo=cur[deal_no];
+			orderNo=cf[storeCd];
+			orderNo.add(dealNo);
+			s='21,10,8,';
+			s.add("$orderNo,$time,");
+		print("s= $s");
+		}
+		s.add("$cur[menu_nm]^$cur[qty]\t");
+	}
+	_sendPrint(s);
+	items[DEAL_NO++];
+	order_mobildSale(items, main);
+}
+
+drawSubText(draw, rc, text, style, fonts) {
+	switch( style ) {
+	case MenuSub:
+		not( text.ch().eq('(') ) {
+			drawNodeText( draw, rc, text, 'center', fonts );
+			return;
+		}
+		sub=text.match().trim();
+		name=text.find(')').right().trim();
+		print("xxx $name xxx");
+		fonts.inject(fontSize, fontColor, fontWeight, fontName);
+		not( fontName ) {
+			fontName='맑은 고딕';
+		}
+		draw.save().font(fontSize, fontWeight, fontColor, fontName);
+		w=draw.textWidth(name), w+=4;
+		rcText=rc.width(w);
+		draw.text(rcText, name, 'left');
+		draw.font(12, 'normal', '#404090', fontName);
+		draw.text(rc.incrX(w), sub, 'left');
+		draw.restore();
+	default:
+		drawNodeText( draw, rc, text, 'center', fonts );
+	}
+}
+
+order_mobildSale(items, main) {
+	db=Class.db('namzatang_local');
+	dbBo=Class.db('tros_server');
+
+	dbBo.fetchAll("select store_no, sale_date, pos_no, deal_no, deal_date, sale_tmnl, sale_type, pmt_cnt, menu_qty, normal_amt, sale_amt
+	from TB_SALE_HEADER
+	where sale_date=#{SALE_DATE} and deal_no=#{DEAL_NO} ", items.removeAll() );
+	while( cur, items ) {
+		db.exec("insert into TB_SALE_HEADER( 
+			store_no, sale_date, pos_no, deal_no, deal_date, sale_tmnl, sale_type, pmt_cnt, menu_qty, normal_amt, sale_amt
+		) values  (
+			#{store_no}, #{sale_date}, #{pos_no}, #{deal_no}, #{deal_date}, #{sale_tmnl}, 'M', #{pmt_cnt}, #{menu_qty}, #{normal_amt}, #{sale_amt}
+		) ", cur);	
+	}
+		
+	dbBo.fetchAll("select store_no, sale_date, pos_no, deal_no, sale_tmnl, sale_type, 
+ 	seq, menu_cd, menu_type,  class_cd, tax_yn, sale_price, qty, normal_amt, sale_amt
+	from TB_SALE_DETAIL
+	where sale_date=#{SALE_DATE} and deal_no=#{DEAL_NO} ", items.removeAll());
+	
+	while( cur, items ) {
+		db.exec("insert into TB_SALE_DETAIL ( 
+			store_no, sale_date, pos_no, deal_no, sale_tmnl, sale_type, 
+			seq, menu_cd, menu_type,  class_cd, tax_yn, sale_price, qty, normal_amt, sale_amt	
+		) values  (
+			#{store_no}, #{sale_date}, #{pos_no}, #{deal_no}, #{sale_tmnl}, 'M', 
+			#{seq}, #{menu_cd}, #{menu_type}, #{class_cd}, #{tax_yn}, #{sale_price}, #{qty}, #{normal_amt}, #{sale_amt}
+		) ", cur);	
+	}
+	
+	dbBo.fetchAll("select store_no, sale_date, pos_no, deal_no, pmt_type, sale_type, arv_dt, pmt_amt, trdata1
+		from TB_SALE_PAYMENT
+	where sale_date=#{SALE_DATE} and deal_no=#{DEAL_NO} ", items.removeAll());
+	
+ 	while( cur, items ) {
+		db.exec("insert into TB_SALE_PAYMENT ( 
+			store_no, sale_date, pos_no, deal_no, seq, sale_type, arv_dt, pmt_amt, trdata1
+		) values  (
+			#{store_no}, #{sale_date}, #{pos_no}, #{deal_no}, '1', 'M', #{arv_dt}, #{pmt_amt}, #{trdata1}
+		) ", cur);	
+	}
+}

@@ -1,0 +1,533 @@
+ListBox {
+ListBox(tag, parentCtrl) {
+		parentCtrl.inject(db, cf, xmlNode);
+		this.addClass('common/control.pageBase');
+		this.initControl();
+	}
+
+changeTab(tab) {
+	tag.inject(rowCnt, cellCnt);
+	
+	/* 이전 탭정보 저장 */
+	tag[prevTab] = tag[currentTab];
+	
+	/* view_type에따라 보여질 메뉴수를 결정 */
+	if( tab[view_type].eq('A') ) {
+		gridCnt	= rowCnt*cellCnt;
+	} else {
+		gridCnt	= 4;
+	}
+	totalCnt		= tab.childCount();
+	pageCnt		= totalCnt/gridCnt;
+	mod=totalCnt%gridCnt;
+	if( mod ) {
+		pageCnt++;
+	}
+
+	/* 메뉴 페이지 설정(메모리 DC) */
+	ignore=false;
+	pageNode	= tab[pageNode];
+	if( pageNode ) {
+		if( pageCnt != pageNode.childCount() ) {
+			/* 메뉴수가 변경된 경우 */
+			dist= pageCnt - pageNode.childCount();
+			if( dist>0 ) {
+				while( num, dist ) pageNode.addNode();
+			}
+		} else {
+			/* 변경된 내용이 없으므로 무시한다.*/
+			ignore=true;
+		}
+	} else {
+		/* 처음 탭 페이지 생성 */
+		pageNode={};
+		while( num, pageCnt ) {
+			pageNode.addNode();
+		}
+		tab[pageNode]=pageNode;
+	}
+	tab[currentPage]=0;
+	tab.put( gridCnt, pageCnt );	
+	tag[currentTab]=tab;
+	
+	not( this[pagePanel] ) {
+		this[pagePanel]=this.findControl('PagePanel');
+	}
+	this[pagePanel].changeTab(tab);
+	
+	if( ignore ){
+		return;
+	}
+	
+	/* 페이지 영역 초기화 및 메뉴그리기 */	
+	while( page, pageNode, num, 0 ) {
+		page.state(0);
+		page[pageNum]=num;
+		if( page[drawObject] ) {
+			page[drawObject].fill();
+		} else {
+			page[drawObject]=Class.draw( tag[rect].size() );
+		}
+	}
+	this.conf();
+}
+
+conf() {
+	tab=tag[currentTab];
+	not( tab ) return;
+	tag.inject( rateHeight, rateWidth, rateThumb, rateListRow, rateListHeight);
+	/* 
+	영역 LeftTop 위치 저장후 메모리에 그린 페이지 정보를
+	offset 만큼이동하서 화면에 그려준다.
+	*/
+	tag[offset]=tag[rect].lt();	
+	
+	/* view_type : A=썸네일 형태, S: 리스트 형태 */
+	tag[rect].size().inject(w,h);
+	
+	/* 폭 & 높이를 균등 분할 */
+	if( tab[view_type].eq('A') ) {
+		rateHeight.recalc(h, rowCnt);
+		rateWidth.recalc(w, cellCnt);
+		/* 셈네일 형태 : 이미지, 메뉴명, 가격 표시 영역 */
+		rateThumb.recalc(rateHeight[0], '*,45,55', true);
+		this.makeThumbRect();
+	} else {
+		rateListHeight.recalc(h, 4);
+		/* 리스트 형태 : 이미지, 메뉴명, 가격 표시 영역 */
+		rateListRow.recalc(w, '350,*,200', true);
+		this.makeListRect();
+	}
+	this.drawPage(tab);
+}
+
+draw(draw, tag, timeline) {
+	page=this.getPage();
+	not( page  ) {
+		return;
+	}
+	ok=false;
+	if( timeline ) {
+		if( Cf.timeLine("CornerTabChange.running") ) {
+			frame=Cf.timeLine("CornerTabChange.current");
+			if( tag[prevTab] ) {
+				if( frame.eq(0) ) {
+					tprev=tag[prevTab.displayTabIndex], tcur=tag[currentTab.displayTabIndex];
+					tc=abs(tprev-tcur);
+					/* 인접한 탭인경우 슬라이드효과 else 투명효과*/
+					if( tc.eq(1) ) {
+						drawObject=this[SlideDrawObject];
+						tag[rect].inject(x,y,w,h);
+						not( drawObject ) {
+							ww=w*2;
+							drawObject=Class.draw( ww, h );
+							this[SlideDrawObject]=drawObject;
+						}
+						rc=Class.rect(0,0,w,h);
+						prev=this.getPage( tag[prevTab] );
+						drawObject.fill('#ffffff');
+						if( tprev<tcur ) {
+							drawObject.drawImage(rc, prev.drawObject); 
+							drawObject.drawImage(rc.move('right'), page.drawObject); 
+							timeline[mode]='SlideRight';
+						} else {
+							drawObject.drawImage(rc, page.drawObject); 
+							drawObject.drawImage(rc.move('right'), prev.drawObject); 				
+							timeline[mode]='SlideLeft';
+						}
+						_arr(this,'RecalcArray').recalc(w, 20);
+					} else {
+						timeline[mode]='FadeInOut';
+					}
+				}
+				drawObject=this[SlideDrawObject];
+				switch(timeline[mode]) {
+				case SlideRight:
+					sx=0;
+					sx+=this[RecalcArray].sum(0,frame);
+					draw.drawImage(tag[rect], drawObject, sx, 0);
+					return;
+				case SlideLeft:
+					sx=tag[rect].width();
+					sx-=this[RecalcArray].sum(0,frame);
+					draw.drawImage(tag[rect], drawObject, sx, 0);
+					return;
+				case FadeInOut:
+					prev=this.getPage( tag[prevTab] );
+					in=frame * 5;
+					out=100-in;
+					draw.opacity(out);
+					draw.drawImage( tag[rect], prev.drawObject );	
+					draw.opacity(in);
+					draw.drawImage( tag[rect], page.drawObject );	
+					draw.opacity(100);
+				default:
+				}
+			} else {
+				opa=frame * 5;
+				draw.opacity(opa);
+				draw.drawImage( tag[rect], page.drawObject );	
+			}
+		} else if( Cf.timeLine("SelectMenu.running") ) {
+			frame=Cf.timeLine("SelectMenu.current"); 
+			draw.drawImage( tag[rect], page.drawObject );	
+			menu=this[currentSelectMenu];
+			if( frame.eq(0) ) {
+				arr=_arr(tag,'SelectMenuPoints').reuse();
+				rcMenu=menu[rcImage];
+				arr.add(rcMenu.lt() );
+				arr.add(Class.point(500,10) );
+				arr.add(Class.point(650, 5000));
+				a=_arr(tag,'SelectMenuPaths').recalc(arr, 40);
+			} else {
+				paths=tag[SelectMenuPaths];
+				menu[rcImage].inject(x,y,w,h);
+				in=frame * 5;
+				out=100-in; 
+				w-=in, h-=in;
+				rc=Class.rect(paths.get(frame), w, h);
+				img=imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+				draw.opacity(out);
+				draw.drawImage(img.center(rc), img);
+				draw.opacity(100);
+			}
+		} else {
+			draw.opacity(100);
+			draw.drawImage( tag[rect], page.drawObject );	
+			ok=true;
+		}
+	} else {
+		draw.drawImage( tag[rect], page.drawObject );	
+		if( this.mouseDownMenu ) {
+			menu=this.mouseDownMenu;
+			img=imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+			draw.drawImage(img.center(menu[rcImage]), img, 'shadow', 20, 8, '#a0a0a0');
+		} else {
+			ok=true;
+		}
+	}
+	if( ok ) {
+		/* 품절처리 start*/
+		map=cf[SoltOutMap];
+		not( map ) return; 
+		x=map.keys();
+		while( m, tag[currentTab]  ) {
+			menuCd=m[menu_cd];
+			not( menuCd ) break;
+			not( map[$menuCd] ) continue;
+			menu=map[$menuCd];
+			if( menu[use_yn].eq('N') ) {
+				draw.opacity(70);
+				draw.fill(menu[rect],'#c0a0d0');
+				draw.font(48, 'bold', '#faf0ff');
+				draw.text(menu[rect],'품절','center');
+				draw.opacity(100);
+			}
+		}
+		/* 품절처리 end*/		
+	}
+}
+
+drawListPage(draw ,tab, offset) {
+	tab.inject(gridCnt, currentPage);
+	sp=gridCnt*currentPage;
+	ep=sp+gridCnt;
+	draw.mode();
+	while( n, ep, sp ) {
+		menu=tab.child(n);
+		not( menu ) break;
+		menu.inject( rcImage, rcText, rcPrice);
+		if( offset ) {
+			rect=menu[rect].incrXY(offset,false);
+		} else {
+			rect=menu[rect];
+		}
+		if( offset ) {
+			rcImage.incrXY(offset,false), rcText.incrXY(offset,false), rcPrice.incrXY(offset,false);
+		}
+		drawRowBox=tag[drawRowBox];
+		drawRowImgBox=tag[drawRowImgBox]; 
+		not( drawRowImgBox ) {
+			drawRowBox=Class.draw(rect.size());
+			drawRowImgBox=Class.draw(rect.size());
+			drawRowBox.mode();
+			drawRowImgBox.mode();
+			r=Class.rect(0,0,rect.size());
+			drawRowBox.effect(
+				DRAW.RoundBox, r, 15, '#cacaca', '#fafafa', 2
+			);
+			drawRowImgBox.effect( 
+				DRAW.RoundBox, r, 15, '#cacaca', '#eae0da', 2
+			);
+			tag[drawRowBox]=drawRowBox;
+			tag[drawRowImgBox]=drawRowImgBox;
+		}
+		draw.drawImage( rect, drawRowBox );
+		iw=rcImage.width(), iw-=13;
+		draw.drawImage( rect, drawRowImgBox, 0, 0, iw  );
+		if( menu[menu_cd] ) {
+			rc=rcImage.incr(15);
+			img=imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+			draw.drawImage( img.center(rc), img);
+			draw.rectLine(rc.incrW(15) , 3, '#c0c0c0');
+			
+			getRectArr(menu, rcText.incrX(25), '*,100', 0, 'vbox', 'menuInfoRect').inject(a,b);
+			drawNodeText( draw, a, menu[menu_nm], 'left', tag[FontText] );
+			drawNodeText( draw, b, menu[menu_de], 'left', tag[FontDesc] );
+			
+			price=util_priceComma(menu[sale_price]);
+			drawNodeText( draw, rcPrice, "$price 원", 'left', tag[FontPrice1] );
+		} 
+	}	
+}
+
+drawPage(tab) {
+	not( tab ) tab=tag[currentTab];
+	page=this.getPage(tab);
+	not( page ) {
+		_log("Menu ListBox :: drawPage:: <current page is null>");
+	}
+	
+	offset=tag[offset];
+	draw=page.drawObject;
+	if( tab[view_type].eq('A') ) {
+		this.drawThumbPage(draw, tab, offset);
+	} else {
+		this.drawListPage(draw, tab, offset);
+	}
+	page.state(NODE.set, true);
+}
+
+drawThumbPage(draw, tab, offset) {
+	tab.inject(gridCnt, currentPage);
+	sp=gridCnt*currentPage;
+	ep=sp+gridCnt;
+	draw.mode();
+	draw.fill();
+	while( n, ep, sp ) {
+		menu=tab.child(n);
+		menu.inject( rcImage, rcText, rcPrice);
+		if( offset ) {
+			rect=menu[rect].incrXY(offset,false);
+		} else {
+			rect=menu[rect];
+		}
+		drawThumbBox=tag[drawThumbBox];
+		drawThumbImgBox=tag[drawThumbImgBox]; 
+		not( drawThumbBox ) {
+			drawThumbBox=Class.draw(rect.size());
+			drawThumbImgBox=Class.draw(rect.size());
+			drawThumbBox.mode();
+			drawThumbImgBox.mode();
+			r=Class.rect(0,0,rect.size());
+			drawThumbBox.effect(
+				DRAW.RoundBox, r, 15, '#cacaca', '#fafafa', 2
+			);
+			drawThumbImgBox.effect( 
+				DRAW.RoundBox, r, 15, '#cacaca', '#eae0da', 2
+			);
+			tag[drawThumbBox]=drawThumbBox;
+			tag[drawThumbImgBox]=drawThumbImgBox;
+		}
+		draw.drawImage( rect, drawThumbBox );
+		
+		if( menu.menu_cd ) {
+			img=imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+			if( offset ) {
+				rcImage.incrXY(offset,false), rcText.incrXY(offset,false), rcPrice.incrXY(offset,false);
+			}
+			iw=rcImage.width(), ih=rcImage.height();
+			ih-=15;
+			draw.drawImage( rect, drawThumbImgBox, 0, 0, iw, ih );
+			
+			r=rcImage.incrX(14).incrW(-12);
+			draw.rectLine( r.incrH(-2), 4, '#c0c0c0');
+			rc=rcImage.incr(15);
+			draw.drawImage( img.center(rc), img);
+			price=util_priceComma(menu[sale_price]);
+			if( menu[disp_type].eq('01','02') ) {
+				rc=Class.rect( rcImage.lt(), 89,64);
+				drawNodeImage(draw, rc, tag, "Icon_DispType${menu[disp_type]}");
+			}
+			menuText=menu[menu_nm];
+			if( menuText.find('[이벤트]') ) {
+				rcEvent=mergeRect(rcText, rcPrice);
+				name=menuText.find(']').right().trim();
+				drawNodeText( draw, rcEvent, "[이벤트]\r\n$name", 'center', tag[FontText] );	
+			} else {
+				if( menuText.ch().eq('(') ) {
+					drawSubText(draw, rcText, menuText, 'MenuSub', tag[FontText]);
+				} else {
+					drawNodeText( draw, rcText, menuText, 'center', tag[FontText] );	
+				}
+				drawNodeText( draw, rcPrice, "$price 원", 'center', tag[FontPrice] );		
+			}
+		} else {
+			img=imageLoad(tag, 'MenuBlankImage');
+			draw.drawImage( img.center(rect), img);
+		}
+	}
+}
+
+getPage(tab) {
+	not( tab ) tab=tag[currentTab];
+	if( tab && tab[pageNode] ) {
+		return tab[pageNode].child( tab[currentPage] );
+	}
+	return null;
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+	rowCnt=3, cellCnt=4;
+	tag[rateWidth]		=[]; 	
+	tag[rateHeight]		=[];	
+	tag[rateThumb]		=[];	
+	tag[rateListRow]		=[];	
+	tag[rateListHeight]	=[];	
+	tag[FontText]=[24,#303030,bold];
+	tag[FontDesc]=[16,#a0a0a0];
+	tag[FontPrice]=[18,#909090];
+	tag[FontPrice1]=[26,#503090];
+	tag[currentTab]=null;
+	tag.put( rowCnt, cellCnt );
+	this[pagePanel]=null;
+}
+
+makeListRect(tab) {
+	not( tab ) tab=tag[currentTab];
+	tag.inject( rateListHeight, rateListRow, space );
+	rateListRow.inject(imageWidth, textWidth, priceWidth );
+		
+	margin=nvl(space,0);
+	margin/=2;
+	rc=tag[rect].incr(margin);
+	idx=0;
+	sx=rc.x(), sy=rc.y(), sw=rc.width();
+	while( num, tab[pageCnt] ) {
+		cy=sy;
+		while( h, rateListHeight, row, 0 ) {
+			menu=tab.child(idx), idx++;
+			if( menu ) {
+				dx=sx;
+				menu[rcImage]	=Class.rect(dx, cy, imageWidth, h), 	dx+=imageWidth;
+				menu[rcText]	=Class.rect(dx, cy, textWidth, h), 		dx+=textWidth;
+				menu[rcPrice]	=Class.rect(dx, cy, priceWidth, h)	;
+			} else {
+				menu=tab.addNode({tag:menu});
+			}
+			menu[rect]=Class.rect(sx, cy, sw, h).incr(space);
+			cy+=h;
+		}
+	}	
+}
+
+makeThumbRect(tab) {
+	not( tab ) tab=tag[currentTab];
+	tag.inject(rateWidth, rateHeight, rateThumb, space );
+	rateThumb.inject(imageHeight, textHeight, priceHeight );
+	
+	margin=nvl(space,0);
+	margin/=2;
+	rc=tag[rect].incr(margin);
+	idx=0;
+	sx=rc.x(), sy=rc.y();
+	while( num, tab[pageCnt] ) {
+		cy=sy;
+		while( h, rateHeight, row, 0 ) {
+			cx=sx;
+			while( w, rateWidth, cell, 0 ) {
+				menu=tab.child(idx), idx++;
+				if( menu ) {
+					dy=cy;
+					menu[rcImage]	=Class.rect(cx, dy, w, imageHeight), 	dy+=imageHeight;
+					menu[rcText]	=Class.rect(cx, dy, w, textHeight), 		dy+=textHeight;
+					menu[rcPrice]	=Class.rect(cx, dy, w, priceHeight);
+				} else {
+					menu=tab.addNode({tag:menu});
+				} 
+				menu[rect]=Class.rect(cx,cy,w,h).incr(space);
+				cx+=w;
+			}
+			cy+=h;
+		}
+	}
+}
+
+mouseDown(pos) {
+	tab= tag[currentTab];
+	tab.inject(gridCnt, currentPage);
+	sp=gridCnt*currentPage;
+	ep=sp+gridCnt;
+	while( n, ep, sp ) {
+		menu=tab.child(n);
+		not( menu[rect].contains(pos) ) continue;
+		not( menu[menu_cd] ) return;
+		if( menu[use_yn].eq('N') ) return;	
+		this.mouseDownMenu=menu;
+		this.update();
+		break;
+	}
+}
+
+mouseUp(pos) {
+	tab= tag[currentTab];
+	
+	tab.inject(gridCnt,  currentPage);
+	sp=gridCnt*currentPage;
+	ep=sp+gridCnt;
+	while( n, ep, sp ) {
+		menu=tab.child(n);
+		not( menu[rect].contains(pos) ) continue;
+		not( menu[menu_cd] ) return;
+		if( menu[use_yn].eq('N') ) return;
+		if( this.mouseDownMenu==menu ) {
+			this.selectMenu(menu);
+		}
+		break;
+	}
+	if( this.mouseDownMenu ) {
+		this.mouseDownMenu=null;
+		this.update();
+	}
+}
+
+selectMenu(menu) {
+	not( cf[ShoppingCart] ) {
+		cf[ShoppingCart]=this.findControl('ShoppingCart');
+	}
+	if( Cf.timeLine('SelectMenu.running') ) {
+		Cf.timeLine('SelectMenu.stop');
+	}
+	tab=menu.parent();
+	if( tab[view_type].eq('S') ) {
+		this.mainControl().openPopup('SelectMenuOptionNew');
+		popup=cf[popupControl];
+		node=findTag('MenuOption', popup[tag] );
+		this.getControl(node).setSelectedMenu(menu);		
+	} else {
+		cf[ShoppingCart].addMenu(menu);
+		this[currentSelectMenu]=menu;
+		_timeline('SelectMenu', tag, 'AddCart');
+	}
+}
+
+setSoltOut(node) {
+	map=_node(cf,'SoltOutMap');
+	menuCd=node[menu_cd];
+	root=this.findTag('CornerTab'); 
+	while( tab, root) {
+		while( menu, tab ) {
+			not( menu[menu_cd].eq(menuCd) ) {
+				continue;
+			}
+			menu[use_yn]=node[use_yn];
+			map[$menuCd]=menu;
+			print("menu=");
+			this.update();
+			return;
+		}
+	} 
+}
+}

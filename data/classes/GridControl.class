@@ -1,0 +1,34 @@
+page=Cf.widget({
+	layout: 
+		<page>
+			<button id="x" text="x">
+		</page>
+	onInit() {
+
+	}
+	onClose() {
+		this.hide();
+		return 'ignore';
+	}
+ 	onAction() {
+		switch(@id) {
+		case 'tray.adminView': 
+			screenRect=System.info('screenRect', 0);
+			p=this;
+			p.flags('splash');
+			p.move(screenRect.lt() ); 
+			p.size(screenRect.size());
+			p.open();
+		case 'tray.close': 
+			tray.hide();
+			Cf.exit();
+		default:
+			print();
+		}
+	}
+});
+page.open();
+Cf[testPage]=page;
+
+
+page=Cf[testPage];

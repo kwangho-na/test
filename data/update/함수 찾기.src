@@ -1,0 +1,53 @@
+## common/widget.FuncSearchGrid
+search(funcKind, groupCode, code) {
+	root=grid.rootNode().removeAll();
+	func =funcNameInput.value();
+	funcData=funcDataInput.value();
+	root[offset]			= 0;
+	root[fetchNum]	= 50;
+	root.put(groupCode, code, func, funcData);
+	
+	filterClass="#[funcData ? and ( class_data like '%'||#{funcData}||'%' or class_src like '%'||#{funcData}||'%') ]";
+	sql_a="select 'a' as kind, cmsCode groupCode, '' code, funcName func, funcParam param, note from cmsFunc where 1=1 #[funcData ? and funcData like '%'||#{funcData}||'%']";
+	sql_b="select 'b' as kind, cmsCode groupCode, pageCode code, funcName func, funcParam param, note from pageFunc where 1=1 #[funcData ? and funcData like '%'||#{funcData}||'%']";
+	sql_c="select 'c' as kind, class_grp groupCode, class_nm code, class_func func, class_param param, note from class_info where 1=1  $filterClass";
+	switch(funcKind) {
+	case a: 	sql=sql_a;
+	case b:	sql=sql_b;
+	case c:	sql=sql_c;
+	default:	sql="$sql_a\nunion\n$sql_b\nunion\n$sql_c";
+	}
+	filter="1=1
+		#[groupCode ? and groupCode=#{groupCode}]
+		#[code ? and code=#{code}]
+		#[func ? and func like '%'||#{func}||'%'] ";
+	@searchSql="select kind, groupCode, code, func, param, note from ($sql) where $filter limit  #{offset}, 50";
+	
+	db.fetchAll(searchSql, root );
+	total=db.count("select count(1) from ($sql) where $filter", root);
+	page.gridStatus.value("전체 $total 건");
+	grid.update();
+	page.deletePage.hide();
+	gridHeaderWidth(grid);
+}
+
+## common/widget.FuncSearchGrid
+gridChange(node) {
+	switch( node[kind] ) {
+	case a: sql="select funcData as src from cmsFunc where cmsCode=#{groupCode} and funcName=#{func}";
+	case b: sql="select funcData as src from pageFunc where cmsCode=#{groupCode} and pageCode=#{code} and funcName=#{func}";
+	case c: sql="select case when length(class_src)>0 then class_src else class_data end as src from class_info where class_grp=#{groupCode} and class_nm=#{code} and class_func=#{func}";
+	}
+	db.fetch(sql, node);
+	src=makeSourceIndentText(node[src].ref(), "\t");
+	body="${node[func]}($node[param]) {$src}";
+	if( page.appendSrc.checked() ) {
+		page.src.append(body);
+	} else {
+		page.setSrc(body);
+	}
+	funcData=funcDataInput.value();
+	if( funcData ) {
+		page.src.findAll(funcData);
+	}
+}

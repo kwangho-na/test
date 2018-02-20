@@ -1,0 +1,11 @@
+footer(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.ReportBase');
+}
+
+conf() {
+}
+draw(draw, timeline) {
+	draw.rectLine(tag[rect], 0, '#c0c0c0');
+}
+

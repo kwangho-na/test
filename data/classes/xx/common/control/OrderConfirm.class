@@ -1,0 +1,248 @@
+OrderConfirm {
+OrderConfirm(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	
+	while(cur, tag ) {
+		cur[rect].inject(sx, sy, sw, sh);
+		switch(cur[tag] ) {
+		case Title:
+			temp=_arr(this,'TempRate').recalc(sw, '*,80', true);
+			temp.inject(a,b);
+			cur[rcTitle]=Class.rect(sx, sy, a, sh), sx+=a;
+			cur[rcClose]=Class.rect(sx, sy, b, sh);
+			
+			img=imageLoad(tag, 'CloseButton', 'n');
+			img.imageSize().inject(w,h); 
+			cur[rcCloseButton]=cur[rcClose].center(w,h);
+		case OrderList:
+			orderList=cf[ShoppingCart].getOrderList();
+			not( orderList.childCount() ) {
+				this.mainControl().closePopup();
+				return;
+			}
+			temp=_arr(this,'TempRate').recalc(sw, '*,125,185,100', true);	
+			cur.removeAll();
+			/* 헤더 영역 */
+			cx=sx, sh=80;
+			while( cw, temp, c, 0 ) {
+				rcCell=Class.rect(cx, sy, cw, sh), cx+=cw;
+				switch(c) {
+				case 0: cur[rcMenuOption]=rcCell;
+				case 1: cur[rcQty]=rcCell;
+				case 2: cur[rcPrice]=rcCell;
+				case 3: cur[rcDelete]=rcCell;
+				}
+			}
+			/* 리스트 영역 */
+			sy+=80, sh=70;
+			while( row, orderList, r,0 ) {
+				sub=cur.addNode().initNode(row);
+				cx=sx;
+				while( cw, temp, c, 0 ) {
+					rcCell=Class.rect(cx, sy, cw, sh), cx+=cw;
+					switch(c) {
+					case 0: sub[rcMenuOption]=rcCell;
+					case 1: sub[rcQty]=rcCell;
+					case 2: sub[rcPrice]=rcCell;
+					case 3: sub[rcDelete]=rcCell;
+						img=imageLoad(tag,'OrderDeleteButton', 'n');
+						img.imageSize().inject(w,h);
+						sub[rcDeleteButton]=sub[rcDelete].center(w,h);
+					default:
+					}
+				}
+				sy+=70;
+			}
+		case OrderInfo:
+			temp=_arr(this,'TempRate').recalc(sw, '180,110,*,180,160', true);
+			temp.inject(a1,a2,x,b1,b2);
+ 			cur[rcTitleQty]	=Class.rect(sx,sy,a1,sh), sx+=a1;
+			cur[rcQty]			=Class.rect(sx,sy,a2,sh), sx+=a2+x;
+			cur[rcTitlePrice]	=Class.rect(sx,sy,b1,sh), sx+=b1;
+			cur[rcPrice]		=Class.rect(sx,sy,b2,sh);
+		case Buttons:
+			temp=_arr(this,'TempRate').recalc(sw, 3);
+			temp.inject(a,b,c);
+			cur[rcPrevPage]			=Class.rect(sx,sy,a,sh), sx+=a;
+			cur[rcSelectHall]		=Class.rect(sx,sy,b,sh), sx+=b;
+			cur[rcSelectTakeout]	=Class.rect(sx,sy,c,sh);
+		default:
+		}
+	}
+}
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	
+	drawNodeStyle(draw, tag);
+	while(cur, tag ) {
+		switch(cur[tag] ) {
+		case Title:
+			title= tag[title];
+			switch( cf[OrderHeader.PayType] ) {
+			case Cash: 		title.add(" (현금)");
+			case Card: 		title.add(" (카드)");
+			}
+			drawNodeText(draw, cur[rcTitle], title, "left", "PopupTitle");
+			drawNodeImage(draw, cur[rcCloseButton], tag, 'CloseButton', 'n', true);
+		case OrderTitle:
+			draw.html( cur[rect],  template() {
+				<br><font size="30">
+					<b>주문리스트</b>를 확인해주시고,<br>
+					<font color='#fa3030'>매장식사</font>또는 <font color='#fa3030'>포장</font>을 선택해주세요
+				</font> 		
+			});		
+		case OrderList:
+			draw.fill(cur[rect].height(80), '#c0c0c0');		// 헤더 배경색
+			draw.rectLine(cur[rect],0, '#c0c0c0');
+			while(c,4) {
+				switch(c) {
+				case 0: 
+					drawNodeText(draw, cur[rcMenuOption], "선택옵션", "left", "OrderHeader");
+				case 1: 
+					drawNodeText(draw, cur[rcQty], "수량", "center", "OrderHeader");
+				case 2:
+					drawNodeText(draw, cur[rcPrice], "가격", "center", "OrderHeader");
+				case 3: 
+					drawNodeText(draw, cur[rcDelete], "삭제", "center", "OrderHeader");
+				}
+			}
+			while( sub, cur ) {
+				while(c,4) {
+					switch(c) {
+					case 0: 
+						drawNodeText(draw, sub[rcMenuOption].incrX(30), sub[menu_nm], 'left','TableList');
+					case 1: 
+						drawNodeText(draw, sub[rcQty], sub[qty], 'center','TableList');
+					case 2: 
+						price=sub[qty]*sub[sale_price];
+						priceSum=util_priceComma(price);
+						drawNodeText(draw, sub[rcPrice].incrW(-10), "$priceSum 원", 'right','TableList');
+					case 3: 
+						ty=when( sub[rcDeleteButton].eq(this.mouseDownRect), 'p', 'n');
+						drawNodeImage(draw, sub[rcDeleteButton], tag, 'OrderDeleteButton', ty, true);
+					}
+				}				
+			}
+		case OrderInfo:
+			sc=cf[ShoppingCart];
+			qty=sc[OrderTotalQty];
+			price=util_priceComma(sc[OrderTotalPrice]);
+ 			drawNodeText(draw, cur[rcTitleQty], 	"주문수량 :", 	'left', 	25, '#303030', 'bold');
+			drawNodeText(draw, cur[rcQty], 		"$qty 건", 		'right', 	24, '#303030', 'bold');
+			drawNodeText(draw, cur[rcTitlePrice],	"주문금액 :", 	'left',		25, '#303030', 'bold');
+			drawNodeText(draw, cur[rcPrice],		"$price 원", 	'right',	24, '#303030', 'bold');
+		case Buttons:
+			ty=when( cur[rcPrevPage].eq(this.mouseDownRect), 'p', 'n');
+			drawNodeImage(draw, cur[rcPrevPage], tag, 'PopupButton', ty, true);
+			drawNodeText(draw, cur[rcPrevPage], '매장식사', "center", 'PopupButton');		
+			
+			ty=when( cur[rcSelectHall].eq(this.mouseDownRect), 'p', 'n');
+			drawNodeImage(draw, cur[rcSelectHall], tag, 'PopupButton', ty, true);
+			drawNodeText(draw, cur[rcSelectHall], '끓여포장', "center", 'PopupButton');		
+			
+			ty=when( cur[rcSelectTakeout].eq(this.mouseDownRect), 'p', 'n');
+			drawNodeImage(draw, cur[rcSelectTakeout]	, tag, 'PopupButton', ty, true);
+			drawNodeText(draw, cur[rcSelectTakeout], '그냥포장', "center", 'PopupButton');		
+		default:
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	tag.addNode({tag:Title, Height:114});
+	tag.addNode({tag:OrderTitle, Margin:[20,5], Height:132});
+	tag.addNode({tag:OrderList, Margin:[20,5]});
+	tag.addNode({tag:OrderInfo, Margin:[20,15,20,20], Height:95});
+	tag.addNode({tag:Buttons, Height:145});
+	setNodeSize(tag, true);
+}
+
+mouseDown(pos) {
+	while(cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Title:
+			if( cur[rcCloseButton].contains(pos) ) {
+				this.mouseDownRect=cur[rcCloseButton];
+				break;				
+			}
+		case OrderList:
+			while( sub, cur ) {
+				if( sub[rcDelete].contains(pos) ){
+					this.mouseDownRect=cur[rcDelete];
+					break;
+				}
+			}
+		case Buttons:
+			if( cur[rcPrevPage].contains(pos) ) {
+				this.mouseDownRect=cur[rcPrevPage];
+			} else if( cur[rcSelectHall].contains(pos) ) {
+				this.mouseDownRect=cur[rcSelectHall];
+			} else if( cur[rcSelectTakeout].contains(pos) ) {
+				this.mouseDownRect=cur[rcSelectTakeout];
+			} 
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	while(cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Title:
+			if( cur[rcCloseButton].contains(pos) ) {
+				this.mainControl().closePopup();
+				break;				
+			}
+		case OrderList:
+			while( sub, cur ) {
+				if( sub[rcDelete].contains(pos) ){
+					sc=cf[ShoppingCart];
+					orderList=sc.getOrderList();
+					menu=orderList.findOne('menu_cd', sub[menu_cd]);
+					if( menu ) {
+						sc.removeMenu(menu, true );
+						this.conf();
+					}
+					break;
+				}
+			}
+		case Buttons:
+			if( cur[rcPrevPage].contains(pos) ) {
+				this.selectConfirm('Hall');
+			} else if( cur[rcSelectHall].contains(pos) ) {
+				this.selectConfirm('BoilTakeout');
+			} else if( cur[rcSelectTakeout].contains(pos) ) {
+				this.selectConfirm('Takeout');
+			} 
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+selectConfirm(selectType) {
+	cf[OrderSelectType]=selectType;
+	switch( cf[OrderHeader.PayType] ) {
+	case Cash:
+		this.mainControl().openPopup('SelectCashNew');
+	case Card:
+		this.mainControl().openPopup('SelectCardNew');
+	}
+}
+}

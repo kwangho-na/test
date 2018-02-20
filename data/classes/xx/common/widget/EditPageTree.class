@@ -1,0 +1,65 @@
+EditPageTree {
+	EditPageTree(page ) {
+		this.addClass(common.Config);
+		cf.put( pageCd );
+		db=Class.db('pages');
+		dataModel=Class.model('EditPageTree');
+		tree=page.tree;
+		tree.check('treeMode', true);
+		tree.model(dataModel, 'tag');
+		tree.eventMap(onDraw, this.treeDraw, 'draw, node, over');		
+		tree.eventMap(onChange, this.treeChange, 'node');
+	}
+	treeDraw(draw, node, over) {
+		rc=treeIcon(tree, draw, node, over);
+		rcIcon = rc.width(18).center(16,16);
+		rc.incrX(20);
+		info='';
+		tag=node[tag];
+		if( node[kind] ) {
+			tag.add(":$node[kind]");
+		}
+		if( node[id] ) info="id=$node[id]";
+		if( node[class] ) {
+			if( info ) info.add(", ");
+			info.add("class=$node[class]");
+		}
+		if( node[style] ) {
+			if( info ) info.add(", ");
+			info.add("style=$node[style]");
+		}		
+		if( node[type] ) {
+			if( info ) info.add(", ");
+			info.add("type=$node[type]");
+		} else if( node[Layout] ) {
+			if( info ) info.add(", ");
+			info.add("Layout=$node[Layout]");
+		}
+		switch( node[tag] ) {
+		case 'Page':
+			draw.icon( rcIcon, "vicon.application_form" );
+			draw.save().font('bold');
+			draw.text( rc,  tag);
+			draw.restore();
+		case 'Grid':
+			draw.icon( rcIcon, 'vicon.application_side_boxes');
+			draw.text( rc,  tag);
+		case 'Table':
+			draw.icon( rcIcon, 'vicon.application_view_list');
+			draw.text( rc,  tag);
+		default:
+			draw.icon( rcIcon, 'vicon.page_red');
+			draw.text( rc,  tag);
+		}
+		if( info ) {
+			draw.save().font(8,'normal','#60708a');
+			w=draw.textWidth(info)+20;
+			draw.text(rc.move('end',w), "($info)");
+			draw.restore();
+		}
+	}
+	treeChange(node) {
+		page.changeTag(node);
+	}
+}
+

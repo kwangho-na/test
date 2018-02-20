@@ -1,0 +1,191 @@
+InputCashReceiptNumber {
+InputCashReceiptNumber(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+ }
+
+conf() {
+	offset=tag[rect].lt();
+	confNodeLayout(tag, offset);
+	if( cf[CashReceiptType].eq('Personal') ) {
+		moneyPaperType='00';
+	} else {
+		moneyPaperType='01';
+	}
+	price=cf[ShoppingCart.OrderTotalPrice];
+	this.mainControl().easyCardCall('B1', moneyPaperType, price);
+	/* 동영상 플레이어 보이게 하기*/
+	node=findTag('Player', tag);
+	this.showMoviePlayer(node[rect], node[path]);
+	
+	
+	/* 넘버패드 영역 설정 */ 
+ 	node=findTag('NumberPad', tag);
+ 	_arr(this, 'RateColumn').recalc( node[rect].width(), '4,4,4');
+  	_arr(this, 'RateRow').recalc( node[rect].height(), '4,4,4,4');
+  	node[rect].inject(sx, sy, sw, sh);
+  	sx-=8;
+  	while( h, this[RateRow], r, 0) {
+  		cx=sx;
+  		while(w, this[RateColumn], c, 0 ) {
+  			rc=Class.rect(cx, sy, w, h).incr(2), cx+=w;
+  			switch(r) {
+  			case 0:
+  				switch(c) {
+  				case 0: node[rc01]=rc;
+  				case 1: node[rc02]=rc;
+  				case 2: node[rc03]=rc;
+  				}
+  			case 1:
+   				switch(c) {
+  				case 0: node[rc04]=rc;
+  				case 1: node[rc05]=rc;
+  				case 2: node[rc06]=rc;
+  				} 
+  			case 2:
+    			switch(c) {
+  				case 0: node[rc07]=rc;
+  				case 1: node[rc08]=rc;
+  				case 2: node[rc09]=rc;
+  				} 
+ 			case 3:
+     			switch(c) {
+  				case 0: node[rcDelete]=rc;
+  				case 1: node[rc00]=rc;
+  				case 2: node[rcDeleteAll]=rc;
+  				} 
+ 			}
+ 			arr=_arr(node, 'fields').reuse();
+ 			fields="1,2,3,4,5,6,7,8,9,0,Delete,DeleteAll";
+ 			while(id, fields.split() ) {
+ 				arr.add(id);
+ 			}
+  		}
+  		sy+=h;
+  	}
+  	this[inputText]='';	
+ }
+
+confirmButtonClick() {
+	if( this[playerWidget] )  {
+		this[playerWidget].stop();
+		this[playerWidget].hide();
+	}
+	this.mainControl().closePopup();
+ }
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Player:
+			this.showMoviePlayer(cur[rect]);
+		case InputNumber:
+			rc=cur[rect].incrX(25);
+			drawNodeText(draw, rc, this[inputText], 'left', 24, '#304060', 'normal');
+		case NumberPad:		
+			while( field, cur[fields], n, 0 ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+					type="";					
+					attr="${field}Button";
+				} else {
+					num=n+1;
+					rc=cur[rc0$field]; 
+					type=when(  num.eq(10), "00", "0$num");
+					attr="NumberButton";
+				}
+				if( rc.eq(this.mouseDownRect) ) {
+					type.add("_p");
+				}
+				not( type ) type="default";
+				drawNodeImage(draw, rc, cur, attr,  type);
+			}			
+		case Confirm: drawNodeButton(draw, cur, null, this);			
+		case PrevPage: drawNodeButton(draw, cur, null, this);			
+		}
+	}
+ }
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+ }
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case NumberPad:
+			while( field, cur[fields] ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+				} else{
+					rc=cur[rc0$field];
+				}
+				if( rc.contains(pos) ) {
+					this.mouseDownRect=rc;
+					break;
+				}
+			}			
+		case Confirm: 		this.mouseDownRect=cur[rect];
+		case PrevPage:		this.mouseDownRect=cur[rect];
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case NumberPad:
+			while( field, cur[fields] ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+				} else{
+					rc=cur[rc0$field];
+				}
+				if( rc.contains(pos) && rc.eq(this.mouseDownRect) ) {
+					if( field.eq('Delete') ) {
+						val=this[inputText].value(0,-1);
+						this[inputText]=val;
+						this.update();	
+					} else if( field.eq('DeleteAll') ) {
+						this[inputText]='';
+						this.update();					
+					} else {
+						this[inputText].add(field);
+						this.update();
+					}
+					break;
+				}
+			}			
+		case Confirm: 		this.confirmButtonClick();
+		case PrevPage: 		this.prevPageButtonClick();
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+ }
+
+prevPageButtonClick() {
+	if( this[playerWidget] )  {
+		this[playerWidget].stop();
+		this[playerWidget].hide();
+	}
+	this.mainControl().openPopup('SelectCashReceipt');
+}
+
+showMoviePlayer(rc, path) { 
+
+}
+}

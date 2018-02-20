@@ -1,0 +1,5169 @@
+04:23:59 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode=''  and pageCode=''  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup=''  and refCode=''  and type=''  
+  			
+  			
+  	)
+" 
+ 04:24:41 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev'  " 
+ 04:24:45 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:24:45 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'  and refCode='FuncPreview'  group by type" 
+ 04:24:45 function: findOne
+>> findOne ############# @localParams info ##############
+0:78 
+total:1
+###############################################
+04:24:45 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:24:45 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:24:45 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:24:45 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:25:00 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='pageCodeChangeImpl'  
+	order by type, sortLine
+" 
+ 04:25:44 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:25:44 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:25:44 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:25:44 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:25:44 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1336
+04:25:44 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:25:44 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcName.update(false);
+		}
+	}
+	not( root ) root=pageCode.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	funcName.update(root,185);
+	if( change ) funcName.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507922744'  
+		 
+		
+		,fileModifyTm='1507922744'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:25:44 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:25:44 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:25:44 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:25:44 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:25:44 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:25:44 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:25:44 #call FuncPreview.pageCodeChangeImpl function ok
+04:25:45 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:25:46 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:25:55 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode=''  and pageCode=''  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup=''  and refCode=''  and type=''  
+  			
+  			
+  	)
+" 
+ 04:26:08 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode=''  and pageCode='@inc'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup=''  and refCode='@inc'  and type=''  
+  			
+  			
+  	)
+" 
+ 04:27:16 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:27:16 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:27:16 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:27:16 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:27:16 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1366
+04:27:16 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:27:16 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcName.update(false);
+		}
+	}
+	not( root ) root=pageCode.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	root.pageGroup=root.cmsCode;
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	funcName.update(root,185);
+	if( change ) funcName.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507922836'  
+		 
+		
+		,fileModifyTm='1507922836'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:27:16 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:27:16 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:27:16 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:27:16 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:27:16 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:27:16 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:27:16 #call FuncPreview.pageCodeChangeImpl function ok
+04:27:18 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:27:18 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:27:22 QueryParse=> "select data, type from conf_info where grp='sql' and cd='FuncPreview/funcNameList' " 
+ 04:28:14 QueryParse=> "select count(1) from conf_info where conf_group is null" 
+ 04:28:14 QueryParse=> "select count(1) from conf_info where conf_code is null" 
+ 04:28:15 QueryParse=> "select 
+			conf_group, conf_group_dtl, conf_code, conf_code_dtl, note, type, grp, cd 
+		from conf_info 
+		where pid is null and conf_group='sql'   and conf_code='FuncPreview'  " 
+ 04:28:19 QueryParse=> "select data, type from conf_info where grp='sql' and cd='FuncPreview/funcNameList' " 
+ ##[error]## 04:28:19
+#exec func error :[ConfManager.gridConfSClicked] is not define 
+04:28:26 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode=''  and pageCode=''  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup=''  and refCode=''  
+  			 
+  			
+  			
+  	)
+" 
+ 04:29:37 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:29:37 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:29:37 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:29:37 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:29:37 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:29:37 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:29:37 #call FuncPreview.pageCodeChangeImpl function ok
+04:29:52 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode=''  and pageCode=''  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup=''  and refCode=''  
+  			 
+  			
+  			
+  	)
+" 
+ 04:29:55 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='dev' " 
+ 04:30:01 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='CommPage'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='CommPage'  
+  			 
+  			
+  			
+  	)
+" 
+ 04:30:40 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='ConfManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='ConfManager'  
+  			 
+  			
+  			
+  	)
+" 
+ 04:31:14 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:31:14 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:31:19 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='initPage'  
+	order by sort, sortLine	
+" 
+ 04:31:36 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='common'  " 
+ 04:31:45 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='common'  
+  			
+  			
+  			and funcName like '%'||'bindText' ||'%' 
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='common'  
+  			
+  			
+  			and funcName like '%'||'bindText' ||'%' 
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:31:45 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='common'  
+  			
+  			
+  			and funcName like '%'||'bindText' ||'%' 
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='common'  
+  			
+  			
+  			and funcName like '%'||'bindText' ||'%' 
+  			
+  			
+  			
+  	) 
+" 
+ 04:31:48 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='common'  and refCode='etc' 
+		and type='C'    
+		and funcName='bindText'  
+	order by type, sortLine
+" 
+ 04:32:12 #call runSrcCallFunction function ok
+04:32:26 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='common' and pageCode='etc'  " 
+ 04:32:26 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='common' and pageCode='etc'  " 
+ 04:32:26 function: count
+## xxxxxxxxxxxxxx : pCode=common.etc, pageId=etc## xxxxxxxxxxxxxxxx :
+04:32:26 function: count
+lineType=common, pageId=etc
+04:32:26 #call bindText function ok
+04:32:31 #call runSrcCallFunction function ok
+04:33:03 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev'  " 
+ 04:33:05 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  and pageCode='FuncManager' " 
+ 04:33:05 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'  and refCode='FuncManager'  group by type" 
+ 04:33:05 function: findOne
+>> findOne ############# @localParams info ##############
+0:202 
+total:1
+###############################################
+04:33:05 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:33:05 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncManager'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:33:05 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncManager'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:33:10 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncManager' 
+		and sort='2'    
+		and funcName='initPage'  
+	order by sort, sortLine	
+" 
+ ##[error]## 04:33:20
+#exec func error :[pageImpl.pageCodeChangeImpl] is not define 
+04:33:43 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  and pageCode='LogManager' " 
+ 04:33:43 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'  and refCode='LogManager'  group by type" 
+ 04:33:43 function: findOne
+>> findOne ############# @localParams info ##############
+0:24 
+total:1
+###############################################
+04:33:43 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by funcLine
+  	limit  '0' , 50
+" 
+ 04:33:43 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:33:47 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='LogManager' 
+		and type='E'    
+		and funcName='logTimer'  
+	order by type, sortLine
+" 
+ 04:34:02 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='LogManager' " 
+ 04:34:02 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='LogManager'  and type<>'S' " 
+ 04:34:02 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='LogManager'  " 
+ 04:34:02 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='LogManager'  " 
+ 04:34:02 function: save_func
+c=, type=, typeName=eventMap, typeInfo=, funcType=E, src.length=628
+04:34:02 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='LogManager' 
+		and funcName='logTimer' 
+		and funcSubName='@' " 
+ 04:34:02 QueryParse=> "update cmsFunc set 
+		funcParam='' , 
+		funcData='
+	not( this.logState ) return;
+	if( this.logState.eq(1) ) {
+		today=System.date('yyyyMMdd');
+		path=this.logPath.value();
+		not( logFile.open("$path/log-${today}.log") ) {
+			return;
+		}
+		this.logState=2;
+		this.logOffset=0;
+		fileSize=logFile.size();
+		if( fileSize>1024 ) {
+			this.logOffset=fileSize-1024;
+		} 
+	} else {
+		fileSize=logFile.size();
+	}
+	if( this.logOffset.eq(fileSize) ) {
+		return;
+	}
+	read=logFile.read();
+	buf=read.replace("\r" );
+	if( buf.find("##[error]##") && this.errorCheck.checked() ) {
+		System.beep();
+		this.open();
+	}
+	logEditor.append(buf.utf8() );
+	this.logOffset=logFile.size();
+' , 
+		funcSrc='' , 
+		typeName='eventMap' ,
+		typeInfo='' ,
+		refCode='LogManager' ,
+		type='E' ,
+		tm='1507923242'  
+		 
+		
+		,fileModifyTm='1507923242'  
+	where 1=1
+		and cmsCode='LogManager' 
+		and funcName='logTimer' 
+		and funcSubName='@' " 
+ 04:34:02 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='LogManager'  " 
+ 04:34:02 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='LogManager'  " 
+ 04:34:02 function: count
+## xxxxxxxxxxxxxx : pCode=dev.LogManager, pageId=LogManager## xxxxxxxxxxxxxxxx :
+04:34:02 function: count
+lineType=eventMap, pageId=LogManager
+04:34:02 function: setPageImplSrc
+note=, fnm=logTimer, funcCode=LogManager, pageId=LogManager
+04:34:02 function: setPageImplSrc
+페이지 구현 함수추가: LogManager.logTimer()
+04:34:02 #call LogManager.logTimer function ok
+04:34:03 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by funcLine
+  	limit  '0' , 50
+" 
+ 04:34:03 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='LogManager'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:34:29 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:34:29 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'  and refCode='FuncPreview'  group by type" 
+ 04:34:29 function: findOne
+>> findOne ############# @localParams info ##############
+0:81 
+total:1
+###############################################
+04:34:29 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:34:29 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:34:29 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:34:29 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:34:31 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='initPage'  
+	order by sort, sortLine	
+" 
+ 04:34:53 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='pageCodeChangeImpl'  
+	order by type, sortLine
+" 
+ 04:36:56 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:36:56 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:36:56 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:36:56 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:36:56 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1576
+04:36:56 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:36:56 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcName.update(false);
+		}
+	}
+	not( root ) root=pageCode.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	root.pageGroup=root.cmsCode;
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	while( cur, root ) {
+		cur.inject( funcName, funcParam, type, sort );
+		if( sort.eq('9') ) {
+			cur.funcInfo="($type) ${funcName}($funcParam)";
+		} else {
+			cur.funcInfo="(#) ${funcName}($funcParam)";
+		}
+	}
+	funcName.update(root,185);
+	if( change ) funcName.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507923416'  
+		 
+		
+		,fileModifyTm='1507923416'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:36:56 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:36:56 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:36:56 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:36:56 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:36:56 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:36:56 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:36:56 #call FuncPreview.pageCodeChangeImpl function ok
+04:37:01 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:37:01 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:37:06 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='DemoTool'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='DemoTool'  
+  			and type in (''I','E'' )  
+  			
+  			
+  	)
+" 
+ 04:37:44 QueryParse=> "select count(1) from conf_info where conf_group is null" 
+ 04:37:44 QueryParse=> "select count(1) from conf_info where conf_code is null" 
+ 04:37:45 QueryParse=> "select 
+			conf_group, conf_group_dtl, conf_code, conf_code_dtl, note, type, grp, cd 
+		from conf_info 
+		where pid is null and conf_group='sql'   and conf_code='FuncPreview'  " 
+ 04:37:50 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='EditorFindAndReplace'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='EditorFindAndReplace'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:38:26 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='FuncManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='FuncManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:39:26 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='DemoTool'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='DemoTool'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:40:10 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:40:10 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:40:10 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:40:10 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:40:10 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:40:10 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:40:10 #call FuncPreview.pageCodeChangeImpl function ok
+04:40:17 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='EditorFindAndReplace'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='EditorFindAndReplace'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:40:17 function: inject
+cur={
+	funcParam:""	
+	sort:9	
+	type:"E"	
+	funcName:"editorFindCallback"
+}
+
+, n=0
+04:40:17 function: inject
+cur={
+	funcParam:""	
+	sort:9	
+	type:"E"	
+	funcName:"editorMarkCallback"
+}
+
+, n=1
+04:40:17 function: inject
+cur={
+	funcParam:""	
+	sort:9	
+	type:"E"	
+	funcName:"editorReplaceAllCallback"
+}
+
+, n=2
+04:40:17 function: inject
+cur={
+	funcParam:""	
+	sort:9	
+	type:"E"	
+	funcName:"editorReplaceCallback"
+}
+
+, n=3
+##[error]## 04:40:17
+#inject => [editorReplaceCallback update] not define function 
+##[error]## 04:40:17
+#inject => [editorReplaceCallback showPopup] not define function 
+04:42:02 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:42:02 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:42:02 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:42:02 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:42:02 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:42:02 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:42:02 #call FuncPreview.pageCodeChangeImpl function ok
+04:42:08 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='FuncManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='FuncManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ ##[error]## 04:42:16
+#logOffset.eq => [gridToolTip update] not define function 
+##[error]## 04:42:16
+#logOffset.eq => [gridToolTip showPopup] not define function 
+04:43:07 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:43:07 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:43:07 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:43:07 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:43:07 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:43:07 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:43:07 #call FuncPreview.pageCodeChangeImpl function ok
+04:43:11 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='FuncPreview'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='FuncPreview'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:44:18 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:44:18 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:44:18 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:44:18 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:44:18 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1582
+04:44:18 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:44:18 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcName.update(false);
+		}
+	}
+	not( root ) root=pageCode.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	root.pageGroup=root.cmsCode;
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	while( cur, root, n, 0 ) {
+		cur.inject( funcParam, type, sort );
+		fnm=cur.funcName;
+		if( sort.eq('9') ) {
+			cur.funcInfo="${fnm}($funcParam) [$type]";
+		} else {
+			cur.funcInfo="${fnm}($funcParam) [#]";
+		}
+	}
+	funcName.update(root,185);
+	if( change ) funcName.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507923858'  
+		 
+		
+		,fileModifyTm='1507923858'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 04:44:18 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:44:18 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:44:18 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:44:18 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:44:18 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:44:18 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+04:44:18 #call FuncPreview.pageCodeChangeImpl function ok
+04:44:20 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:44:20 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:44:25 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='IconManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='IconManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:44:44 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='LogManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='LogManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	)
+" 
+ 04:44:54 QueryParse=> "select data, type from conf_info where grp='sql' and cd='FuncPreview/funcNameList' " 
+ ##[error]## 04:44:57
+#exec func error :[ConfManager.gridConfSClicked] is not define 
+04:45:23 QueryParse=> "select count(1) from conf_info where conf_group is null" 
+ 04:45:23 QueryParse=> "select count(1) from conf_info where conf_code is null" 
+ 04:45:26 QueryParse=> "select 
+			conf_group, conf_group_dtl, conf_code, conf_code_dtl, note, type, grp, cd 
+		from conf_info 
+		where pid is null and conf_group='sql'   and conf_code='FuncPreview'  " 
+ 04:45:32 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:45:42 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:45:46 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:46:15 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='C'    
+		and funcName='buttonClickEvent'  
+	order by type, sortLine
+" 
+ 04:47:00 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:00 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:00 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:47:00 function: count
+lineType=common, pageId=FuncPreview
+04:47:00 #call buttonClickEvent function ok
+04:47:08 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:47:09 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:47:12 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('I')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:47:17 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='PageManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='PageManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 04:47:29 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:47:29 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:47:29 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:29 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:29 function: save_func
+c=, type=, typeName=common, typeInfo=, funcType=C, src.length=269
+04:47:29 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 04:47:29 QueryParse=> "update cmsFunc set 
+		funcParam='' , 
+		funcData='
+	tag=@me.tag;
+	if( tag.eq('check') ) {
+		pageImpl.pageCodeChangeImpl();
+		funcName.showPopup();
+		return;
+	}
+	switch( @me.id ) {
+	case reload:
+		eventMap.pageCodeChange();	
+	default: this.alert("$@me[id] 버튼클릭 이벤트 정의되지 않음");
+	} 
+' , 
+		funcSrc='' , 
+		typeName='common' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='C' ,
+		tm='1507924049'  
+		,note='버튼클릭 이벤트 공통함수'   
+		
+		,fileModifyTm='1507924049'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 04:47:30 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:47:30 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:47:49 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:47:49 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:47:49 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:49 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:47:49 function: save_func
+c=, type=, typeName=common, typeInfo=, funcType=C, src.length=265
+04:47:49 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 04:47:49 QueryParse=> "update cmsFunc set 
+		funcParam='' , 
+		funcData='
+	tag=@me.tag;
+	if( tag.eq('check') ) {
+		pageImpl.pageCodeChangeImpl();
+		funcName.showPopup();
+		return;
+	}
+	switch( @me.id ) {
+	case reload:
+		eventMap.pageCodeChange();	
+	default: this.alert("$@me[id] 버튼클릭 이벤트 정의되지 않음");
+	} 
+' , 
+		funcSrc='' , 
+		typeName='common' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='C' ,
+		tm='1507924069'  
+		,note='체크 클릭처리'   
+		
+		,fileModifyTm='1507924069'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 04:47:50 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:47:50 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:48:34 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='funcNameChangeImpl'  
+	order by type, sortLine
+" 
+ ##[error]## 04:48:44
+#exec func error :[grid.current] is not define 
+##[error]## 04:48:44
+#exec func error :[grid.firstNode] is not define 
+04:48:44 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:48:44 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:48:44 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:48:44 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:48:44 function: setPageImplSrc
+note=, fnm=funcNameChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:48:44 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.funcNameChangeImpl(root)
+04:48:44 #call FuncPreview.funcNameChangeImpl function ok
+04:49:01 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:49:01 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:49:01 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:49:01 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:49:01 function: setPageImplSrc
+note=, fnm=funcNameChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:49:01 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.funcNameChangeImpl(root)
+04:49:01 #call FuncPreview.funcNameChangeImpl function ok
+04:49:26 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='setFuncEditor'  
+	order by type, sortLine
+" 
+ 04:49:57 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:49:57 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:49:57 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:49:57 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:49:57 function: setPageImplSrc
+note=, fnm=funcNameChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:49:57 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.funcNameChangeImpl(root)
+04:49:57 #call FuncPreview.funcNameChangeImpl function ok
+04:49:57 function: setPageImplSrc
+lineType=pageImpl, pageId=FuncPreview
+04:49:57 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+04:49:57 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+04:49:57 #call FuncPreview.setFuncEditor function ok
+04:51:18 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:51:18 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:51:18 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:51:18 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:51:18 function: setPageImplSrc
+note=, fnm=funcNameChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:51:18 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.funcNameChangeImpl(root)
+04:51:18 #call FuncPreview.funcNameChangeImpl function ok
+04:51:18 function: setPageImplSrc
+lineType=pageImpl, pageId=FuncPreview
+04:51:18 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+04:51:18 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+04:51:18 #call FuncPreview.setFuncEditor function ok
+04:51:53 QueryParse=> "select data, type from conf_info where grp='sql' and cd='FuncPreview/funcNameList' " 
+ 04:51:54 QueryParse=> "select data, type from conf_info where grp='sql' and cd='FuncPreview/funcInfo' " 
+ ##[error]## 04:51:54
+#exec func error :[ConfManager.gridConfSClicked] is not define 
+04:52:37 QueryParse=> "select count(1) from conf_info where conf_group is null" 
+ 04:52:37 QueryParse=> "select count(1) from conf_info where conf_code is null" 
+ 04:52:39 QueryParse=> "select 
+			conf_group, conf_group_dtl, conf_code, conf_code_dtl, note, type, grp, cd 
+		from conf_info 
+		where pid is null and conf_group='sql'   and conf_code='FuncPreview'  " 
+ 04:53:43 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:53:43 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:53:43 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:53:43 function: count
+lineType=pageImpl, pageId=FuncPreview
+04:53:43 function: setPageImplSrc
+note=, fnm=funcNameChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+04:53:43 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.funcNameChangeImpl(root)
+04:53:43 #call FuncPreview.funcNameChangeImpl function ok
+04:53:43 function: setPageImplSrc
+lineType=pageImpl, pageId=FuncPreview
+04:53:43 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+04:53:43 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+04:53:43 #call FuncPreview.setFuncEditor function ok
+04:54:00 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 04:55:37 function: is
+#################### targetPage reload ####################
+04:55:37 QueryParse=> "select objectCode, objectData from pageObject where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:55:37 QueryParse=> "select layout from pageLayout where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:55:37 QueryParse=> "select 	funcName, funcParam, type, funcData as src from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  order by sort " 
+ 04:55:37 function: inject
+## initPage()
+04:55:37 function: inject
+## onInit()
+04:55:37 function: inject
+## closeAll.onClick()
+04:55:37 function: inject
+## closeCurrent.onClick()
+04:55:37 function: inject
+## addFuncEditor(funcId)
+04:55:37 QueryParse=> "select funcGroup, cmsCode from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  group by funcGroup, cmsCode" 
+ 04:55:37 QueryParse=> "select cmsCode, funcName, funcParam, type, funcData as src from cmsFunc where funcGroup='dev'  and cmsCode='FuncPreview'  order by type" 
+ 04:55:37 #call buttonClickEvent function ok
+04:55:37 #call FuncPreview.funcHistChange function ok
+04:55:37 #call FuncPreview.funcNameChange function ok
+04:55:37 #call FuncPreview.pageCodeChange function ok
+04:55:37 #call FuncPreview.pageGroupChange function ok
+04:55:37 #call FuncPreview.findFuncId function ok
+04:55:37 #call FuncPreview.funcHistChangeImpl function ok
+04:55:37 #call FuncPreview.funcNameChangeImpl function ok
+04:55:37 #call FuncPreview.pageCodeChangeImpl function ok
+04:55:37 #call FuncPreview.setFuncEditor function ok
+04:55:37 id=pageGroup eventMap : return FuncPreview.pageGroupChange();
+04:55:37 id=pageCode eventMap : return FuncPreview.pageCodeChange();
+04:55:37 id=funcName eventMap : return FuncPreview.funcNameChange();
+04:55:37 id=comboFuncHist eventMap : return FuncPreview.funcHistChange();
+04:55:37 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ ##[error]## 04:55:37
+#exec func error :[content.widget] is not define 
+##[error]## 04:55:37
+#exec func error :[content.addPage] is not define 
+04:55:37 QueryParse=> "select layout from pageLayout where cmsCode='dev' and pageCode='FuncPreview' " 
+ 04:55:37 QueryParse=> "select objectCode, objectData from pageObject where cmsCode='dev' and pageCode='FuncPreview' " 
+ 04:55:37 QueryParse=> "
+	select
+		funcType, pageGroup, pageCode,  funcName,  funcParam, funcGroup, funcSrc, sort, note, funcLine, tm
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as funcSrc,
+      		sort, 'X' as funcType, funcLine, tm 
+		from pageFunc
+  		where pageGroup='dev' and pageCode='FuncPreview' 
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,
+       		funcName, funcParam, note, 
+       		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as funcSrc,
+       		9 as sort, type as funcType, funcLine, tm
+		from cmsFunc 
+  		where pageGroup='dev' and pageCode='FuncPreview'  
+  	)
+  order by sort, funcType, funcLine
+" 
+ 04:55:37 QueryParse=> "select funcIdx from pageFileInfo where cmsCode='dev' and pageCode='FuncPreview'" 
+ 04:55:37 QueryParse=> "select grp, conf_group, conf_group_dtl, conf_code, conf_code_dtl, data, note, type from conf_info where conf_code='FuncPreview' " 
+ 04:55:50 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev' " 
+ 04:55:50 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  " 
+ 04:55:50 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'   group by type" 
+ 04:55:50 function: findOne
+>> findOne ############# @localParams info ##############
+0:178 , 1:184 , 2:188 
+total:3
+###############################################
+04:55:50 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:55:50 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:55:50 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:55:50 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:55:50 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:55:51 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ ##[error]## 04:55:51
+#exec func error :[&pageImpl.funcKindComboLoad] is not define 
+04:55:51 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '50' , 50
+" 
+ 04:56:24 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:56:24 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:56:29 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='onInit'  
+	order by sort, sortLine	
+" 
+ 04:56:42 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '0' , 50
+" 
+ 04:56:42 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by sort, funcKind, sortLine, funcName
+  	limit  '50' , 50
+" 
+ 04:56:42 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:56:47 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='onInit'  
+	order by sort, sortLine	
+" 
+ 04:56:51 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='PageManager' 
+		and sort='1'    
+		and funcName='onInit'  
+	order by sort, sortLine	
+" 
+ 04:56:59 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:56:59 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '50' , 50
+" 
+ 04:56:59 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			
+  			
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:57:04 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev'  " 
+ 04:57:06 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:57:06 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'  and refCode='FuncPreview'  group by type" 
+ 04:57:06 function: findOne
+>> findOne ############# @localParams info ##############
+0:129 
+total:1
+###############################################
+04:57:06 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:57:06 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+04:57:06 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:57:06 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:57:14 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='onInit'  
+	order by sort, sortLine	
+" 
+ 04:57:38 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='initPage'  
+	order by sort, sortLine	
+" 
+ 04:57:58 QueryParse=> "select layout from pageLayout where cmsCode='dev' and pageCode='FuncPreview' " 
+ 04:58:41 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:58:41 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:58:41 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+04:58:41 function: count
+lineType=page, pageId=FuncPreview
+04:58:45 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:58:45 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 04:58:45 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:58:45 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:58:45 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='onInit' " 
+ 04:58:45 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	db=Class.db('pages');
+	content=this.content;
+	pageGroup=this.pageGroup;
+	pageCode=this.pageCode;
+	funcName=this.funcName;
+	funcHist=this.comboFuncHist;
+' , funcParam='' , tm='1507924725' 
+				 
+				
+				,fileModifyTm='1507924725'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='onInit' " 
+ 04:58:46 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 04:58:46 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 04:59:29 QueryParse=> "select count(1) from pageFileInfo where cmsCode='dev' and pageCode='FuncPreview' and pageExt='page' " 
+ 04:59:33 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:59:33 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 04:59:33 QueryParse=> "select count(1) from pageLayout where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 04:59:33 QueryParse=> "update pageLayout set 
+				layout='<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 
+			<combo id="funcName" width=80>
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<label id="funcStatus" stretch=1>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+		</hbox>
+		<div id="content">
+	</page>' , pageLine='' , note='' , tm='1507924773' 
+				, fileModifyTm='1507924773'   
+			where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:09:55 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='common'  and pageCode='canvasClasses'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='common'  and refCode='canvasClasses'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:10:43 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='dev' " 
+ 05:10:44 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='CommPage'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='CommPage'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:10:52 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='ConfManager'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='ConfManager'  
+  			and type in ('I','E')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:11:28 QueryParse=> "select layout from pageLayout where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:11:28 id=pin eventMap : return pinButtonClick();
+05:11:34 QueryParse=> "select layout from pageLayout where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:12:00 QueryParse=> "select count(1) from pageFileInfo where cmsCode='dev' and pageCode='FuncPreview' and pageExt='page' " 
+ 05:12:03 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:12:03 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:12:03 QueryParse=> "select count(1) from pageLayout where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:12:03 QueryParse=> "update pageLayout set 
+				layout='<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>' , pageLine='' , note='' , tm='1507925523' 
+				, fileModifyTm='1507925523'   
+			where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:12:08 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev' " 
+ 05:12:08 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  " 
+ 05:12:08 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'   group by type" 
+ 05:12:08 function: findOne
+>> findOne ############# @localParams info ##############
+0:4 , 1:8 , 2:254 
+total:3
+###############################################
+05:12:08 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:12:08 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:12:08 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:12:08 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:12:08 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 05:12:08 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ ##[error]## 05:12:08
+#exec func error :[&pageImpl.funcKindComboLoad] is not define 
+05:12:08 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '50' , 50
+" 
+ 05:12:24 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='funcNameChangeImpl'  
+	order by type, sortLine
+" 
+ 05:12:32 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='setFuncEditor'  
+	order by type, sortLine
+" 
+ 05:13:35 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:13:35 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:13:35 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:13:35 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:13:35 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+05:13:35 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+05:13:35 #call FuncPreview.setFuncEditor function ok
+05:14:14 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:14:14 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:14:14 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:14:14 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:14:14 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+05:14:14 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+05:14:14 #call FuncPreview.setFuncEditor function ok
+05:14:35 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:14:52 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ ##[error]## 05:15:24
+#exec func error :[pageImpl.pageCodeChangeImpl] is not define 
+##[error]## 05:15:24
+#exec func error :[funcName.showPopup] is not define 
+05:15:48 QueryParse=> "select layout from pageLayout where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:15:48 QueryParse=> "select objectCode, objectData from pageObject where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:15:48 QueryParse=> "
+	select
+		funcType, pageGroup, pageCode,  funcName,  funcParam, funcGroup, funcSrc, sort, note, funcLine, tm
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as funcSrc,
+      		sort, 'X' as funcType, funcLine, tm 
+		from pageFunc
+  		where pageGroup='dev' and pageCode='FuncPreview' 
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,
+       		funcName, funcParam, note, 
+       		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as funcSrc,
+       		9 as sort, type as funcType, funcLine, tm
+		from cmsFunc 
+  		where pageGroup='dev' and pageCode='FuncPreview'  
+  	)
+  order by sort, funcType, funcLine
+" 
+ 05:15:48 QueryParse=> "select funcIdx from pageFileInfo where cmsCode='dev' and pageCode='FuncPreview'" 
+ 05:15:48 QueryParse=> "select grp, conf_group, conf_group_dtl, conf_code, conf_code_dtl, data, note, type from conf_info where conf_code='FuncPreview' " 
+ 05:22:38 QueryParse=> "select count(1) from pageFileInfo where cmsCode='dev' and pageCode='FuncPreview' and pageExt='page' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "update pageObject set objectData='vicon.page_white_code_red' , type='S'  where cmsCode='dev'  and pageCode='FuncPreview'  and objectCode='icon' " 
+ 05:22:40 QueryParse=> "update pageObject set objectData='함수미리보기' , type='S'  where cmsCode='dev'  and pageCode='FuncPreview'  and objectCode='title' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select count(1) from pageLayout where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "update pageLayout set 
+				layout='<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>' , pageLine='' , note='' , tm='1507926160' 
+				, fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='onInit' " 
+ 05:22:40 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	db=Class.db('pages');
+	content=this.content;
+	pageGroupCombo=this.pageGroup;
+	pageCodeCombo=this.pageCode;
+	funcNameCombo=this.funcName;
+	funcHistCombo=this.comboFuncHist;
+' , funcParam='' , tm='1507926160' 
+				 
+				
+				,fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='onInit' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='initPage' " 
+ 05:22:40 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	this.addFuncEditor();
+	pageGroupCombo.eventMap(onChange, eventMap.pageGroupChange);
+	pageCodeCombo.eventMap(onChange, eventMap.pageCodeChange);
+	funcNameCombo.eventMap(onChange, eventMap.funcNameChange);
+	funcHistCombo.eventMap(onChange, eventMap.funcHistChange);
+	pageGroupCombo.model('cmsCode', '=전체=');
+	pageCodeCombo.model('pageCode', '=전체=');
+	funcNameCombo.model('funcName, funcInfo', '=전체='); 
+	funcHistCombo.model('funcId, funcHistInfo');
+	db.fetchAll("select cmsCode from pageFileInfo group by cmsCode", pageGroupCombo.rootNode() );
+	pageGroupCombo.update();
+	pageImpl.setFuncEditor();
+' , funcParam='' , tm='1507926160' 
+				 
+				,funcLine='함수 미리보기'  
+				,fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='initPage' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='closeAll.onClick' " 
+ 05:22:40 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	while( cur, content.widget() ) {
+		if( cur.funcId.eq('default') ) continue;
+		content.removePage(cur, true);
+	}
+	arr=_arr();
+	root=funcHistCombo.rootNode();
+	while( cur, root ) {
+		if( cur.funcId.eq('default') ) continue;
+		arr.add(cur);
+	}
+	while( cur, arr ) {
+		root.remove(cur);
+	}
+	funcHistCombo.update();
+' , funcParam='' , tm='1507926160' 
+				 
+				
+				,fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='closeAll.onClick' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='closeCurrent.onClick' " 
+ 05:22:40 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	funcId=funcHistCombo.value();
+	if( funcId.eq('default') ) return;
+	while( page, content.widget() ) {
+		not( page.funcId.eq(funcId) ) continue;
+		content.removePage(page);
+		break;
+	}
+	idx=funcHistCombo.index();
+	funcHistCombo.remove(idx);
+' , funcParam='' , tm='1507926160' 
+				 
+				
+				,fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='closeCurrent.onClick' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select count(1) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='addFuncEditor' " 
+ 05:22:40 QueryParse=> "update pageFunc set
+				funcSrc='' , funcData='
+	not( funcId ) return;
+	page=this.widget({
+		layout: <page>
+			<editor id="src">
+			<hbox>
+				<button id="run" text="실행" icon="vicon.lightning_go"> 
+				<button id="apply" text="적용" icon="vicon.database_edit">
+				<check id="autoRun" text="저장시 자동실행">
+				<label text="함수구분:" margin="15,0,0,0"><input id="currentFuncLine" width=150>
+				<label id="editorInfo" stretch=1>
+				<hbox spacing=2><label text="찾기 : "><input id="searchInput"><toolbutton id="editorReplace" icon="vicon.page_find" tip="찾아바꾸기"></hbox>
+			</hbox>
+		</page>
+	});
+	content.addPage(page, true);
+' , funcParam='funcId' , tm='1507926160' 
+				 
+				,funcLine='함수 미리보기 편집창'  
+				,fileModifyTm='1507926160'   
+			where cmsCode='dev'  and pageCode='FuncPreview'  and funcName='addFuncEditor' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 function: save_func
+c=, type=, typeName=common, typeInfo=, funcType=C, src.length=270
+05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='' , 
+		funcData='
+	tag=@me.tag;
+	if( tag.eq('check') ) {
+		pageImpl.pageCodeChangeImpl();
+		funcNameCombo.showPopup();
+		return;
+	}
+	switch( @me.id ) {
+	case reload:
+		eventMap.pageCodeChange();	
+	default: this.alert("$@me[id] 버튼클릭 이벤트 정의되지 않음");
+	} 
+' , 
+		funcSrc='' , 
+		typeName='common' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='C' ,
+		tm='1507926160'  
+		,note='체크 클릭처리'   
+		,funcLine='체크 이벤트'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='buttonClickEvent' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 function: save_func
+c=, type=, typeName=eventMap, typeInfo=, funcType=E, src.length=678
+05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcHistChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='combo' , 
+		funcData='
+	not( comboChangeCheck() ) return; 
+	pageImpl.findFuncId(@me.value());
+' , 
+		funcSrc='' , 
+		typeName='eventMap' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='E' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 이벤트'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcHistChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcNameChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='combo' , 
+		funcData='
+	not( comboChangeCheck() ) return; 
+	pageImpl.funcNameChangeImpl(@me.current());
+' , 
+		funcSrc='' , 
+		typeName='eventMap' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='E' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 이벤트'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcNameChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='combo' , 
+		funcData='
+	not( comboChangeCheck() ) return; 
+	pageImpl.pageCodeChangeImpl(@me.current(), true);
+' , 
+		funcSrc='' , 
+		typeName='eventMap' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='E' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 이벤트'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageGroupChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='' , 
+		funcData='
+	not( comboChangeCheck() ) return;
+	cur=@me.current();
+	not( cur ) {
+		pageCodeCombo.update(false), this.funcNameCombo.update(false);
+		return;
+	}
+	db.fetchAll("select cmsCode, pageCode from pageFileInfo where cmsCode=#{cmsCode}", cur.removeAll() );
+	pageCodeCombo.update(cur,185), funcNameCombo.update(false);
+	pageCodeCombo.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='eventMap' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='E' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 이벤트'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageGroupChange' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1312
+05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='findFuncId' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='funcId' , 
+		funcData='
+	comboChangeCheck();
+	pageImpl.setFuncEditor(funcId);
+	not( funcId ) {
+		pageGroupCombo.value(null), pageCodeCombo.value(null), funcNameCombo.value(null);
+		return;
+	}
+	funcId.split('.').inject(a,b,c);
+	cur=pageGroupCombo.current(a); 
+	not( cur ) {
+		root=pageGroupCombo.rootNode().removeAll();
+		db.fetchAll("select cmsCode, pageCode from pageFileInfo where cmsCode=#{cmsCode}", root ); 
+		cur=pageGroupCombo.update().current(a);
+	}
+	not( cur ) return this.alert("페이지 그룹이 선택되지 않았습니다");
+	db.fetchAll("select cmsCode, pageCode from pageFileInfo where cmsCode=#{cmsCode}", cur.removeAll() );
+	pageCode.update(b);
+	pageImpl.pageCodeChangeImpl();
+	funcNameCombo.current(c);
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926160'  
+		 
+		,funcLine='기타 구현'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='findFuncId' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='setFuncEditor' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='funcId' , 
+		funcData='
+	not( funcId ) funcId='default'; 
+	while( cur, content.widget() ) {
+		not( funcId.eq(cur.funcId) ) continue;
+		funcHistCombo.value(funcId);
+		return content.current(cur);
+	}
+	if( funcId.eq('default') ) {
+		funcHistInfo="기본함수 페이지";
+	} else {
+		funcHistInfo="정보: $funcId";
+	}
+	node=funcHistCombo.rootNode().addNode();
+	node.put(funcId, funcHistInfo);
+	not( funcId.eq('default') ) {
+		funcId.split('.').inject(pageGroup, pageCode, funcName);
+		node.put(pageGroup, pageCode, funcName);
+		db.fetch( conf('sql/funcInfo'), node);
+	}
+	funcHistCombo.update();
+	this.addFuncEditor(node)
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926160'  
+		,note='함수 편집창 설정'   
+		,funcLine='기타 구현'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='setFuncEditor' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1810
+05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcHistChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='funcId' , 
+		funcData='
+	not( funcId ) return;
+	pageImpl.findFuncId(funcId);
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 구현'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcHistChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcNameChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='root' , 
+		funcData='
+	not( root ) return;
+	a=pageGroupCombo.value(), b=pageCodeCombo.value(), c=funcNameCombo.value();
+	pageImpl.setFuncEditor("$a.$b.$c");
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 구현'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='funcNameChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcNameCombo.update(false);
+		}
+	}
+	not( root ) root=pageCodeCombo.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	while( cur, root, n, 0 ) {
+		cur.inject(funcName, funcParam, type, sort );
+		if( sort.eq('9') ) {
+			cur.funcInfo="${fnm}($funcParam) [$type]";
+		} else {
+			cur.funcInfo="${fnm}($funcParam) [#]";
+		}
+	}
+	funcNameCombo.update(root,185);
+	if( change ) funcNameCombo.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926160'  
+		 
+		,funcLine='콤보 구현'  
+		,fileModifyTm='1507926160'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev' and pageCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev' and refCode='FuncPreview' " 
+ 05:22:40 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:40 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:22:44 function: is
+#################### targetPage reload ####################
+05:22:44 QueryParse=> "select objectCode, objectData from pageObject where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:22:44 QueryParse=> "select layout from pageLayout where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:22:44 QueryParse=> "select 	funcName, funcParam, type, funcData as src from pageFunc where cmsCode='dev'  and pageCode='FuncPreview'  order by sort " 
+ 05:22:44 function: inject
+## initPage()
+05:22:44 function: inject
+## onInit()
+05:22:44 function: inject
+## closeAll.onClick()
+05:22:44 function: inject
+## closeCurrent.onClick()
+05:22:44 function: inject
+## addFuncEditor(funcId)
+05:22:44 QueryParse=> "select funcGroup, cmsCode from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  group by funcGroup, cmsCode" 
+ 05:22:44 QueryParse=> "select cmsCode, funcName, funcParam, type, funcData as src from cmsFunc where funcGroup='dev'  and cmsCode='FuncPreview'  order by type" 
+ 05:22:44 #call buttonClickEvent function ok
+05:22:44 #call FuncPreview.funcHistChange function ok
+05:22:44 #call FuncPreview.funcNameChange function ok
+05:22:44 #call FuncPreview.pageCodeChange function ok
+05:22:44 #call FuncPreview.pageGroupChange function ok
+05:22:44 #call FuncPreview.findFuncId function ok
+05:22:44 #call FuncPreview.funcHistChangeImpl function ok
+05:22:44 #call FuncPreview.funcNameChangeImpl function ok
+05:22:44 #call FuncPreview.pageCodeChangeImpl function ok
+05:22:44 #call FuncPreview.setFuncEditor function ok
+05:22:44 id=pageGroup eventMap : return FuncPreview.pageGroupChange();
+05:22:44 id=pageCode eventMap : return FuncPreview.pageCodeChange();
+05:22:44 id=funcName eventMap : return FuncPreview.funcNameChange();
+05:22:44 id=comboFuncHist eventMap : return FuncPreview.funcHistChange();
+05:22:44 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:22:57 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='common' " 
+ 05:23:00 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='common'  and pageCode='HotKey'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='common'  and refCode='HotKey'  
+  			and type in ('I','E','C')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:23:12 QueryParse=> "select cmsCode, pageCode, pageExt from pageFIleInfo where cmsCode='dev' " 
+ 05:23:12 QueryParse=> "select count(1) cnt from pageFunc where 1=1 and cmsCode='dev'  " 
+ 05:23:12 QueryParse=> "select type, count(1) cnt from cmsFunc where 1=1 and funcGroup='dev'   group by type" 
+ 05:23:12 function: findOne
+>> findOne ############# @localParams info ##############
+0:0 , 1:6 , 2:10 
+total:3
+###############################################
+05:23:12 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:23:12 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:23:12 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:23:12 function: findOne
+>> findOne ############# @localParams info ##############
+
+total:0
+###############################################
+05:23:12 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 05:23:12 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ ##[error]## 05:23:12
+#exec func error :[&pageImpl.funcKindComboLoad] is not define 
+05:23:12 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '50' , 50
+" 
+ 05:23:32 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 05:23:32 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 05:23:40 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='funcNameChangeImpl'  
+	order by type, sortLine
+" 
+ 05:23:44 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='setFuncEditor'  
+	order by type, sortLine
+" 
+ 05:23:54 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='pageCodeChangeImpl'  
+	order by type, sortLine
+" 
+ 05:24:31 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:24:31 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 05:24:31 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:24:31 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:24:31 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=1571
+05:24:31 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 05:24:31 QueryParse=> "update cmsFunc set 
+		funcParam='root, change' , 
+		funcData='
+	if( change ) {
+		this.className.value(null);
+		this.pageFuncCheck.checked(false);
+		this.subPageCheck.checked(false);
+		this.classImplCheck.checked(false);
+		this.pageImplCheck.checked(true);
+		this.eventMapCheck.checked(true);
+		this.commonCheck.checked(true);
+		not( root ) {
+			return funcNameCombo.update(false);
+		}
+	}
+	not( root ) root=pageCodeCombo.current();
+	not( root ) return this.alert("페이지 코드가 선택되지 않았습니다");
+	root.removeAll();
+	if( this.pageFuncCheck.checked() ) {
+		if( this.subPageCheck.checked() ) root.pageSort=4;
+	} else {
+		root.pageSort=9;
+	}
+	classNm=this.className.value();
+	if( classNm ) {
+		root.pageSort=9;
+		type=var( bindText('I'),',',bindText('C') );
+		ch=classNm.ch().upper();
+		root.className=var('class',ch,classNm.value(1) );
+		if( this.classImplCheck.checked() ) {
+			root.classCheck='@class';
+		}
+	} else {
+		type='';
+		if( this.pageImplCheck.checked() ) {
+			type.append( bindText('I'));
+		}
+		if( this.eventMapCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('E'));
+		}
+		if( this.commonCheck.checked() ) {
+			if( type ) type.append(",");
+			type.append( bindText('C'));
+		}
+	}
+	not( type ) type=bindText('#'); 
+	root.funcType=type;
+	db.fetchAll( conf('sql/funcNameList'), root);
+	while( cur, root, n, 0 ) {
+		cur.inject(funcName, funcParam, type, sort );
+		if( sort.eq('9') ) {
+			cur.funcInfo="${funcName}($funcParam) [$type]";
+		} else {
+			cur.funcInfo="${funcName}($funcParam) [#]";
+		}
+	}
+	funcNameCombo.update(root,185);
+	if( change ) funcNameCombo.showPopup();
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926271'  
+		 
+		
+		,fileModifyTm='1507926271'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='pageCodeChangeImpl' 
+		and funcSubName='@' " 
+ 05:24:31 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:24:31 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:24:31 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:24:31 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:24:31 function: setPageImplSrc
+note=, fnm=pageCodeChangeImpl, funcCode=FuncPreview, pageId=FuncPreview
+05:24:31 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.pageCodeChangeImpl(root, change)
+05:24:31 #call FuncPreview.pageCodeChangeImpl function ok
+05:24:33 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 05:24:33 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 05:24:42 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='common'  and pageCode='comm'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='common'  and refCode='comm'  
+  			and type in ('I','E','C')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:24:48 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ ##[error]## 05:24:48
+#exec func error :[pageCode.update] is not define 
+05:24:48 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='common'  and pageCode='comm'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='common'  and refCode='comm'  
+  			and type in ('I','E','C')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:25:35 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='funcNameChangeImpl'  
+	order by type, sortLine
+" 
+ 05:25:38 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='setFuncEditor'  
+	order by type, sortLine
+" 
+ 05:25:56 QueryParse=> "select max(sortLine) from pageFunc where cmsCode='dev'  and pageCode='FuncPreview' " 
+ 05:25:56 QueryParse=> "select max(sortLine) from cmsFunc where funcGroup='dev'  and refCode='FuncPreview'  and type<>'S' " 
+ 05:25:56 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:25:56 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:25:56 function: save_func
+c=, type=, typeName=pageImpl, typeInfo=, funcType=I, src.length=631
+05:25:56 QueryParse=> "select count(1) from cmsFunc where  1=1
+		and cmsCode='FuncPreview' 
+		and funcName='setFuncEditor' 
+		and funcSubName='@' " 
+ 05:25:56 QueryParse=> "update cmsFunc set 
+		funcParam='funcId' , 
+		funcData='
+	not( funcId ) funcId='default'; 
+	while( cur, content.widget() ) {
+		not( funcId.eq(cur.funcId) ) continue;
+		funcHistCombo.value(funcId);
+		return content.current(cur);
+	}
+	if( funcId.eq('default') ) {
+		funcHistInfo="기본함수 페이지";
+	} else {
+		funcHistInfo="정보: $funcId";
+	}
+	node=funcHistCombo.rootNode().addNode();
+	node.put(funcId, funcHistInfo);
+	not( funcId.eq('default') ) {
+		funcId.split('.').inject(pageGroup, pageCode, funcName);
+		node.put(pageGroup, pageCode, funcName);
+		db.fetch( conf('sql/funcInfo'), node);
+	}
+	funcHistCombo.update().current(node);
+	this.addFuncEditor(node)
+' , 
+		funcSrc='' , 
+		typeName='pageImpl' ,
+		typeInfo='' ,
+		refCode='FuncPreview' ,
+		type='I' ,
+		tm='1507926356'  
+		,note='함수 편집창 설정'   
+		
+		,fileModifyTm='1507926356'  
+	where 1=1
+		and cmsCode='FuncPreview' 
+		and funcName='setFuncEditor' 
+		and funcSubName='@' " 
+ 05:25:56 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:25:56 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:25:56 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:25:56 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:25:56 function: setPageImplSrc
+note=함수 편집창 설정, fnm=setFuncEditor, funcCode=FuncPreview, pageId=FuncPreview
+05:25:56 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.setFuncEditor(funcId)
+05:25:56 #call FuncPreview.setFuncEditor function ok
+05:25:57 QueryParse=> "
+	select
+		funcKind, -- 유형#45
+		pageGroup, -- 그룹#95
+		pageCode, -- 페이지코드#125
+		funcName, -- 함수명#150
+		funcParam, -- Param#110
+		funcGroup, 
+		sort,
+		note,	-- 설명#flex
+		funcLine, -- 구분#180
+		tm	-- 변경일#125
+	from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, '' as funcGroup,   
+      		funcName, funcParam, note, 
+      		sort, 'pageFunc' as funcKind, funcLine, sortLine, tm 
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, 
+       		cmsCode as funcGroup,       
+       		funcName, funcParam, note, 
+       		9 as sort, type as funcKind, funcLine, sortLine, tm
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	)
+  	order by tm desc
+  	limit  '0' , 50
+" 
+ 05:25:57 QueryParse=> "
+	select count(1) from (
+		select
+      		cmsCode as pageGroup,      
+      		pageCode, funcName, 'pageFunc' as funcKind
+		from pageFunc
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+		union
+		select 
+       		funcGroup as pageGroup, 
+       		refCode as pageCode, funcName, type as funcKind
+		from cmsFunc 
+  		where 1=1 
+  			and pageGroup='dev'  
+  			and pageCode='FuncPreview'  
+  			
+  			
+  			
+  			
+  			
+  	) 
+" 
+ 05:26:05 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='findFuncId'  
+	order by type, sortLine
+" 
+ 05:26:27 QueryParse=> "
+	select 
+		cmsCode, funcName, funcParam, type,
+		case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src,
+		note, funcLine, tm, sortLine
+	from cmsFunc 
+	where  
+		funcGroup='dev'  and refCode='FuncPreview' 
+		and type='I'    
+		and funcName='setFuncEditor'  
+	order by type, sortLine
+" 
+ 05:27:53 QueryParse=> "
+	select 
+		funcLine, funcParam, case when length(ifnull(funcSrc,''))=0 then funcData else funcSrc end as src
+	from pageFunc 
+	where  
+		cmsCode='dev'  and pageCode='FuncPreview' 
+		and sort='1'    
+		and funcName='initPage'  
+	order by sort, sortLine	
+" 
+ 05:28:27 #call runSrcCallFunction function ok
+05:28:27 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:29:28 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:29:28 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:29:28 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:29:28 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:29:28 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:29:28 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:29:28 #call FuncPreview.findFuncId function ok
+05:29:52 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ ##[error]## 05:29:52
+#exec func error :[pageCode.update] is not define 
+05:30:10 #call runSrcCallFunction function ok
+05:30:10 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:31:37 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ ##[error]## 05:31:37
+#exec func error :[pageCode.update] is not define 
+05:32:53 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:32:53 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:32:53 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:32:53 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:32:53 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:32:53 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:32:53 #call FuncPreview.findFuncId function ok
+05:32:59 #call runSrcCallFunction function ok
+05:32:59 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:33:05 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:33:33 #call runSrcCallFunction function ok
+05:33:33 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:33:41 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='common' " 
+ 05:34:51 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:34:51 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:34:51 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:34:51 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:34:51 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:34:51 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:34:51 #call FuncPreview.findFuncId function ok
+05:34:55 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:36:41 #call runSrcCallFunction function ok
+05:36:41 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:37:42 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:37:42 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:37:42 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:37:42 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:37:42 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:37:42 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:37:42 #call FuncPreview.findFuncId function ok
+05:38:11 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='common' " 
+ 05:38:11 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:22 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:26 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:31 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:37 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:41 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:44 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:48 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:38:51 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:39:09 #call runSrcCallFunction function ok
+05:39:09 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:39:15 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='common' " 
+ 05:39:17 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='common'  and pageCode='HotKey'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='common'  and refCode='HotKey'  
+  			and type in ('I','E','C')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:40:16 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='dev' " 
+ 05:40:18 QueryParse=> "
+	select
+		funcName, funcParam, sort, type
+	from (
+		select
+      		funcName, funcParam, note, sort, '#' as type, funcLine
+		from pageFunc
+  		where  
+  			cmsCode='dev'  and pageCode='CommPage'  
+  			and sort='9' 
+		union
+		select 
+       		funcName, funcParam, note, 9 as sort, type, funcLine
+		from cmsFunc 
+  		where 
+  			funcGroup='dev'  and refCode='CommPage'  
+  			and type in ('I','E','C')  
+  			
+  			
+  	) X
+  	order by funcName
+  	
+" 
+ 05:41:06 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:41:06 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:41:06 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:41:06 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:41:06 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:41:06 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:41:06 #call FuncPreview.findFuncId function ok
+05:41:10 function: addPage
+a=common, b=comm, c=comboChangeCheck
+05:41:10 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:41:10 function: current
+x={
+	id:"pageCode"	
+	width:"80"	
+	@proxy:""	
+	@d:	
+	@title:"=전체="	
+	@lineHeight:22	
+	onChange:func	
+	@key:"pageCode"	
+	@data:{
+		id:"pageGroup", width:"80", @proxy:"", @d:, @title:"=전체=", @lineHeight:22, onChange:func, @key:"cmsCode", @data:{@node}, tag:"combo", @thisNode:{@node}, @mpos:""
+	};
+	
+	tag:"combo"	
+	@thisNode:{
+		id:"FuncPreview", initPage:func, @id:"FuncPreview", @findId:{@node}, title:"함수미리보기", layout:"<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>", onInit:func, closeAll.onClick:func, closeCurrent.onClick:func, addFuncEditor:func, icon:"vicon.page_white_code_red", tag:"page", comboChangeTick:133233843, @mpos:""
+	};
+	
+	@mpos:""
+}
+
+
+cur={
+	id:"pageGroup"	
+	width:"80"	
+	@proxy:""	
+	@d:	
+	@title:"=전체="	
+	@lineHeight:22	
+	onChange:func	
+	@key:"cmsCode"	
+	@data:{
+		
+	};
+	
+	tag:"combo"	
+	@thisNode:{
+		id:"FuncPreview", initPage:func, @id:"FuncPreview", @findId:{@node}, title:"함수미리보기", layout:"<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>", onInit:func, closeAll.onClick:func, closeCurrent.onClick:func, addFuncEditor:func, icon:"vicon.page_white_code_red", tag:"page", comboChangeTick:133233843, @mpos:""
+	};
+	
+	@mpos:""
+}
+05:42:17 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:42:17 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:42:17 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:42:17 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:42:17 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:42:17 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:42:17 #call FuncPreview.findFuncId function ok
+05:42:23 #call runSrcCallFunction function ok
+05:42:23 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:42:29 function: addPage
+a=dev, b=CommPage, c=pinPopupOpen
+05:42:29 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:42:29 function: current
+x={
+	id:"pageCode"	
+	width:"80"	
+	@proxy:""	
+	@d:	
+	@title:"=전체="	
+	@lineHeight:22	
+	onChange:func	
+	@key:"pageCode"	
+	@data:{
+		id:"pageGroup", width:"80", @proxy:"", @d:, @title:"=전체=", @lineHeight:22, onChange:func, @key:"cmsCode", @data:{@node}, tag:"combo", @thisNode:{@node}, @mpos:""
+	};
+	
+	tag:"combo"	
+	@thisNode:{
+		id:"FuncPreview", initPage:func, @id:"FuncPreview", @findId:{@node}, title:"함수미리보기", layout:"<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>", onInit:func, closeAll.onClick:func, closeCurrent.onClick:func, addFuncEditor:func, icon:"vicon.page_white_code_red", tag:"page", comboChangeTick:133313359, @mpos:""
+	};
+	
+	@mpos:""
+}
+
+
+cur={
+	id:"pageGroup"	
+	width:"80"	
+	@proxy:""	
+	@d:	
+	@title:"=전체="	
+	@lineHeight:22	
+	onChange:func	
+	@key:"cmsCode"	
+	@data:{
+		
+	};
+	
+	tag:"combo"	
+	@thisNode:{
+		id:"FuncPreview", initPage:func, @id:"FuncPreview", @findId:{@node}, title:"함수미리보기", layout:"<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>", onInit:func, closeAll.onClick:func, closeCurrent.onClick:func, addFuncEditor:func, icon:"vicon.page_white_code_red", tag:"page", comboChangeTick:133313359, @mpos:""
+	};
+	
+	@mpos:""
+}
+05:43:53 QueryParse=> "select count(1) from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:43:53 QueryParse=> "select funcIdx from pageFileInfo where  cmsCode='dev' and pageCode='FuncPreview'  " 
+ 05:43:53 function: count
+## xxxxxxxxxxxxxx : pCode=dev.FuncPreview, pageId=FuncPreview## xxxxxxxxxxxxxxxx :
+05:43:53 function: count
+lineType=pageImpl, pageId=FuncPreview
+05:43:53 function: setPageImplSrc
+note=, fnm=findFuncId, funcCode=FuncPreview, pageId=FuncPreview
+05:43:53 function: setPageImplSrc
+페이지 구현 함수추가: FuncPreview.findFuncId(funcId)
+05:43:53 #call FuncPreview.findFuncId function ok
+05:43:57 #call runSrcCallFunction function ok
+05:43:57 QueryParse=> "select cmsCode from pageFileInfo group by cmsCode" 
+ 05:44:03 function: addPage
+a=common, b=comm, c=comboChangeCheck
+05:44:03 QueryParse=> "select cmsCode, pageCode from pageFileInfo where cmsCode='' " 
+ 05:44:03 function: current
+x=
+cur={
+	id:"pageCode"	
+	width:"80"	
+	@proxy:""	
+	@d:	
+	@title:"=전체="	
+	@lineHeight:22	
+	onChange:func	
+	@key:"pageCode"	
+	@data:{
+		id:"pageGroup", width:"80", @proxy:"", @d:, @title:"=전체=", @lineHeight:22, onChange:func, @key:"cmsCode", @data:{@node}, tag:"combo", @thisNode:{@node}, @mpos:""
+	};
+	
+	tag:"combo"	
+	@thisNode:{
+		id:"FuncPreview", initPage:func, @id:"FuncPreview", @findId:{@node}, title:"함수미리보기", layout:"<page>
+		<hbox margin="5,5,5,0" spacing=5>
+			<combo id="pageGroup" width=80>
+			<combo id="pageCode" width=80>
+			<combo id="funcName" width=80>
+			<button id="reload" text="새로고침">
+			<space>
+			<label text="클래스명"><input id="className" width=85>
+			<check id="classImplCheck" text="클래스 구현">
+			<toolbutton id="pin" icon="vicon.pin1">
+		</hbox>
+		<hbox margin="5,5,5,0" spacing=5> 			
+			<combo id="comboFuncHist" width=220>
+			<button id="closeCurrent" text="소스 닫기">
+			<button id="closeAll" text="전체소스 닫기">
+			<check id="pageFuncCheck" text="페이지함수">
+			<check id="subPageCheck" text="서브페이지">
+			<check id="pageImplCheck" text="구현함수">
+			<check id="eventMapCheck" text="이벤트맵">
+			<check id="commonCheck" text="이벤트맵">
+			<label id="funcStatus" stretch=1>
+		</hbox>
+		<div id="content">
+	</page>", onInit:func, closeAll.onClick:func, closeCurrent.onClick:func, addFuncEditor:func, icon:"vicon.page_white_code_red", tag:"page", comboChangeTick:133407015, @mpos:""
+	};
+	
+	@mpos:""
+}

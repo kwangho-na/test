@@ -1,0 +1,191 @@
+ClassFuncGrid {
+	ClassFuncGrid(page, comboImpl) {
+		this.addClass(common.Config );
+		db=Class.db('pages');
+
+		comboImpl.inject(cf);
+		dataModel=Class.model('ClassFuncInfo');
+		grid=page.grid;
+		grid.model( dataModel, this.makeFields('
+			class_nm:클래스명#180, 
+			class_func:클래스 함수#220, 
+			class_param:함수 매개변수#250, 
+			note:비고#300', true)
+		);
+		grid.check('sortEnable', true);
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+		page.deleteFunc.eventMap(onClick, this.deleteClassFuntion);
+		page.allSelect.eventMap(onClick, this.allSelectClick);
+		page.allCancel.eventMap(onClick, this.allCancelClick);
+		page.ok.eventMap(onClick, this.okClick);
+		page.cancel.eventMap(onClick, this.cancelClick);
+	}
+	initGrid(impl ) {
+		if( impl ) {
+			@comboImpl=impl;
+		}
+		root=dataModel.rootNode();
+		cls=comboImpl[currentClass];
+		if( cls ) {
+			root[currentClass]=cls;
+			total=root.childCount();
+			page.gridStatus.value("(총 $total 건)");		
+		} else {
+			root.removeAll();
+			page.gridStatus.value("");		
+		}
+		grid.update();
+		gridHeaderWidth(grid);
+	}
+	okClick() {
+		root=grid.rootNode();
+		root[inherit].split('.').inject(class_grp, class_nm);
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur.put(class_grp, class_nm);
+				db.fetch("select case when length(class_src)==0 then class_data else class_src end as src from class_info where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", cur);
+			}
+		}
+		fc=getParentFunc(page, 'addClassFuncsEdit');
+		fc(root);
+	}
+	gridDoubleClick(node) {
+		root=grid.rootNode();
+		root[inherit].split('.').inject(class_grp, class_nm);
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur[checked]=false;
+			}
+		}
+		node.put(class_grp, class_nm);
+		db.fetch("select case when length(class_src)==0 then class_data else class_src end as src from class_info where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", node);
+		node[checked]=true;
+		fc=getParentFunc(page, 'addClassFuncsEdit');
+		fc(root, true);
+		grid.update();
+	}
+	deleteClassFuntion() {
+		not( page.confirm("선택된 함수를 삭제하시겠습니까?") ) {
+			return;
+		}
+		root=grid.rootNode();
+		root[inherit].split('.').inject(class_grp, class_nm);
+		arr=[];
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur.put(class_grp, class_nm);
+				db.exec("delete from class_info where class_grp=#{class_grp} and class_nm=#{class_nm} and class_func=#{class_func}", cur);
+				arr.add(cur);
+			}
+		}
+		while( cur, arr ) {
+			root.remove(cur);
+		}
+		grid.update();
+	}
+
+	cancelClick() {
+		page.hide();
+	}
+	allSelectClick() {
+		root=grid.rootNode();
+		while( cur, root ) {
+			cur[checked]=true;
+		}
+		grid.update();
+	}
+	allCancelClick() {
+		root=grid.rootNode();
+		while( cur, root ) {
+			cur[checked]=false;
+		}
+		grid.update();
+	}
+ 	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		class('draw').gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				class('draw').gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		case class_nm:
+			root=grid.rootNode();
+			draw.text(rc, root[inherit]);
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			class('draw').gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+	gridClick(node, column) {
+		field=grid.field(column);
+		switch( field ) {
+		case check:	gridCheck(grid, node, page.deleteFunc );
+		case class_func:
+			grid.edit(node, 2);
+		case note:	
+			fieldNode=grid.fields().findOne('code',field);
+			grid.edit(node, fieldNode.index());
+		}
+	}
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		switch( type ) {
+		case create:
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+					node[modify#$field]=true;
+				}
+				node[$field]=data;
+			}
+			grid.update();
+		default: break;
+		}
+	}
+
+	makeFields(&s, check) {
+		fields={};
+		if( check ) {
+			cur=fields.addNode({code:check, text: *} );
+			cur.width = 40; 
+		}
+		while( s.valid() ) {
+			line=s.findPos(',');
+			not( line.ch() ) continue;
+			cur = fields.addNode();
+			cur[code]=line.findPos(':').trim();
+			cur[text]=line.findPos('#').trim();
+			cur[width]=line.trim();
+		}
+		rate=_arr(fields,'rate').reuse();
+		while( cur, fields ) {
+			rate.add(cur[width]);
+		}
+		_arr(fields,'widths').reuse();
+		return fields;
+	}
+
+}

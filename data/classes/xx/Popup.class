@@ -1,0 +1,61 @@
+Popup {
+	Popup(tag, parentCtrl) {
+		parentCtrl.inject(db, cf, xmlNode);
+		this.addClass('common/control.PageBase');
+	}
+
+	closePopup() {
+		root=tag.child(0);
+		this.getControl(root).closePopup();
+	}
+
+	conf(rect) {
+		not( rect ) {
+			confNodeLayout(tag);
+			return;
+		}
+		tagClearRect(tag);
+		
+		rect.inject(x,y,w,h);
+		if( tag[Width] ) 		pw=tag[Width];
+		if( tag[Height] )		ph=tag[Height];
+		if( pw || ph ) {
+			not( pw ) pw=w;
+			not( ph ) ph=h;
+			tag[rect]=rect.center(pw, ph);
+		} else {
+			tag[rect]=rect;
+		}
+		if( tag[offset] ) {
+			tag[rect].incrXY( tag[offset], true);
+		}
+		cur=tag.child(0);
+		cur[rect]=tag[rect];
+		this.getControl(cur).conf();
+	}
+
+	draw(draw, timeline) {
+		not( cf[popupControl] ) return;
+		if( cf[popupControl] != this ) return;
+		this.drawControl(draw, tag, timeline);
+	}
+
+	getMainNode() {
+		return tag.child(0);
+	}
+
+	mouseDown(pos) {
+		not( cf[popupControl] ) return;
+		if( cf[popupControl] != this ) return;
+		this.mouseDownControl(tag,pos);
+	}
+
+	mouseUp(pos) {
+		not( cf[popupControl] ) return;
+		if( cf[popupControl] != this ) return;
+		this.mouseUpControl(tag,pos);
+	}
+
+
+
+}

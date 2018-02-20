@@ -1,0 +1,112 @@
+BillnCookMain {
+BillnCookMain(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+ }
+
+conf() {
+	if( this.state(NODE.set) ) return;
+	confNodeLayout(tag);
+	setChildSize=func(root) {
+		while( cur, root ) {
+			not( cur[type] ) cur[type]='vbox';
+			setNodeSize(cur,true);
+			confNodeLayout(cur);
+			setChildSize(cur);
+		}
+	}; 
+	body=findTag('Body', tag);
+	rc=body[rect].incrX(30).indrW(-30);
+	sx=rc.x(), sy=rc.y(), sw=255, sh=304;
+	idx=0;
+	while( row, 5 ) {
+		cx=sx;
+		while(col, 4 ) {
+			sub=body.child(idx);
+			not( sub ) sub=body.addNode({tag:blank});
+			sub[rect]=Class.rect(cx,sy,sw,sh);
+			cx+=sw;
+			idx++;
+		}
+		sy+=sh;
+	}
+ }
+
+draw(draw) {
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Body:
+			while( sub, cur ) {
+				if( sub[tag].eq('blank') ) {
+					path="namzatang/images/menus/images/corner_blank.png";
+				} else {
+					path="namzatang/images/menus/images/${sub[corner_cd]}_img.png";
+				}
+				img=imageLoad(sub,'menuImg', path);
+				rc=sub[rect].incr(2);
+				draw.drawImage(img.center(rc), img);
+				if( this.mouseDownRect && sub[rect].eq(this.mouseDownRect) ) {
+					draw.opacity(30);
+					draw.fill(rc,'#f0f0f0');
+					draw.opacity(100);
+				}
+			}
+		default:
+		}
+	}
+ }
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+	
+	body=findTag('Body', tag);
+	db.fetchAll("select 'store' as tag, corner_cd from tb_corner_mst", body.removeAll() );
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Body:
+			while( sub, cur ) {
+				if( sub[rect].contains(pos) ) {
+					this.mouseDownRect=sub[rect];
+					break;
+				}
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+ }
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Body:	
+			while( sub, cur ) {
+				if( sub[rect].contains(pos) ) {
+					this.selectStore(sub);
+					break;
+				}
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+selectStore(node) {
+	x=this.mainControl().findControl('CornerTab');
+	x.setBillnCookStore(node);
+}
+}

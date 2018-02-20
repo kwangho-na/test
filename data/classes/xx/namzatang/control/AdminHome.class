@@ -1,0 +1,60 @@
+AdminHome {
+AdminHome(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+}
+
+draw(draw, node, timeline) {
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		drawNodeButton(draw, cur, null, this);
+	}
+}
+
+exitButtonClick() {
+	cf[stackPage]=this.mainControl().loadStackPage('AdminLogin');
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		this.mouseDownRect=cur[rect];
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+	
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case SalesOpenButton: 
+		case SalesCloseButton: 
+		case GoKioskMainButton: 
+		case SalesStatusButton: 
+		case CashManageButton: 
+		case SoldOutButton: 
+		case TurnOutButton: 
+		case ExitButton:  					this.exitButtonClick();
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+
+}
+}

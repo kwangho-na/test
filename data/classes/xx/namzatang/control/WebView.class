@@ -1,0 +1,57 @@
+WebView {
+WebView(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+closePage() {
+	this.webviewWidget.hide();
+}
+
+conf() {
+	confNodeLayout(tag);
+	this.showWebview(tag[rect]);
+	this.setUrl('http://localhost:8089/@kiosk.index');
+}
+
+draw(draw, root, timeline) {
+	this.showWebview(tag[rect]);
+}
+
+initControl() {
+	setNodeSize(tag, true);
+	
+}
+
+setUrl(url) {
+	not( url ) return;
+	web= this.webviewWidget;
+	if( web ) web.url(url);
+}
+
+showWebview(rc) { 
+	main=this.mainControl();
+	canvas=main.canvas;
+	webView=this.webviewWidget;
+	not( webView ) {
+		webView=canvas.widget(tr('widget#kiosk.webView'), true);
+		webView.flags('splash, top');
+		webView.fingerScroll();
+		webView.open();
+		this.webviewWidget=webView;
+		cf[didWidgets].add(webView);
+	}
+	rcGlobal=canvas.mapGlobal(rc);
+	webView.move(rcGlobal.lt());
+	webView.size(rcGlobal.size());
+	webView.show();
+}
+
+test() {
+	this.webviewWidge.hide();
+	this.webviewWidget=null;
+	
+	this.conf();
+}
+}

@@ -1,0 +1,410 @@
+d1Canvas {
+	d1Canvas(page) {
+		this.addClass('common/control.PageBase'); 		
+		timelineNode={};
+		canvas=page.canvas;
+		canvas.eventMap( onDraw, this.canvasDraw, 'draw');
+		canvas.eventMap( onMouseDown, this.canvasMouseDown, 'pos');
+		canvas.eventMap( onMouseUp, this.canvasMouseUp, 'pos');
+		canvas.eventMap( onMouseMove, this.canvasMouseMove, 'pos');
+		canvas.eventMap( onEvent, this.canvasEvent, 'type, node');	
+		
+		/* 설정정보 세팅 */
+		this.initConfig();
+		
+		/* 타이머 설정 */
+		canvas.timer( 1000, callback() {
+			this.timeout();
+		}, this);
+		
+		this.initPage();
+	}
+
+	/* 캔바스 설정*/
+	initConfig() {
+		/* 기본설정 정보 (향후 config DB에서 불러온다) */
+		cf.debug=true;
+		cf.projectId ='Test';
+	}
+
+	/* 페이지 초기화 */
+	initPage() {
+		cf.pageStart=false;
+		cf.pageRate=1;
+	}
+
+	/* 페이지 XML로드 */
+	loadMainPage(pageXml) {
+		root= this.parseXml(pageXml);
+		this.mainNode=root;
+		this.pageStart();
+		this.update();
+	}
+
+	/* 페이지 시작 */
+	pageStart() {
+		node=this[mainNode];
+		not( node ) {
+			return;
+		}
+		cf.pageStart		=true;
+		cf.pageStartTick 	=System.tick();
+		cf[classErrorCheck].initNode();
+		setNodeSize(node, true);
+	}
+
+	/* [공통] 캔버스 영역 설정 */
+	conf() {
+		node=this[mainNode];
+		confNodeLayout(node);
+	}
+
+	/* [공통] 캔버스 드로우 */
+	draw(draw,  timeline) {
+		node=this[mainNode];
+		this.drawControl(draw, node, timeline);
+		
+	}
+
+	/* [공통] 캔버스 마우스 다운 */
+	mouseDown(pos) {
+		cf[mouseDownTick]=System.tick();
+		root=xmlNode.child(0);
+		this.mouseDownControl(root, pos);
+	}
+
+	/* [공통] 캔버스 마우스 업 */
+	mouseUp(pos) {
+		root=xmlNode.child(0);
+		this.mouseUpControl(root, pos);
+		cf[mouseDownTick]=0;
+	}
+
+	/* 캔버스 드로우 */
+	canvasDraw(draw) {
+		while( tm, timelineNode ) {
+			not( tm.state(NODE.start) ) continue;
+			tid=tm[tid];
+			if( Cf.timeLine(".running") ) { 
+				this.draw(draw, tm);
+				if( cf[popupControl] ) {
+					cf[popupControl].draw(draw,tm);
+				}
+				draw.end();
+				return;
+			} else {
+				tm.state(NODE.start, false);
+				this.draw(draw, tm);
+				if( cf[popupControl] ) {
+					cf[popupControl].draw(draw,tm);
+				}
+				draw.end();
+				return;			
+			}
+		}
+		if( cf[stackPage] ) {
+			cf[stackPage].draw(draw, tm);
+		} else {
+			this.draw(draw );
+			if( cf[popupControl] ) {
+				cf[popupControl].draw(draw,tm);
+			}
+		}
+	}
+
+	/* 캔버스 마우스 이등 */
+	canvasMouseMove(pos) {
+	}
+
+	/* 캔버스 마우스 다운 */
+	canvasMouseDown(pos) {
+		if( cf[stackPage] ) {
+			cf[stackPage].mouseDown(pos);
+			return;
+		} else if( cf[popupControl] ) {
+			cf[popupControl].mouseDown(pos);
+			return;
+		}
+		this.mouseDown(pos);
+	}
+
+	/* 캔버스 마우스 업 */
+	canvasMouseUp(pos) {
+		if( cf[stackPage] ) {
+			cf[stackPage].mouseUp(pos);
+			return;
+		} else if( cf[popupControl] ) {
+			cf[popupControl].mouseUp(pos);
+			return;
+		}
+		this.mouseUp(pos);
+	}
+
+
+	/* 이벤트 등록 */
+	addCanvasEvent(type, node) {
+		canvas.postEvent(type, node);
+	}
+
+	/* 이벤트 처리 */
+	canvasEvent(type, node) {
+	}	
+
+
+	/* 메시지 윈도우 출력 */
+	alert(msg, title) {
+		not( title ) title="알림";
+		this.closePopup();
+		root=this[mainNode];
+		popup=null;
+		while( cur, root ) {
+			not( cur[tag].eq('Popup') ) continue;
+			if( cur[id].eq('MessageWindow') ) {
+				popup=this.getControl(cur); 
+				pageNode=popup.loadPage();
+				not( pageNode ) {
+					page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+					return;
+				}
+				titleNode=findTag('Title', pageNode);
+				messageNode=findTag('Message', pageNode);
+				titleNode[title]=title;
+				messageNode[message]=msg;
+				not( pageNode[pageId] ) pageNode[pageId]=popupId;
+				break;
+			}
+		}
+		cf[popupStartTick]=System.tick();
+		cf[popupControl]=popup;
+		popup.conf();
+		this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+	}
+
+	/* 페이지 클로즈 */
+	closePage() {
+		
+	}
+
+	/* 팝업 클로즈 */
+	closePopup(popupId) {
+		root=this[mainNode];
+		not( root ) {
+			root=xmlNode.child(0);
+		}
+		popup=null;
+		if( popupId ) {
+			while( cur, root ) {
+				not( cur[tag].eq('Popup') ) continue;
+				if( cur[id].eq(popupId) ) {
+					popup=this.getControl(cur); 
+					break;
+				}
+			}
+		}
+		not( popup ) {
+			popup=cf[popupControl];
+		}	
+		/* 탐업창 close 처리 (로딩창 닫기 등) */
+		cashOpen=false;
+		if( popup ) {
+			popup.inject(tag);
+			if( tag[id].eq('MessageWindow') ) {
+				order=cf[OrderHeader];
+					if( order[InputCashOk] ) {				
+					if( order[DelayCount]>2 ) {
+						cashOpen=true;
+					}
+				}
+			}
+			popup.closePopup();	
+		}
+		
+		/* 웹뷰를 닫는다 */
+		webView=this.webviewWidget;
+		if( webView ) {
+			webView.hide();
+		}
+		
+		/* 열려있는 동영상 플레이 닫는다 */
+		while( player, _arr(this,'MoviewPlayers') ) {
+			player.hide();
+		}
+			
+		cf[popupControl]=null;
+		if( cashOpen ) {
+			this.openPopup('SelectCashReceipt');
+		}
+		this.update();
+	}
+
+	/* 스택윈도우 클로즈 */
+	closeStackPage() {
+		not( cf[stackPage] ) return;
+		this.closePopup();
+		cf[stackPage].closePage();
+		cf[stackPage]=null;
+		this.update();
+	}
+
+
+	/* 스택윈도우 로드 */
+	loadStackPage(pageId) {
+		root=this[stack$pageId];	
+		page=null;
+		if( root ) {
+			page=root.child(0);
+		} else {
+			node=xmlNode.child(0);
+			root=node.addNode({tag:stack, id=$pageId});
+			this[stack$pageId]=root; 
+			file=Class.file();
+			fileName="$cf[pageXmlPath]/.xml";
+			if( file.isFile(fileName) ) {
+				this.loadXml(fileName, root.removeAll() );
+			}
+			not( root.childCount() ) {
+				_log("loadStackPage error={ $pageId loading fail}");
+				return null;
+			}
+			page=root.child(0);
+			page[type]='vbox';
+			setNodeSize(page, true);
+			treePage=get('Kiosk.EditPageTree');
+			if( treePage ) {
+				treePage.tree.update();
+			}
+		}
+		tag=page.child(0);
+		ctrl= this.getControl(tag);
+		ctrl.conf(); 
+		cf[stackPage]=ctrl;
+		this.update();
+		return ctrl;
+	}
+
+
+	/* 팝업 로드 & 오픈 */
+	openPopup(popupId) {
+		this.closePopup();
+		root=xmlNode.child(0);
+		popup=null;
+		while( cur, root ) {
+			not( cur[tag].eq('Popup') ) continue;
+			if( cur[id].eq(popupId) ) {
+				popup=this.getControl(cur); 
+				pageNode=popup.loadPage();
+				not( pageNode ) {
+					page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+					return;
+				}
+				not( pageNode[pageId] ) pageNode[pageId]=popupId;
+				break;
+			}
+		}
+		not( popup ) {
+			page.alert("$popupId 팝업 정보가 존재하지 않습니다");
+			return;
+		}
+		cf[popupStartTick]=System.tick();
+		cf[popupControl]=popup;
+		this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+		popup.conf();
+		this.update();
+	}
+	/* 페이지 비율 세팅 */
+	setPageRate(rate) {
+		not( rate) return;
+		not( typeof(rate,'number') ) {
+			rate=rate.toNumber();
+		}
+		if( rate ) cf.pageRate=rate;
+		this.setCanvasSize();
+		this.conf();
+		this.print();
+		this.update();
+	}
+
+		
+	/* 애니메이션 처리 */ 
+	timelineCheck(cmd, target, style) {
+		not( cmd ) {
+			while( tm, timelineNode ) {
+				not( tm.state(NODE.start) ) continue;
+				if( Cf.timeLine(".running") ) {
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		if( target ) {
+			tm=timelineNode.findOne('tid',cmd);
+			not( tm ) {
+				_log("$cmd 타임라인을 찾을수 없습니다");
+			}
+			tm.inject(duration, range, mode);
+			tm.state(NODE.start, true);
+			tm[drawCount]=0;
+			tm.target=target;
+			tm.command=target.command;
+			tm.timelineStyle=style;
+			Cf.timeLine(".start", canvas, duration, range, mode);
+		} else {
+			return Cf.timeLine(cmd);
+		}
+	}
+
+	/* 타임라인 시작 */ 
+	timelineStart(tid, duration, range, mode, state) {
+		not( state ) state="stay";
+		tm=timelineNode.findOne('tid',tid);
+		not( tm ) {
+			tm=timelineNode.addNode();
+		}
+		tm.state(0);
+		if( state.eq('stay') ) {
+			tm.state(NODE.stay, true);
+		} else {
+			tm.state(NODE.start, true);
+		}
+
+		tm[tid]=tid;
+		tm[startTick]=System.tick();
+		tm.put(duration, range, mode);
+		if( tm.state(NODE.start)) {
+			Cf.timeLine(".start", canvas, duration, range, mode);
+		}
+		return tm;
+	}
+
+	/* 타임라인 종료 */ 
+	timelineStop(key) {
+		if( key ) {
+			Cf.timeLine(".stop");
+		} else {
+			while( key, Cf.timeLine() ) {
+				if( Cf.timeLine(".running") ) {
+					Cf.timeLine(".stop");
+				}
+			}
+		}
+		timelineNode.removeAll();
+	}
+
+	/* 타이머 이벤트 */ 
+	timeout() {
+		not( cf[pageStart] ) {
+			return;
+		}	
+		/* 타임아웃 체크 */
+		timeoutCount=cf[timeoutCount++];
+		mod=timeoutCount % 240;
+		not( mod ) {
+			print("timeoutCheck ========= $timeoutCount");		
+		}
+	}
+
+	 
+	 
+ 
+}

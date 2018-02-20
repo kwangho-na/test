@@ -1,0 +1,93 @@
+PageTagTree {
+	PageTagTree(page ) {
+		this.addClass(common.Config);
+		cf.put( pageCd );
+		db=Class.db('pages');
+		dataModel=Class.model('PageTagTree');
+		tree=page.tree;
+		tree.check('treeMode', true);
+		tree.model(dataModel, 'tag');
+		tree.eventMap(onDraw, this.treeDraw, 'draw, node, over');		
+		tree.eventMap(onChange, this.treeChange, 'node');
+		tree.eventMap(onMouseDown, this.treeMouseDown, 'pos, button');	
+	}
+	initTree(page) {
+		while( cur, page) {
+			cur[tag]='page'; 
+		}
+		Class.model('PageTagTree').rootNode(page);
+		tree.update();
+		if( cur ) {
+			tree.expand(cur, true, true);
+		}
+	}
+	treeDraw(draw, node, over) {
+		rc=treeIcon(tree, draw, node, over);
+		rcIcon = rc.width(18).center(16,16);
+		rc.incrX(20);
+		info='';
+		tag=node[tag];
+		if( node[kind] ) {
+			tag.add(":$node[kind]");
+		}
+		if( node[id] ) info="id=$node[id]";
+ 		switch( node[tag] ) {
+		case page:
+			draw.icon( rcIcon, "vicon.application_form" );
+			draw.save().font('bold');
+			draw.text( rc,  tag);
+			draw.restore();
+		case vbox:
+			draw.icon( rcIcon, 'vicon.application_tile_vertical');
+			draw.text( rc,  tag);
+		case hbox:
+			draw.icon( rcIcon, 'vicon.application_tile_horizontal');
+			draw.text( rc,  tag);
+		case layout:
+			draw.icon( rcIcon, 'vicon.application_form_edit');
+			draw.text( rc,  tag);
+		case [tree,grid] :
+			draw.icon( rcIcon, 'vicon.application_side_boxes');
+			draw.text( rc,  tag);
+		case [group, splitter] :
+			draw.icon( rcIcon, 'vicon.application_side_expand');
+			draw.text( rc,  tag);
+		case [div, tab] :
+			draw.icon( rcIcon, 'vicon.application_view_tile');
+			draw.text( rc,  tag);
+		default:
+			draw.icon( rcIcon, 'vicon.page_red');
+			draw.text( rc,  tag);
+		}
+		if( info ) {
+			draw.save().font(8,'normal','#60708a');
+			w=draw.textWidth(info)+20;
+			draw.text(rc.move('end',w), "($info)");
+			draw.restore();
+		}
+	}
+	treeChange(node) {
+		page.treeChange(node);
+	}
+	treeMouseDown(pos, button) {
+		if( button.eq('right') ) return 'ignore';
+		node = tree.at(pos);
+		not( node ) return;
+		if( node[tag].eq('div','tab') ) {
+			not(  node[@widgetArray] ) node.widget();
+			c1=node.childCount(), c2= node[@widgetArray].size();
+			if( c1 != c2 ) {
+				node.removeAll();
+				while( sub, node[@widgetArray] ) {
+					cur=node.addNode({tag:subPage});
+					cur[id]=when(sub[id], sub[id], sub[@funcName] );
+					cur[page]=sub;
+				}
+				tree.update();
+			}
+		}
+	}
+
+
+}
+

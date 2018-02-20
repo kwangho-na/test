@@ -1,0 +1,74 @@
+Loading {
+Loading(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.PageBase');
+	this.initControl();
+}
+
+closePopup() {
+	this[pageStart]=false;
+	this[loadingWidget].hide();
+}
+
+conf() {
+	confNodeLayout(tag);
+	this[pageStart]=true;
+	this.showLoading();
+}
+
+draw(draw, timeline) {
+	show=true;
+	if( timeline ) {
+		tid=timeline[tid];
+		frame=Cf.timeLine("${tid}.current");
+		if( Cf.timeLine("${tid}.running") ) {
+			opa=30;
+			opa+=frame*7;
+			
+		} else {
+			opa=100;
+		}
+		if( frame<15 ) show=false;
+		draw.opacity(opa);
+	}
+	draw.mode();
+	draw.effect(
+		DRAW.RoundBox, tag[rect].incr(2), 15, '#cacaca', '#ffffff', 2
+	);
+	
+	if( show ) this.showLoading(tag[rect]);
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+}
+
+mouseUp(pos) {
+}
+
+showLoading(rc) { 
+	widget=this[loadingWidget];
+	main=this.mainControl();
+	canvas=main.canvas;
+	not( widget ) {
+		widget=canvas.widget({tag:canvas});
+		widget.flags('splash, top');
+ 		widget.playGif('namzatang/Images/main/loading2.gif');
+		this[loadingWidget]=widget;
+	}
+	not( this[pageStart] ) {
+		widget.hide();
+		return;
+	}
+	if( rc ) {
+		rcGlobal=canvas.mapGlobal(rc.center(300,300));
+		widget.move(rcGlobal.lt());
+		widget.size(rcGlobal.size());
+		widget.show();		
+	}
+}
+}

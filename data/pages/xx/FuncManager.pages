@@ -1,0 +1,495 @@
+[## 함수 관리 메인 ##]
+main: {
+layout:
+	<page margin=0>
+		<splitter stretchFactor="content">
+			<div id="left">
+			<div id="content">
+		</splitter>
+		<hbox>
+			<canvas id="status" height=18>
+		</hbox>
+	</page>
+title: 함수 관리 페이지,
+icon: ficon.application-blog,
+onInit() {
+	pageStart=false;
+	tree=null, grid=null, tab=null;
+	this.setLeftTree();	
+	this.delay( callback() {
+		this.tag('splitter').sizes(380);
+		@pageStart=true;
+	});	
+}
+setLeftTree() {
+	&page=pageLoad(this, 'funcTree');
+	@tree=page.tree;
+	this.left.addPage(page, true);
+}
+setFuncGridPage(node) {
+	&page=pageLoad(this, 'funcGrid');
+	@grid=page.grid;
+	page.initPage(node);
+	this.content.addPage(page, true);
+}
+setFuncSrcTab(node) {
+	&page=pageLoad(this, 'funcTab');
+	page.initPage(node);
+	this.content.addPage(page, true);
+}
+}
+
+[## 함수 트리 ##]
+funcTree: {
+layout:
+<page margin=2>
+	<tree id="tree">
+	<hbox>
+		<combo id="func_type"><combo id="sort_field"><combo id="sort_order"><space>
+		<toolbutton id="expandClose" icon="ficon.folder-horizontal" tooltip="전체 접기">
+	</hbox>
+</page>
+onInit() {
+	db=instance('pages.model');
+	tree=this.tree;
+	tree.check('treeMode', true);
+	tree.check('editTrigger', VIEWEDIT.DoubleClicked);
+	tree.check('sortEnable', true);
+	tree.model( instance('funcInfo.model'), 'title');
+	sortField='func', sortAsc=true;
+	
+	currentNode=null, currentType=null;
+	this.initFuncAction();
+	this.initPage();
+	this.delay(callback() {
+		root=tree.rootNode().child(0);
+		tree.expand(root, true, true);				
+	});
+}
+
+
+initPage() {
+	this.sort_field.addItem( class('code').getCodeNode('funcSortField'),'code,value' );
+	this.sort_order.addItem( class('code').getCodeNode('sortOrder'),'code,value' );
+	this.func_type.addItem( class('code').getCodeNode('funcSrcType'), 'code,value', '==전체==' );
+	tree.update();
+}
+
+
+initFuncAction( page ) { 
+	not( page ) page=this;	
+	page.action([
+		{id: 'func.add',				text: 함수추가,			icon:ICON.vicon.application_edit },
+		{id: 'func.delete',			text: 함수삭제,			icon:ICON.vicon.delete_default },
+		{id: 'func.reload',			text: 새로고침,			icon:ICON.vicon.arrow_rotate_clockwise },
+	]); 
+ 	page.action('func.add').trigger(callback() {
+		cur = page[contextNode];
+		sub=null;
+		switch( cur[type] ) {
+		case root:
+			sub=cur.addNode({type:funcGroup, func_grp: 함수그룹 추가});
+		case funcGroup:
+			sub=cur.addNode({type:funcSrc, func_nm: 함수 추가});
+		case funcSrc:		
+			cur=cur.parent();
+			sub=cur.addNode({type:funcSrc, func_nm: 함수 추가});
+		default:
+			not( cur ) {
+				cur=tree.rootNode().child(0);
+				sub=cur.addNode({type:funcGroup, func_grp: 함수그룹 추가});
+			}
+		}
+		if( sub[type].eq('funcSrc') ) {
+			type=page.func_type.value();
+			not( type ) type='A';
+			sub[func_grp]=cur[func_grp];
+			sub[func_type]=type;
+		}
+		if( sub ) {
+			page.addTreeNode(cur, sub);
+		}
+	});
+	page.action('func.delete').trigger(callback() {
+		cur = page[contextNode];
+		if( cur[type].eq('funcSrc') ) {
+			not( page.confirm("$cur[func_nm] 함수를 삭제하시겠습니까?") ) {
+				return;
+			}
+			db.exec("update cmsFunc set useyn='N' where cmsCode=#{func_grp} and funcName=#{func_nm}", cur);		
+		} else if( cur[type].eq('funcGroup') ) {
+			not( page.confirm("$cur[func_grp] 함수그룹을 삭제하시겠습니까?") ) {
+				return;
+			}
+			db.exec("update cmsFunc set useyn='N' where cmsCode=#{func_grp}", cur);	
+		}
+		if( cur.state(NODE.add) ) {
+			cur.parent().remove(cur);
+		} else {
+			cur.parent().removeAll();
+		}
+		funcSrcTabPage.removeSrc(cur);
+		tree.update();		
+	});	
+	page.action('func.reload').trigger(callback() {
+		cur = page[contextNode];
+		cur.removeAll();
+		tree.update();
+	});	 
+}
+
+
+expandClose.onClick() {
+	cur=tree.rootNode().child(0);
+	treeExpandAll(tree, cur, false);
+	tree.current(cur);
+}
+sort_field.onChange() {
+	@sortField=@me.value(); 
+	tree.update();
+}
+sort_order.onChange() {
+	val=@me.value();
+	@sortField=this.sort_field.value(); 
+	@sortAsc=when( val.eq('asc'), true, false );
+	tree.update();
+}
+func_type.onChange() {
+	@currentType=@me.value();
+	tree.update();
+}
+
+tree.onChildData() {
+	node=@node;
+	not( node.parent() ) {
+		node.addNode({ type:root, title: 공통함수 정보});
+		return;
+	}
+	switch( node[type]) {
+	case root:
+		db.fetchAll("select 
+			'funcGroup' as type, 
+			cmsCode as func_grp, max(tm) as tm
+		from cmsFunc 
+		where useyn='Y' group by cmsCode ", node );
+	case funcGroup:
+		db.fetchAll("select 
+			'funcSrc' as type, 
+			cmsCode as func_grp, funcName as func_nm, funcParam as func_param, type as func_type, tm
+		from cmsFunc 
+		where cmsCode=#{func_grp} and useyn='Y'", node );
+	}
+}
+
+
+tree.onLessThan() {
+	switch( sortField ) {
+	case func: 
+		switch( @left[type] ) {
+		case funcGroup: 
+			if( currentNode[type].eq('root') ) {
+				return @left.lessThan('func_grp', @right, sortAsc); 
+			}
+			return;
+		default: return @left.lessThan('func_nm', @right, sortAsc);
+		}
+	case tm:
+		return @left.lessThan('tm', @right, sortAsc);
+	default: 
+		return;
+	}
+}
+tree.onFilter() {
+	not( currentType ) return true;
+	type=@node[type];
+	if( type.eq('funcSrc') ) {
+		if( currentType.eq(@node[func_type]) ) return true;
+		return false;
+	}
+	return true;
+}
+tree.onTip() {
+	return @node[note];
+}
+tree.onDraw() {
+	this.drawTree(@draw, @node, @over);
+}
+drawTree(d, node, over ) {
+	rc=class('draw').treeIcon(tree, d, node, over, node[type].eq('funcSrc') );
+	rcIcon = rc.width(18).center(16,16);
+	rc.incrX(20);
+	if( node.state(NODE.add) ) {
+		d.save().pen('#f05050');
+		d.text(rc.width(9),'*', 'center');
+		rc.incrX(10);
+		d.restore();
+	}
+	switch( node[type] ) {
+	case root:
+		d.icon( rcIcon, "vicon.script_code_red" );
+		d.text( rc,  node[title]);
+	case funcGroup:
+		d.icon( rcIcon, "vicon.table_gear" );
+		d.text(rc,  node[func_grp]);
+	case funcSrc:
+		d.icon(rc.move('end',24).center(16,16), 'vicon.application_form_edit');
+		switch( node[func_type] ) {
+		case 'A':	d.icon( rcIcon, "ficon.script-code" );
+		case 'C':	d.icon( rcIcon, "ficon.script-globe" );
+		case 'S':	d.icon( rcIcon, "ficon.script-block" );
+		case 'T':	d.icon( rcIcon, "ficon.script-attribute-t" );
+		case 'Z':	d.icon( rcIcon, "ficon.script--exclamation" );
+		}
+		d.text( rc,  "${node[func_nm]}(${node[func_param]})");
+	default:	
+	} 
+}
+treeChanged(node) {
+	if( node.childCount() ) {
+		tree.expand(node);
+	}
+	@currentNode=node;
+	switch( node[type] ) { 
+	case funcSrc:		parentPage.setFuncSrcTab(node);
+	default:				parentPage.setFuncGridPage(node);
+	} 
+}
+tree.onChange() {
+	this.status.redraw();
+	if( this.editStart ) return;
+	this.treeChanged( @node );
+}
+
+
+tree.onMouseDown() {
+	if( @button.eq('right') ) return 'ignore';
+	node = @me.at(@pos);
+	rc = @me.nodeRect(node);
+	rcIcon = rc.move('end',24).center(18,18);
+	if( rcIcon.contains(@pos) ) {
+		page=null;
+		if( node[type].eq('funcSrc') ) {
+			page=Cf.loadPage('devPopup.funcSrc');
+		}
+		if( page ) {
+			page.initPage(node, this, @pos, tree, 720, 560);
+			return 'ignore';
+		} 
+	}
+}
+addTreeNode(node, sub) {
+	not(sub) return;
+	this.editStart=true;
+	sub.state(NODE.add, true);
+	tree.update();
+	tree.expand(node, true);
+	tree.current(sub);
+	tree.edit(sub);
+	tree.scroll(sub);
+}		
+tree.onEditEvent(type, node, data, index) {
+	ty=node[type];
+	switch(type) {
+	case create: 
+		if( ty.eq('root') ) return;
+		input=@me.widget({tag:input});
+		this.delay( callback() {
+			if( ty.eq('funcSrc') ) {
+				if( node[func_nm] ) {
+					input.value("${node[func_nm]}(${node[func_param]})");
+				}
+			} else {
+				input.value(node[func_grp]);
+			}
+			input.select();
+		});
+		return input;
+	case geometry: 
+		rc = data.incrX(18);
+		return rc;
+	case finish: 
+		same=false;
+		if( ty.eq('funcSrc') ) {
+			if( data.eq("${node[func_nm]}(${node[func_param]})") ) {
+				same=true;
+			}
+		} else {
+			if( node[func_grp].eq(data) ) {
+				same=true;
+			}
+		}
+		if( same ) {
+			return;
+		}
+		not( data ) {
+			this.delay( callback() {
+				node.parent().remove(node);
+				tree.update();
+			});
+			return;
+		}
+		not( node.state(NODE.add) ) {
+			node.state(NODE.modify, true);
+		}
+		_func=func(s) {
+			if( s.find('(') ) {
+				node[func_nm]=s.findPos('(').trim();
+				node[func_param]=s.findPos(')').trim();
+			} else {
+				node[func_nm]=s, node[func_param]='';
+			}
+		};
+		field='func_nm';
+		if( ty.eq('funcSrc') ) {
+			_func(data.ref());
+			data=node[func_nm];
+		} else {
+			node[func_grp]=data;
+			field='func_grp';
+		}
+		cancel=false, parent=node.parent();
+		while( cur, parent ) {
+			if( cur==node ) continue;
+			if( cur[$field].eq(data) ) {
+				cancel=true;
+				break;
+			}
+		}
+		if( cancel ) {
+			if( ty.eq('funcSrc') ) {
+				mainPage.alert("중복된 함수정보가 있습니다.");
+			} else {
+				mainPage.alert("중복된 함수그룹 정보가 있습니다.");
+			}
+			this.delay( callback() {
+				tree.edit(node);
+			});
+		}
+		this.editStart=false;
+		@me.update(); 
+	default: return;
+	}
+}
+
+}
+
+[## 함수 그리드 ##]
+funcGrid: {
+layout: 
+<page>
+	<hbox>
+		<label text="함수그룹 : "><input id="func_grp" width=85>
+		<label text="함수명 : "><input id="func_nm" width=105>
+		<label text="유형 : "><combo id="func_type"><space>
+		<toolbutton id="initBtn" icon="vicon.asterisk_orange" tip="조회폼 초기화">
+		<button id="search" text="조회" icon="igims.search">
+	</hbox>
+	<grid id="grid">
+	<hbox>
+		<label id="subStatus" stretch=1><button id="delete" text="삭제" icon="vicon.cancel_default">
+	</hbox>
+</page>
+onInit() { 
+	db=instance('pages.model');
+	grid=this.grid;
+	grid.model(instance('funcList.model'), makeFields(conf('sql.funcGridList'), true) );
+	this.func_type.addItem( class('code').getCodeNode('funcSrcType'), 'code,value', '==전체==' );
+	this.searchList();
+}
+
+
+
+initPage(node) {
+	this.func_grp.value(''), this.func_nm.value(''), this.func_type.value('');
+	not( node ) return;
+	if( node[type].eq('funcGroup') ) {
+		this.func_grp.value(node[func_grp]);
+	} else if( type.eq('funcSrc') ) {
+		p=node.parent();
+		this.func_grp.value(p[func_grp]);
+		this.func_nm.value(node[func_nm]);
+	}
+	this.searchList();
+}
+
+
+
+initBtn.onClick() {
+	this.initForm();
+}
+func_nm.onEnter() {
+	this.searchList();
+}
+func_nm.onFocusIn() {
+	@me.select();
+}
+
+search.onClick() {
+	this.searchList();
+}
+searchList() {
+	root=grid.rootNode().removeAll();
+	root.func_grp = this.func_grp.value();
+	root.func_nm = this.func_nm.value();
+	root.func_type = this.func_type.value();
+	root.offset	= 0;
+	root.fetchNum	= 50;
+	db.fetchAll(conf('sql.funcGridList'),root);
+	grid.update();
+	total=db.value(conf('sql.funcGridListTotal'), root);
+	this.subStatus.value("전체 건수 : $total 건");
+	this.delete.hide();
+}
+grid.onFetchMore() {
+	@node[offset]=@node[fetchNum];
+	@node.incr('fetchNum',50);
+	db.fetchAll(conf('sql.funcGridList'), @node);
+	grid.update();
+}
+
+
+grid.onDraw() {
+	this.drawGrid(@draw, @node, @over);
+}
+drawGrid( d, node, over) {
+	rc=class('draw').gridOver(d, over);
+	field=grid.field(d.index());
+	print("rc=$rc, field=$field");
+	switch( field ) {
+	case check:		
+		if( node[checked] ) 
+			d.icon(rc.center(16.16), Icon.func.check);
+		else
+			d.icon(rc.center(16.16), Icon.func.add);
+	case status:
+		d.ctrl('btn', rc.center(60,20), "소스보기");
+	case type:
+		switch( node[type] ) {
+		case 'A': 	d.text( rc, "일반함수", "center" );	
+		case 'S': 	d.text( rc, "영구함수", "center" );
+		default: 	d.text( rc, node[type], "center" );
+		}
+	case tm:		
+		d.text( rc.incrX(2), System.date(node[$field],'yy-MM-dd hh:mm') );	
+	default:
+		d.text( rc.incrX(2), node[$field] );	
+	} 
+	not( over ) d.rectLine(rc,4,'#d0d0d0');
+}
+
+grid.onClicked() {
+	switch( grid.field(@column) ) {
+	case check: 
+		gridCheck(@me, @node, this[delete]);
+	case status: 
+		node=@node;
+		page = mainPage.getSrcPopup(node);
+		rc = grid.nodeRect(node, 6);
+		pt = grid.mapGlobal(rc.lb());
+		rcOpen = Class.rect(pt, 680,520);
+		openPopup(page,null,rcOpen);				 
+	default:
+	}
+}
+
+}

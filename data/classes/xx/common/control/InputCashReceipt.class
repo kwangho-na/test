@@ -1,0 +1,68 @@
+InputCashReceipt {
+InputCashReceipt(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+companyCommandClick() {
+	cf[CashReceiptType]='Company';
+	this.mainControl().openPopup('SelectCashReceiptNumber');	
+}
+
+conf() {
+	offset=tag[rect].lt();
+	confNodeLayout(tag, offset );
+	cf[CashReceiptType]=null;
+}
+
+draw(draw, root, timeline) {
+	popupFadeIn(draw, timeline);
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		drawNodeButton(draw, cur, null, this);
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rcButton].contains(pos) ) continue;
+		this.mouseDownRect=cur[rcButton];
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+	
+}
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rcButton].contains(pos) ) continue;
+		switch( cur[tag] ) {
+		case PersonalCommand:		this.personalCommandClick();
+		case CompanyCommand:		this.companyCommandClick();
+		case NoneCommand:				this.noneCommandClick();
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+noneCommandClick() {
+	cf[CashReceiptType]='None';
+	_canvasEvent(cf[OrderHeader], KIOSK.OrderComplete);
+	
+}
+
+personalCommandClick() {
+	cf[CashReceiptType]='Personal';
+	this.mainControl().openPopup('SelectCashReceiptNumber');
+}
+}

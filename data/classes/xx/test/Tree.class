@@ -1,0 +1,84 @@
+/*
+[호출 방법]
+	layout: <page>
+		<tree id="tree">
+	</page>
+	onInit() {
+		include('test.Tree', true);
+		x=newClass('test.Tree', this);
+		this.tree.update();
+	}
+*/
+Tree {
+	Tree(page) {
+		this.addClass(dev.page);
+		db=Class.db('config'); 
+		tree=page.tree;
+		tree.check('treeMode', true);
+		tree.check('sortEnable', true);
+		tree.model(Class.model('TestTree'), 'value');
+
+		tree.eventMap(onChildData, this.treeChildData, 'node');		
+		tree.eventMap(onDraw, this.treeDraw, 'draw, node, over');		
+		tree.eventMap(onContextMenu, this.treeContentMenu, 'pos');
+		tree.eventMap(onChange, this.treeChange, 'node');
+		tree.eventMap(onFilter, this.treeFilter, 'node');
+		tree.eventMap(onSort, this.treeSort, 'left, right');	
+		tree.eventMap(onMouseClick, this.treeMouseClick, 'pos, button');	
+		this.treeAction();
+ 	}
+ 	/* ----------------------------------------------- [ tree config ] ----------------------------------------------- */
+ 	treeAction() {
+		this.action('reload', '새로고침', 'vicon.arrow_rotate_clockwise', this.contextReload);
+ 	}
+ 	/* ----------------------------------------------- [ tree event ] ----------------------------------------------- */
+	treeChildData(node) {
+		if( node[state].eq('new') ) return;
+		not( node.parent() ) {
+			node.addNode({ type:root, title: 테스트 트리, depth:0, code:ROOT});
+			return;
+		}
+		db.fetchAll("select seq, code, pcode, value, depth from comm_tree where pcode=#{code}", node);
+	}
+	treeDraw(draw, node, over) {
+		rc=class('draw').treeIcon(tree, draw, node, over);
+		rcIcon = rc.width(18).center(16,16);
+		rc.incrX(20);
+		switch( node[type] ) {
+		case root:
+			draw.icon( rcIcon, "vicon.application_form" );
+			draw.save().font('bold');
+			draw.text( rc,  node[title]);
+			draw.restore();
+		default:
+			switch(node[depth]) {
+			case 1:		icon='vicon.application_side_boxes';
+			case 2:	icon='vicon.application_view_list';
+			case 3:	icon= 'vicon.page_red';
+			}
+			draw.icon( rcIcon, icon );
+			draw.text( rc,  node[value]);
+		}	
+	}
+	treeContentMenu(pos) {
+		node=tree.at(pos);
+		cf.contextNode=node;
+		str="reload, -";
+		if( delete ) {
+			str.add(", -, delete");
+		}
+		this.menuPopup(tree, str, pos );	
+	}
+	treeChange(node) {
+	}
+	treeFilter(node) {
+		return true;
+	}
+	treeSort(left, right) {
+		return true;
+	}
+	treeMouseClick(pos, button ) {
+		if( button.eq('right') ) return 'ignore';
+	}
+}
+

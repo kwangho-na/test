@@ -1,0 +1,21 @@
+Row {
+Row(tag, parentCtrl) {
+		parentCtrl.inject(db, cf, xmlNode);
+		setNodeSize(tag, true);	
+		tag[type]='hbox';
+ 	}
+
+conf() {
+		this.confLayout(tag);
+	}
+
+draw(draw, tag) {
+		this.drawControl(draw, tag);
+ 	}
+
+mouseDown(pos) {
+	}
+
+mouseUp(pos) {
+	}
+}

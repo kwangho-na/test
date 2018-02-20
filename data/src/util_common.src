@@ -1,0 +1,737 @@
+localModel() {
+	not( Cf[modelIndex] ) Cf[modelIndex] = 0;
+	idx = Cf[modelIndex++];
+	return instance("local${idx}.model"); 
+}
+
+ynNode() {
+	not( Cf[useyn] ) {
+		root = {};
+		root.addNode({code:Y, value:예});
+		root.addNode({code:N, value:아니요});
+		Cf[useyn] = root;
+	}
+	return Cf[useyn];
+}
+
+lpad( num, size, def ) {
+	s="$num";
+	return s.lpad(size, def);
+}
+
+saveIcons(path) {
+	db=get('global.icons'); 
+	bindBlob = callback(ty,field) { return when( field.eq('data'), 'blob', 'bind'); };
+	path = "data/webpages/images/icons";
+	node = inst('test.filefind').fetchAll(path,'*.png');
+	while( file , node, n, 0 ) {
+		a = file[fileName].findLast('.').value(); 		
+		not( a.find('_') ) {
+			a.add('_default');
+		}
+		fullpath = "$path/$file[fileName]";
+		node[data] = inst('vrs.file').readAll(fullpath);
+		node[id] = a;
+		node[type] = 'vicon';
+		node[tm] = System.localtime();
+		not( db.exec("update icons set data=#{data}, tm=#{tm} where id=#{id} and type=#{type}",	node, bindBlob) ) {
+			db.exec("insert into icons (id,type,data,prop,use,tm) values (#{id},#{type},#{data},'clipboard','Y',#{tm})", node, bindBlob);
+		}
+	}
+	node.delete();
+}
+
+replaceText(src, sep, rep, flag) {
+	str = '';
+	while( n, 32 ) {
+		left = src.findPos(sep, flag);
+		not( src.valid() ) {
+			str.add( left );
+			break;
+		}
+		str.add( left, rep );
+	}
+	return str;
+}
+
+findNodeByCode(node, code) {
+	while( cur, node) {
+		if( cur[code].eq(code) ) return cur;
+	}
+	return null;
+}
+
+useYnNode() {
+	not( Cf[useyn] ) {
+		root = {};
+		root.addNode({code:Y, value:사용});
+		root.addNode({code:N, value:미사용});
+		Cf[useyn] = root;
+	}
+	return Cf[useyn];
+}
+
+findCodeValue(node, code) {
+	while( cur, node) {
+		if( cur[code].eq(code) ) return cur[value];
+	}
+	return null;
+}
+
+nodeArray(node, val, ty ) {
+	arr=[];
+	not( ty ) ty='start';
+	while( k, node.keys() ) {
+		switch( ty ) {
+		case start:	if( k.start(val) ) arr.add(node[$k]);
+		case eq:		if( k.eq(val) ) arr.add(node[$k]);
+		case in:		if( k.find(val) ) arr.add(node[$k]);
+		case notin:	not( k.find(val) ) arr.add(node[$k]);
+		default: break;;
+		}
+	}
+	return arr;
+}
+
+makeTreeNode(node, depth) {
+	not( depth ) depth=1;
+	root = {};
+	while( cur, node ) {		
+		if( cur[depth].eq(depth)  ) {
+			root.addNode(cur);
+		} else {
+			parent = node.findOne("id", cur[pid]);
+			if( parent ) parent.addNode(cur);
+		}
+	}
+	return root;
+}
+
+makeMenuText( sub, depth ) {
+	data = '';
+	not( depth ) 
+		depth=0;
+	if( sub[text].eq('-') ) {
+		data.add('-,');
+		return data;
+	}
+	if( depth.eq(0) ) {
+		data.add("{id: ROOT, ");
+	} else {
+		data.add("{ id: $sub[id], text: $sub[text], icon:ICON.vicon.$sub[icon], ");
+	}
+	if( sub.size() ) {
+		data.add("type:menu, actions:[");
+		while(node, sub ) {
+			data.add( makeMenuText(node, depth+1) );
+		}
+		data.add("]}");
+	} else {
+		data.add("}");
+	}
+	if( depth ) data.add(",");
+	return data;	
+}
+
+tableColumnArray(db, table) {
+	root={table:$table};
+	arr=[];
+	while( cur, db.fetchAll("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name =#{table}", root) ) {
+		arr.add(cur[column_name]);
+	}
+	root.delete();
+	return arr;
+}
+
+getRateArray(rates, tot, arr) {	tr = rates.sum();
+	not( tot ) return null;
+	not( tr ) return null;
+	if( arr ) 
+		arr.reuse();
+	else 
+		arr = [];
+	
+	_child = callback(parr) { 
+		while( a, parr ) {
+			if( typeof(a,'array') ) {
+				_child(a);
+			} else {
+				arr.add( expr( (a/tr.0)*tot) );
+			}
+		}
+		return sum;
+	}
+	while( cur, rates ) {
+		if( typeof(cur,'array') ) { 
+			_child(cur);
+		} else {
+			arr.add( expr( (cur/tr.0)*tot) );
+		}
+	}
+	arr.recalc(tot);
+	return arr;
+}
+
+mergeRect() {
+	arr=args(), var=arr[0];
+	rc=Class.rect();
+	if( typeof( var,'node') ) {
+		if( arr.size().eq(3) ) {
+			arr.inject(node, startIndex, lastIndex);
+		} else {
+			arr.inject(node, lastIndex);
+			startIndex=0;
+			not( typeof(lastIndex,'number') ) lastIndex=-1;
+		}
+		fst=node.child(startIndex), last=node.child(lastIndex);
+		node[rect]=rc.merge(fst[rect], last[rect]);		
+		return node[rect];
+	} else if( typeof(var,'rect') ) {
+		arr.inject(r1, r2); 
+		return rc.merge(r1,r2);
+	}
+	return rc;
+
+
+}
+
+loadPage(path, overwrite) {
+	fileName = path.findLast('/').right().value();
+	fileNm = fileName.findLast('.').value();
+	not( overwrite) {
+		while( page, Cf.pageList() ) {
+			if( page.eq(fileNm) ) return;
+		}
+	}
+		
+	node={}, file=instance('p1.file');
+	node[func] = file.readAll(path);
+	node[modifyDate] = file.modifyDate(path);
+	
+	db = instance('pages.model');
+	if( db.fetch("select count(1) as cnt from page_info where type_code='pages' and cms_code='$fileNm'").eq('cnt',0) ) {
+		db.exec("insert into page_info(type_code, cms_code, func, type, status, useyn, modifyDate) values ('pages','$fileNm',#{func}, 'P', '0', 'Y',#{modifyDate})", node);
+	} else if( db.fetch("select count(1) as cnt from page_info where type_code='pages' and cms_code='$fileNm' and modifyDate=#{modifyDate}", node).eq('cnt',0) ) {
+		db.exec("update page_info set func=#{func}, src=null, modifyDate=#{modifyDate} where type_code='pages' and cms_code='$fileNm'", node);
+	} 
+	node.delete();
+	Cf.makeCmsTable('pages');
+}
+
+webpageReload() {result = pageReload('webpages',	'data\webpages');
+d = result.str();
+while( d.valid() ) {
+	if( d.ch().eq('[') ) {
+		c = d.match();
+		ty =c.move();
+		code = c.findPos('=').right();
+		print("ty->$ty, code->$code");
+		if( ty.eq('modify') ) {
+			print("code=>$code");
+			instance('test.was').reload(code);
+		}
+	} else break;
+
+		if( d.ch().eq(',') ) d.incr();
+}
+
+}
+
+runPageWorker(node) {switch( node[type] ) {
+case addr:
+ 	instance('addr.web').call( node, callback(type, data) {
+		switch(type) {
+		case read: 
+			root = node[root]; 
+			not( root ) {
+				root = {};
+				node[root] = root;
+			}
+			parseZipData(data.ref(), root);
+		case finish: 
+			node[run] = false;
+			node[page].post(1, node); 
+			print("address call finished!!! $node[page]");
+		case error:
+			node[error] = data;
+		}
+	});	
+case upload:
+	print("# upload node = $node");
+	instance('upload.web').call(node, callback(type, data) {
+	case finish:		node[page].post(11, node); 
+	case error:  	node[error] = data;
+	});
+case download:
+	print("# download node = $node");
+	instance('download.web').call(node, callback(type, data) {
+	case finish:		node[page].post(21, node); 
+	case error:  	node[error] = data;
+	});
+default: break;
+}
+}
+
+upgradeCheck(prev) {
+ver=null, etc=null;
+Cf.webConnection('http://1.215.224.202:8089/@common.app.version', null, 'get', callback(type, data) {
+	switch(type) {
+	case read:
+		print("data===$data");
+		ver = data.findPos('/').trim();
+		etc = data.findPos('/').right().trim();
+		print("version: $ver, $etc, $prev");
+	case finish:
+		if( ver ) {
+			if( ver.eq(prev) ) {
+				if( etc.eq('copyFuncs') ) {
+					src = get('global.config');
+					dest = instance('pages.model');
+					copyFuncs( src, dest, getLastSync('func') );
+				} 
+				Cf.loadPage('partic.login').open('center');
+			} else {
+				Cf.loadPage('system.upgrade').open('center');
+			}
+		} else {
+			Cf.loadPage('partic.login').open('center');
+		}
+	case error:
+		print("version check error: $data");
+	}
+});
+
+return true;}
+
+makeQuery(path) {}
+
+makeQueryFile(path) {node = {}, arr=[];
+not( path.find('.') ) {
+	fileName = path;
+	path = "data/info/${fileName}.src";	
+}
+line=null;
+d=instance('test.file').readAll(path).str();
+while( d.valid() ) {
+	left = d.findPos('## ',1);
+	if( left && line ) {
+		line.str();
+		code = line.move().trim();
+		ch = line.ch();
+		if( ch.eq(':','/') ) {
+			while( 8 ) {
+				sub = line.incr().move();
+				code.add(ch,sub);
+				ch = line.ch();
+				not( ch.eq(':','/') ) break;
+			}
+		} 
+		not( code ) break;
+		sql= left.trim();
+		node[$code] =sql.encode();
+		arr.add(code);
+	}
+	line = d.findPos("\n").trim();
+}
+sql='';
+while( code, arr) {
+	if( sql ) sql.add("\r\n");
+	sql.add("## $code\r\n$node[$code]"); 
+}
+instance('test.file').writeAll("data/info/${fileName}.sql", sql);
+loadQuery(path);
+node.delete(), arr.delete();}
+
+trimTab(&str) {val='';
+while(str.valid() ) {
+	line=str.findPos("\n"); 
+	not( line.ch() ) continue; 
+ 	if( val ) val.add("\n");
+ 	val.add(line.trim());
+}
+return val;}
+
+/*  */
+_parentNode(node, code, type) {not( code ) code='type';
+not( type ) type='root';
+p=node;
+while( p ) {
+	if( p[$code].eq(type) ) return p;
+	p=p.parent();
+}
+return null;
+ }
+
+commArr(code, reuse) {not( code ) {
+	code='commArr';
+}
+arr=Cf[$code];
+not( arr ) {
+	arr=[];
+	Cf[$code]=arr;
+}
+if( reuse ) {
+	arr.reuse();
+}
+return arr;}
+
+commNode(code, reuse) {not( code ) {
+	code='commNode';
+}
+node=Cf[$code];
+not( node ) {
+	node={};
+	Cf[$code]=arr;
+}
+if( reuse ) {
+	node.initNode();
+}
+return node;}
+
+util_wonComma(won) { 
+	if( typeof(won,'number') ) {
+		num=won;
+		won="$num";
+	} else {
+		not( won.isNum() ) return won;
+	}
+	s='', sign='';
+	ch=won.ch();
+	if( ch.eq('-','+') ) {
+		sign=ch;
+		w=won.value(1);
+	} else {
+		w=won;
+	}
+	size=w.size();
+	sp= size % 3;
+	if( sp ) {
+		s.add( w.value(0,sp) );
+		size-=sp;
+	}
+	while( 8 ) {
+		if( size<=0 ) break;
+		if( sp ) s.add(',');	
+		ep=sp+3;
+		s.add( w.value(sp,ep) );
+		sp=ep;
+		size-=3;
+	}
+	return "${sign}${s}";	 }
+
+nodeVal(&str) {rst='';
+
+while( n,20 ) {
+	key=str.move();
+	ch=str.ch();
+	print("#1. key=$key");
+	if( ch.eq(',') ) {
+		rst.add("node[$key]=",key,";\n");
+		str.incr();
+		continue;
+	}
+	not( ch ) {
+		rst.add("node[$key]=",key,";\n");
+		break;
+	}
+	not( ch.eq(':') ) {
+		break;
+	}
+	ch=str.incr().ch();
+	if( ch.eq() ) {
+		rst.add("node[$key]=",ch,str.match(),ch,";\n");
+		if( str.ch().eq(',') ) {
+			str.incr();
+			continue;
+		} else {
+			break;
+		}
+	} 
+	
+	if( ch.eq('<') )  {
+		sp=str.cur();
+		tag=str.incr().move();
+		str.pos(sp);
+		in=str.match("<$tag","</tag>");
+		in.findPos(">");
+		rst.add("node[$key]=template($tag){",in,"};\n");
+	} else {
+		sp=str.cur();
+		var=str.move();
+		ch=str.ch();
+		if( ch.eq(',') || not(ch) ) {
+			rst.add("node[$key]=",var,";\n");
+			str.incr();
+			continue;
+		}
+		if( ch.eq('[') ) {
+			str.match();	
+			ch=str.ch();
+		} else if( ch.eq('(') ) {
+			while( ch.eq('(') ) {
+				str.match(1);
+				ch=str.ch();
+				not( ch.eq('.') ) break;
+				str.incr().move();
+				ch=str.ch();
+			}
+		}
+		if( ch.eq('.') ) {
+			while( ch.eq('.') ) {
+				x=str.incr().move();
+				ch=str.ch();
+			}
+			if( ch.eq('(') ) {
+				while( ch.eq('(') ) {
+					str.match(1);
+					ch=str.ch();
+					not( ch.eq('.') ) break;
+					x=str.incr().move();
+					ch=str.ch();
+				}
+				ch=str.ch();
+			}
+		} 
+		if( ch && ch.isOper() ) {
+			str.findPos(s2,1,1);
+			ep=findSrcEndPos(str);
+			rst.add("__v=", str.value(sp,ep,true),";\nnode[$key]=__v;\n");
+			str.pos(ep);
+		} else {
+			ep=str.cur();
+			rst.add("node[$key]=", str.value(sp,ep,true),";\n"); 
+		}
+		not( str.ch().eq(',') ) break;
+		str.incr();
+	}
+}
+print("rst=======>\n$rst");
+return rst;
+}
+
+str_format(&str) {	arr=args();
+	rst='';
+	while( str.valid() ) {
+		rst.add( str.findPos('@') );
+		ch=str.ch();
+		not( ch ) break;
+		if( ch.eq('{') ) {
+			in=str.match().trim();
+			idx=in+1;
+			rst.add( arr[$idx] );
+		} else {
+			rst.add('@');
+		}
+	}
+	return rst;
+}
+
+findSrcEndPos(str) {	while( str.valid() ) {
+		ch=str.ch();
+		if( ch.eq(',') || not(ch) ) break;
+		if( ch.eq('(') ) {
+			str.match(1);
+			continue;
+		}
+		if( ch.isOper() ) {
+			str.incr();
+			continue;
+		}
+		str.move();
+		ch=str.ch();
+		if( ch.eq('[') ) {
+			str.match();	
+			ch=str.ch();
+		} else if( ch.eq('(') ) {
+			while( ch.eq('(') ) {
+				str.match(1);
+				not( str.ch().eq('.') ) break;
+				str.incr().move();
+				ch=str.ch();
+			}
+		} 
+		if( ch.eq('.') ) {
+			while( ch.eq('.') ) {
+				str.incr().move();
+				ch=str.ch();
+			}
+			if( ch.eq('(') ) {
+				while( ch.eq('(') ) {
+					str.match(1);
+					not( str.ch().eq('.') ) break;
+					x=str.incr().move();
+					ch=str.ch();
+				}
+			}
+		} 		
+	}
+	return str.cur();}
+
+makeStepData(&src) {ok=false;
+if( src.find('>>',1) ) {
+	ok=true;
+	src = src.findPos('>>',1);
+}
+if( src.find('/*',1) ) {
+	ok=true;
+	src = stripComment(src.ref());
+}
+if( src.find('// ',1) ) {
+	ok=true;
+	src = stripLineComment(src.ref());
+}
+
+return when( ok, src );
+}
+
+incrTab(&str, tabs, trim) {	rst='', fst=0;
+	while( str.valid(), n, 0 ) {
+		line = str.findPos("\n");
+		indent = indentText(line.ref());
+		if( trim ) line.ch();
+		sz=indent.size();
+		not( rst ) {
+			not( line ) continue;
+			fst = sz;
+		} else {
+			rst.add("\n");
+		}
+		val ='';
+		if( fst<sz ) {
+			val = indent.value(fst);
+		}
+		rst.add("$tabs$val$line");
+	}
+	return rst;	
+}
+
+str_trimRight(&s) { 
+	x=-1;
+	while( n, 256 ) {
+		b=s.ch(x);
+		not( b.isBlank() ) break;
+		x--;
+	}
+	x++;
+	if( x<0 ) {
+		s.incr(x);
+	}
+	return s; 
+}
+
+firstCommentSkip(&s) {	while(s.valid() ) {
+		if( s.ch().eq('/') ) {
+			if( s.ch(1).eq('/*') ) {
+				s.match();
+			} else if( s.ch(1).eq('/') ) {
+				s.findPos("\n");
+			} else {
+				break;
+			}
+			continue;
+		} 
+		break;
+	}
+	return s.cur();}
+
+tr(&s) {
+	not(s) return '';
+	not( s.find('[#]') ) {
+		s=conf(s);
+		not( s ) return '';
+		not( s.find('[#]') ) return s;
+		s.str();		
+	}
+	
+	rst='';
+	arr=args();
+	idx=1;
+	while( s.valid() ) {
+		rst.add( s.findPos('[#]') );
+		rst.add( arr[$idx] );
+		idx++;
+	}
+	return rst;
+
+}
+
+@tr(s, def) {
+	if( def ) return def;
+	return s;}
+
+findTag(tag, root, all) {
+	not( root ) return null;
+	
+	_find=func(tag, node) {
+		while( cur, node ) {
+			if( cur[tag].eq(tag) ) return cur;
+			find=_find(tag, cur);
+			if( find ) return find;
+		}		
+	};
+	if( tag.find('.') ) {
+		node=root;
+		while( key, tag.split('.') ) {
+			node=_find(key, node);
+		}
+		return node;
+	} else {
+		return _find(tag, root);
+	}
+
+	return null;
+
+}
+
+util_priceComma(won) { 
+	if( typeof(won,'number') ) {
+		num=won;
+		won="$num";
+	}
+	not( won.isNum() ) return won;
+	
+	s='', sign='';
+	ch=won.ch();
+	if( ch.eq('-','+') ) {
+		sign=ch;
+		w=won.value(1);
+	} else {
+		w=won;
+	}
+	size=w.size();
+	sp= size % 3;
+	if( sp ) {
+		s.add( w.value(0,sp) );
+		size-=sp;
+	}
+	while( 8 ) {
+		if( size<=0 ) break;
+		if( sp ) s.add(',');	
+		ep=sp+3;
+		s.add( w.value(sp,ep) );
+		sp=ep;
+		size-=3;
+	}
+	return "${sign}${s}";	 }
+
+printNode(root, depth) {not( depth ) {
+	print("== print node start ==");
+}
+not( root ) {
+	return null;
+}
+not( depth ) depth=0;
+indent='';
+while( n, depth ) indent.add(" ");
+while( cur, root ) {
+	print("$indent $cur[tag]=$cur");
+	printNode(cur, depth+1);			
+}
+not( depth ) {
+	print("== print node end ==");
+}}
+
+abs(n) {
+	if( n<0 ) return -1 * n;
+	return n;
+}

@@ -1,0 +1,385 @@
+CornerTab {
+CornerTab(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	this.confLayout(tag);
+}
+
+currentTabChange(tab, reset) {
+	not( tab ) {
+		_log("# currentTabChange : tab is not valid = $tab");
+		return;
+	}
+	prevTab=tag[currentTab];
+	if( tab==prevTab ) {
+		_log("currentTabChange : no change (tab name=$tab[corner_nm])");
+		return;
+	}
+	tag[currentTab]=tab;
+	
+	idx=tab.index();
+	block=0;
+	while( drawNode, tag[tabDrawNode] ) {
+		print("xxx $drawNode xxx");
+		if( drawNode[startTab]<=idx ) {
+			if( idx<drawNode[endTab] ) {
+				print("#c=$drawNode, $block");
+				tag[currentTabBlock]=block;
+				tag[currentTabIndex]=idx-drawNode[startTab];
+ 				break;
+			}
+		}
+		block++;
+	}
+	this.update();	
+	this.findControl('ListBox').changeTab(tab);
+	_log("currentTabChange : (tab name=$tab[corner_nm], reset=$reset)");
+	_canvasEvent(tab, KIOSK.CornerTabChange );
+}
+
+draw(draw, tag, timeline) {	 
+	drawNodeStyle(draw, tag);
+	
+	/* 탭출력 영역이 없다면 리턴한다(makeDisplayTab에서 생성) */
+	not( tag[tabsRect] ) {
+		return;
+	}
+	/* 현재블록번호, 탭위치번호, 이전/탭/다음버튼 영역*/
+	tag.inject( currentTabBlock, currentTabIndex, leftButtonRect, rightButtonRect ); 
+	
+	/* 메모리에 그려논 탭정보를 찾는다 */
+	tabDraw = tag[tabDrawNode].child( currentTabBlock );
+	
+	/* 왼쪽 버튼 */
+	if( currentTabBlock >0 ) {
+		type=when( leftButtonRect.eq(this.mouseDownRect), 'p', 'n');
+		drawNodeImage(draw, leftButtonRect, tag, 'LeftButton', type, true);
+	} else {
+		drawNodeImage(draw, leftButtonRect, tag, 'LeftButton', 'd', true);
+	}
+	/* [EFFECT] 일반드로우 */
+	_drawTab=func() {
+		/* 메모리에서 화면으로 그려준다 */
+		draw.drawImage( tag[tabsRect], tabDraw[drawObject] );
+		
+		/* 선택된 탭은 따로 그려준다 */
+		rect 		= tag[TabRectArray].get(currentTabIndex);
+		tab		= this.getTabNode(currentTabBlock, currentTabIndex);
+		drawNodeImage(draw, rect, tag, 'TabImage', 'select');
+		drawNodeText(draw, rect, tab[corner_nm], 'center', tag[FontSelect]);
+	};
+	
+	/* [EFFECT] 펼치기 왼쪽/오른쪽 */
+	_drawExpand=func(frame, rarr, left) {
+		tabDraw.inject(startTab, endTab); 
+		tabCnt=endTab-startTab;
+		if( left ) {
+			/* 끝에서 왼쪽으로 펼쳐진다 */
+			sp=tabCnt-1;
+		} else {
+			/* 시작부터 오른쪽으로 펼쳐진다 */
+			sp=0;
+		}
+		sx=rarr.get(sp).x();
+		idx=0;
+		while( n, endTab, startTab ) {
+			tab=darr.get(n);
+			if( frame.eq(0) ) {
+				cx=rarr.get(idx).x();
+				if( left ) {
+					dw=sx-cx;
+				} else {
+					dw=cx-sx;
+				}
+				/* 시작위치와 현재위치 폭을기준으로 배열생성 */
+				_arr(tab,'RecalcArray').recalc(dw, 25);
+			} else { 
+				/* 타임라인 만큼 이동처리 */
+				dx=sx;
+				if( left ) {
+					dx-=tab[RecalcArray].sum(0,frame);
+				} else {
+					dx+=tab[RecalcArray].sum(0,frame);
+				}
+				rc=rarr.get(idx);
+				rc.x(dx);
+				drawNodeImage(draw, rc, tag, 'TabImage', 'nor');
+				drawNodeText(draw, rc, tab[corner_nm], 'center', tag[Font]);
+			}
+			idx++;
+		}
+	};
+	/* [EFFECT] 블록 이동처리 */
+	_drawBlock=func(frame, rarr, next) {
+		tag[tabsRect].inject(tx, ty, tw, th);
+		not( this[blockDraw] ) {
+			this[blockDraw]=Class.draw(tw*2, th);
+		}
+		blockDraw = this[blockDraw];
+		if( frame.eq(0 ) ) {
+			blockDraw.fill();
+			rc=Class.rect(0,0,tw,th);
+			rcRight=rc.move('right');
+			if( next ) {
+				nextBlock=currentTabBlock + 1;
+				d1 = tag[tabDrawNode].child( currentTabBlock );	
+				d2 = tag[tabDrawNode].child( nextBlock );	
+				blockDraw.drawImage( rc, d1[drawObject] );
+				blockDraw.drawImage( rcRight, d2[drawObject] );
+			} else {
+				prevBlock=currentTabBlock - 1;
+				d1 = tag[tabDrawNode].child( prevBlock );	
+				d2 = tag[tabDrawNode].child( currentTabBlock );	
+				blockDraw.drawImage( rc, d1[drawObject] );
+				blockDraw.drawImage( rcRight, d2[drawObject] );
+			}
+			_arr(tag,'BlockRecalcArray').recalc(tw, 25);
+		} else {
+			if( next ) {
+				sx=0;
+				sx+=tag[BlockRecalcArray].sum(0,frame);
+			} else { 
+				sx=tw;
+				sx-=tag[BlockRecalcArray].sum(0,frame);
+			}
+			draw.drawImage( tag[tabsRect], blockDraw, sx, 0 );
+		}
+	}	
+	
+	if( timeline ) { 	
+		darr=tag[DisplayTabArray];
+		rarr=tag[TabRectArray];
+		style=timeline[timelineStyle];
+		if( Cf.timeLine('ShiftMenu.running') ) {
+			frame=Cf.timeLine('ShiftMenu.current');
+			switch( style ) {
+			case ExpandLeft:
+				_drawExpand( frame, rarr, true);
+			case ExpandRight:
+				_drawExpand( frame, rarr);
+			case NextBlock:
+				_drawBlock( frame, rarr, true);
+			case PrevBlock:
+				_drawBlock( frame, rarr);
+			}
+			
+		} else {
+			block=false;
+			switch( style ) {
+			case NextBlock:
+				tag[currentTabBlock++];
+				tag[currentTabIndex]=0;
+				block=true;
+			case PrevBlock:				
+				tag[currentTabBlock--];
+				tag[currentTabIndex]=4;
+				block=true;
+			default: 
+				_drawTab();
+			}
+			if( block ) {
+				tab=this.getTabNode();
+				this.currentTabChange(tab );
+			}
+		}
+	} else {
+		_drawTab();
+	}
+	
+	/* 오른쪽 버튼*/
+	if( tabDraw[endBlock] ) {
+		drawNodeImage(draw, rightButtonRect, tag, 'RightButton', 'd', true);
+	} else {
+		type=when( rightButtonRect.eq(this.mouseDownRect), 'p', 'n');
+		drawNodeImage(draw, rightButtonRect, tag, 'RightButton', type, true);
+	}
+}
+
+getTabDraw(block) {
+	not( block ) block=tag[currentTabBlock];
+	tabDraw = tag[tabDrawNode].child(block);
+	return tabDraw[drawObject];
+}
+
+getTabNode(block, index) {
+	not( isset(block) ) block=tag[currentTabBlock];
+	not( isset(index) ) index=tag[currentTabIndex];
+	tabIndex = block * tag[tabCount];
+	tabIndex+= index;
+	return tag[DisplayTabArray].get(tabIndex);
+}
+
+initControl() {
+	leftButtonRect		= tag[rect].width(60);
+	rightButtonRect	= tag[rect].move('end', 60);
+	tabCount			= 5;
+	tag.put(	leftButtonRect, rightButtonRect, tabCount );
+	this.reload(false);
+}
+
+loadMenus() {
+	num=0;
+	while( tab, tag ) {
+		while( menu, tab ) {
+			imageLoad(menu, 'MenuImage', cf, menu[menu_cd]);
+			num++;
+		}
+	}
+	_log("loadMenus : 메뉴 로딩 완료 (탭 $tag.childCount() 개 로딩)");
+	return num;
+}
+
+makeDisplayTab() {
+	darr=_arr(tag,'DisplayTabArray').reuse();
+	rarr=_arr(tag,'TabRectArray').reuse();
+
+ 	time=System.date('hhmmss');
+	while( tab, tag ) {
+		if( tab[open_time].eq('000000') ) {
+			darr.add(tab);
+		} else {
+			timeCheck=expr( time >= tab[open_time] &&  time <= tab[close_time] );
+			if( timeCheck ) {
+				darr.add(tab);
+			}
+		}
+	}
+	while( tab, darr, n, 0 ) {
+		tab[displayTabIndex]=n;
+	}
+	tag.inject( leftButtonRect, rightButtonRect, tabCount );
+	tabDrawNode=tag[tabDrawNode];
+	totalCnt=darr.size();
+	blockCnt=totalCnt/tabCount, mod=totalCnt%tabCount;
+	if( mod ) blockCnt++;
+	
+	sw=rightButtonRect.x() - leftButtonRect.right(), sh=tag[rect].height();
+	/* 탭을 블럭 단위로 그리기 위한 객체생성 */
+	if( tabDrawNode ) {
+		if( blockCnt > tabDrawNode.childCount() ) {
+			dist= blockCnt - tabDrawNode.childCount();
+			while( num, dist ) {
+				tabDraw=tabDrawNode.addNode();
+				tabDraw[drawObject]=Class.draw(sw, sh);
+			}
+			_log("makeDisplayTab: 탭블럭 노드추가 : ($dist 개 추가)");
+		} else {
+			_log("makeDisplayTab: 탭블럭 변경사항 없음");
+		}
+	} else {
+		tabDrawNode={};
+		while( num, blockCnt ) {
+			tabDraw=tabDrawNode.addNode();
+			tabDraw[drawObject]=Class.draw(sw, sh);
+		}
+		tag[tabDrawNode]=tabDrawNode;						
+		_log("makeDisplayTab: 탭블럭 노드생성( $tabDrawNode.childCount() 개 생성)");
+	}
+	/* 탭블럭 초기화 & draw */
+	leftButtonRect.rt().inject(rx, ry);
+	tabsRect=Class.rect(rx, ry, sw, sh );
+	st=0;
+	sx=0, sy=24, ry+=24;
+	sw=180, sh=90, space=10;
+	first=true;
+	while( tabDraw, tabDrawNode, num, 0 ) {
+		et= min( st+tabCount, totalCnt  );
+		tabDraw[startTab]=st, tabDraw[endTab]=et; 
+		tabDraw[endBlock]=when( et.eq(totalCnt), true, false );
+		do=tabDraw[drawObject];
+		do.fill();
+		sx=0;
+		_log("tabBlock $num=($st, $et)");
+		while( n, et, st ) {
+			tab=darr.get(n);
+			rc=Class.rect(sx, sy, sw, sh );	
+			drawNodeImage(do, rc, tag, 'TabImage', 'nor');
+			drawNodeText(do, rc, tab[corner_nm], 'center', tag[Font]);
+			sx+=sw+space;
+			/* 마우스 클릭처리를 위해 탭영역 배열추가*/
+			if( first ) {
+				rarr.add( Class.rect(rx, ry, sw, sh) );
+				rx+=sw+space;
+			}
+		}
+		first=false;
+		if( tabDraw[endBlock]  ) {
+			break;	
+		}
+		st+=tabCount;
+	}
+	_log("makeDisplayTab: 탭영역 그리기 완료");
+	reset=false;
+	not( tag[tabsRect] ) {
+		tag[tabsRect]=tabsRect;
+		reset=true;
+	}
+	tag[currentTabBlock]=0;
+	tag[currentTabIndex]=0;
+	_log("makeDisplayTab: 탭출력 영역 세팅 : $tag[tabsRect], 리셋여부: $reset");
+	if( reset ) {
+		_canvasEvent(tag, KIOSK.CornerTabReset );
+	} else {
+		this.currentTabChange(this.getTabNode(), true);		
+	}
+}
+
+mouseDown(pos) {
+	tag.inject( currentTabBlock, currentTabIndex, leftButtonRect, rightButtonRect ); 
+	tabDraw = tag[tabDrawNode].child( currentTabBlock );
+	this.mouseDownRect=null;
+	if( leftButtonRect.contains(pos) ) { 
+		if( currentTabBlock>0 ) {
+			_canvasEvent(tag, KIOSK.CornerLeftButtonClick );
+			return;	
+		}
+	} else if( rightButtonRect.contains(pos) ) { 
+		not(tabDraw[endBlock]) {
+			_canvasEvent(tag, KIOSK.CornerRightButtonClick );
+			return;	
+		}
+	} else{
+		while( rc, tag[TabRectArray], idx, 0 ) {
+			not( rc.contains(pos) ) continue;
+			tab = this.getTabNode(currentTabBlock, idx);
+			if( tab ) {
+				tag[currentTabIndex]=idx;
+				this.currentTabChange(tab);		
+			}
+		}
+	}
+}
+
+mouseUp(pos) {
+
+}
+
+reload() {
+ 	db.fetchAll(tr('sql#namzatang.cornerTab'), tag.removeAll());
+	while( cur, tag ) {
+		db.fetchAll(tr('sql#namzatang.menuList'), cur.removeAll() );
+	}
+	_log("메뉴탭 갯수 : $tag.childCount()");
+
+	_command( tag, KIOSK.CornerMenuReload );
+}
+
+setBillnCookStore(node) { 
+	tab=tag.findOne('corner_cd', node[corner_cd]);
+	this.mainControl().closeStackPage();
+	if( tab ) {
+		this.currentTabChange(tab); 
+	}
+}
+
+test() {
+	x=tag[currentTabBlock];
+	y=tag[currentTabIndex];
+	print();
+
+}
+}

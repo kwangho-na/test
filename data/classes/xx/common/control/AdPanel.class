@@ -1,0 +1,155 @@
+AdPanel {
+AdPanel(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+conf() {
+	confNodeLayout(tag);
+	this.setDislayNode();	
+}
+
+draw(draw, tag, timeline) {
+	while( cur, tag ) {
+		switch( cur[tag] ) {
+		case AdTitle:
+			rcText=cur[rect].incrX(40,true);
+			drawNodeImage(draw, cur[rect], tag, 'TitleImage');
+			drawNodeText(draw, rcText, tag[TitleText], 'left', 32, '#373739');
+			draw.rectLine(cur[rect],24,'#A5670A');
+		case AdImage:
+			displayNode=this[currentDisplayNode];
+			switch( displayNode[ad_gubun] ) {
+			case 2:
+				not( displayNode[saveImagePath] ) {
+					draw.drawImage(cur[rect], this[drawObject] );
+				} 
+				/* 이미지 출력 (이미지 경우만 애니메이션 효과적용) */
+				ok=true;
+				if( timeline ) {
+					style=timeline[timelineStyle];
+					if( style.eq('ExpandLeft','ExpandRight'), Cf.timeLine('ShiftMenu.running') ) {
+						frame= Cf.timeLine('ShiftMenu.current');
+						if( frame.eq(0) ) {
+							_arr(tag,'MoveRateArray').recalc(cur[rect].width(),20);
+						} else {
+							dx=tag[MoveRateArray].sum(0,frame);
+							x=cur[rect].width() - dx;
+							draw.drawImage(cur[rect].x(x), this[drawObject] );
+						}
+						ok=false;
+					}
+				} 
+				if( ok ) {
+					draw.drawImage(cur[rect], this[drawObject] );
+				}
+			case 3:		 /* 동영상 출력 */
+				this.mainControl().showMoviePlayer(cur[rect]);
+			case 4:		/* 웹브라우져 출력 */
+				this.mainControl().showWebview(cur[rect]);
+			default:
+				draw.drawImage(cur[rect], this[drawObject] );
+			}
+		default:
+		}		
+	}
+}
+
+initAdNode() {
+	ad=findTag('AdImage', tag);
+	ad[date]=System.date('yyyyMMdd');
+	db.fetchAll("select 'ad' tag, ad_code, ad_title, ad_gubun, ad_contents_url, send_cfc, select_yn from tb_did_schedule where sdate<=#{date} and edate>=#{date} order by dp_rank", ad.removeAll() );
+	file=Class.file();
+	downCheck=false;
+	while( node, ad ) {
+		not( node[ad_gubun].eq('2') ) {
+			node[down_yn]='Y';
+			continue;	
+		}
+		not( node[saveImagePath] ) {
+			fileNm=node[ad_contents_url].findLast('/').right().trim();
+			fullPath="$cf[imagePath]/did/$fileNm";
+			node[saveImagePath]=fullPath;
+			if( file.isFile(fullPath) ) {
+				node[down_yn]='Y';
+			} else {
+				downCheck=true;
+			}
+		}
+	}
+	if( downCheck ) {
+		_command(ad, KIOSK.DownloadDidSchedule);
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	tag.addNode({tag:AdTitle, Height:72, TextMargin:40,0,0,0});
+	tag.addNode({tag:AdImage});	
+	setNodeSize(tag, true);
+	this.initAdNode();
+}
+
+mouseDown(pos) {
+}
+
+mouseUp(pos) {
+}
+
+setDislayNode(node) {
+	ad=findTag('AdImage', tag);
+	if( node ) {
+		find=ad.findOne('ad_code', node[ad_code]);
+		if( find ) {
+			find[ad_contents_url]=node[ad_contents_url];
+			find[ad_gubun]=node[ad_gubun];
+			node=find;
+		} else {
+			cur=ad.addNode();
+			cur.initNode(node);
+			node=cur;
+		}
+		if( node[ad_gubun].eq('2') &&  node[send_cfc].eq('N') ) {
+			node[down_yn]='Y';
+			node[saveImagePath]=node[ad_contents_url];
+		}
+	} else  {
+		while( cur, ad ) {
+			if( cur[select_yn].eq('Y') ) {
+				node=cur;
+				break;
+			}	
+		}
+		not( node ) {
+			node=ad.child(0);
+		}
+	}
+	while( page, cf[didWidgets] ) {
+		page.hide();
+	}
+	switch( node[ad_gubun] ) {
+	case 2:
+		if( node[saveImagePath] && node[down_yn].eq('Y') ) {
+			drawObject=this[drawObject];
+			not( drawObject ) {
+				ad[rect].inject(x,y,w,h);
+				drawObject=Class.draw( w, h );
+				this[drawObject]=drawObject;
+			}
+			rc=drawObject.rect();
+			drawNodeImage(drawObject, rc, node, 'AdImage', node[saveImagePath] );
+		}
+	case 3:
+		path=node[ad_contents_url];
+		/* getLocalPath(node[ad_contents_url]); */
+		node[moviePath]=path;
+		this.mainControl().showMoviePlayer(ad[rect], node[moviePath]);
+	case 4:
+		node[pageUrl]=node[ad_contents_url];
+		this.mainControl().showWebview(ad[rect], node[pageUrl]);
+	}
+	this[currentDisplayNode]=node;
+	this.update();
+}
+}

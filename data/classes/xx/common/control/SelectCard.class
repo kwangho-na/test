@@ -1,0 +1,93 @@
+SelectCard {
+SelectCard(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+cancelButtonClick() {
+	if( this[playerWidget] )  {
+		this[playerWidget].stop();
+		this[playerWidget].hide();
+	}
+	this.mainControl().closePopup();
+}
+
+conf() {
+	offset=tag[rect].lt();
+	confNodeLayout(tag, offset);
+	this[CardPriceText]=0;
+	
+	this.mainControl().easyCardCall('D1', cf[ShoppingCart.OrderTotalPrice]);
+	/* 동영상 플레이어 보이게 하기
+	node=findTag('Player', tag);
+	this.showMoviePlayer(node[rect], node[path]);
+	*/
+}
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	draw.mode();
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Player:
+			this.showMoviePlayer(cur[rect]);
+		case Price:
+			not( this[CardPriceText] ) {
+				sc=cf[ShoppingCart];
+				this[CardPriceText]=sc[OrderTotalPrice];
+			}
+			price=util_priceComma(this[CardPriceText]); 
+			drawNodeText(draw, cur[rect], price, 'right', 'SubTitle');
+		case Message:
+			drawNodeText(draw, cur[rect], cur[text], 'center', 'OrderInfo');
+		case Cancel:
+			drawNodeButton(draw, cur, null, this); 
+		default:
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Cancel:
+			this.mouseDownRect=cur[rect];
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+ }
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case Cancel:
+			if( cur[rect].eq(this.mouseDownRect) ) this.cancelButtonClick();
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+ }
+
+setCardPrice(price) {
+	this[CardPriceText]=price;
+}
+
+showMoviePlayer(rc, path) { 
+
+}
+}

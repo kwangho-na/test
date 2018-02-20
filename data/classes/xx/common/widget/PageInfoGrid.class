@@ -1,0 +1,90 @@
+PageInfoGrid {
+	PageInfoGrid(page) {
+		this.addClass(common.Config );
+		db=Class.db('config');
+		projectCode=Cf[projectCode];
+		if( projectCode ) {
+			dataModel=Class.model("${projectCode}PageInfo");
+		} else {
+			dataModel=Class.model('PageInfo');
+		}
+		grid=page.grid;
+		grid.model( dataModel, gridMakeField('page_icon: 아이콘#65, page_group: 그룹#110, page_code:페이지코드#190, page_title:타이틀#220', true) );
+		grid.check('sortEnable', true);
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onChange, this.gridChange, 'node');
+		grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+	}
+	initGrid(node) {
+		root=grid.rootNode();
+ 		db.fetchAll("select project_idx, page_icon, page_group, page_code, page_title from page_info where 1=1 #[project_idx ? and project_idx=#{project_idx}]", root.initNode(node));
+ 		grid.update();
+		page.deletePage.hide();
+		gridHeaderWidth(grid);
+	}
+	gridChange( node) {
+		page.pageChange(node);
+	}
+	gridDoubleClick(node) {
+		page.pageSelect(node);
+	}
+ 	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		case page_icon: 
+			if( node[page_icon] ) draw.icon(rc.center(16,16), node[page_icon] );
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+	gridClick(node, column) {
+		field=grid.field(column);
+		switch( field ) {
+		case check:	gridCheck(grid, node, page.deletePage );
+		case note:		grid.edit(node, 2);
+		}
+	}
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		switch( type ) {
+		case create:
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+					node[modify#$field]=true;
+				}
+				node[$field]=data;
+			}
+			grid.update();
+		default: break;
+		}
+	}
+ 
+}

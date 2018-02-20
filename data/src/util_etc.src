@@ -1,0 +1,665 @@
+checkTickCount(node, var) {
+	not( node[$var@delay] ) 
+		return true;
+	dist = System.tick() - node[$var@tick];
+	if( dist > node[$var@delay] ) 
+		return false;
+	return true;
+}
+
+pow(mlvl) {
+	while( n, mlvl ) {
+		if( n.eq(0) ) {
+			mr=1;
+		} else {
+			mr*=2;
+		}
+	}
+	return mr;
+}
+
+getNodeArray(node, code) {
+	a=node[$code];
+	if( a ) {
+		a.reuse();
+	} else { 
+		a=[];
+		node[$code] = a;
+	}
+	return a;
+}
+
+arrayEqual( a, b ) {
+	not( typeof(a,'array') && typeof(b,'array') ) return false;
+	size = a.size();
+	if( size.ne( b.size()) ) return false; 
+	while( v, a, n, 0 ) {
+		not( v.eq(a[$n]) ) return false;
+	}
+	return true;
+}
+
+tickCheck() {
+
+}
+
+setArray( arr, idx, cur ) {
+	not( typeof(arr,'array') ) return;
+	if( idx< arr.size() ) {
+		arr[$idx] = cur;
+	} else {
+		arr.add(cur);
+	}
+	return arr;
+}
+
+splitTrim(&str, sep) {
+	arr = [];
+	while( str.valid() ) {
+		arr.add( str.findPos(sep).trim() );
+	}
+	return arr;
+}
+
+indentText(&s) {
+	sp=s.cur();
+	s.ch();
+	ep=s.cur();
+	return s.value(sp,ep,true);}
+
+openPopup(page, parent, rc) {
+	rcScreen = System.info('screenRect', rc);
+	if( rc.bottom() > rcScreen.bottom() ) {
+		dist = rcScreen.bottom() - rc.bottom();
+		rc.incrY(dist,true);
+	}
+	if( rc.right() > rcScreen.right() ) {
+		dist = rcScreen.right() - rc.right();
+		rc.incrX(dist,true);
+	}
+	page.flags('popup');
+	if( parent ) {
+		page.open(parent, rc); 
+	} else {
+		page.open(rc); 
+	}
+}
+
+allSourceConfig() {
+	return {
+		title: 전체소스 보기,
+		icon: ICON.vicon.table_edit,
+		layout: 
+		<page>
+			<label id=funcInfo text="전체소스 정보">
+			<editor id=src>
+			<hbox>
+				<button id=ok text=적용 width=60>
+				<space>
+				<button id=cancel text=취소 width=60>
+			</hbox>
+		</page>
+		onInit() {
+			editorInit(this[src]); 
+		}
+		cancel.onClick() {
+			this.close();
+		}
+		ok.onClick() { 
+			parentWindow.allSourceConfigOk(this);
+		}
+		initSource(data, info) {
+			this[src].clear();
+			this[src].insert(data,true); 
+			this[funcInfo].value(info);
+		}
+	}
+}
+
+cursorRect(w,h) {
+	pt = System.info('cursor');
+	return Class.rect(pt,w,h);
+}
+
+blankText(&s) {
+	sp=s.cur();
+	s.ch();
+	ep=s.cur();
+	return s.value(sp,ep,true);
+}
+
+makeIndent( &str, tabs ) {
+	rst='', n=0;
+	while( str.valid() ) {
+		line = str.findPos("\n");
+		indent = blankText(line.ref);
+		ch = line.ch();
+		not( ch ) {
+			rst.add("\n");
+			continue;
+		}
+		val ='';
+		if( n.eq(0) ) {
+			fst = indent.size();
+		} else if( fst<indent.size() ) {
+			val = indent.value(fst);
+		print("$n =>$val##");
+		}
+		rst.add("\n$tabs$val$line");
+		n++;
+	}
+	return rst;
+}
+
+divideColumn(rc, num, incr, arr) {
+	not( arr ) arr=[];
+	not( typeof(rc,'rect') ) return arr;
+	x=rc.x(), y=rc.y(), h=rc.height();
+	getRateArray(num, rc.width(), arr);
+	while( w, arr, n, 0 ) {
+		rc = Class.rect(x, y, w, h);
+		x+=w;
+		arr[$n] = when(incr, rc.incr(incr), rc);
+	}
+	return arr;
+}
+
+divideRow(rc, num, incr, arr) {
+	not( arr ) arr=[];
+	not( typeof(rc,'rect') ) return arr;
+	x=rc.x(), y=rc.y(), w=rc.width();
+	getRateArray(num, rc.height(), arr );
+	while( h, arr, n, 0 ) {
+		rc = Class.rect(x, y, w, h);
+		y+=h;
+		a[$n] = when(incr, rc.incr(incr), rc);
+	}
+	return arr;
+}
+
+parseData( &data, root ) {
+	not( root ) root = {};
+	row = 0;
+	while( data.valid() ) {
+		bchk = true;
+		if( data.ch().eq('<') ) {
+			sp = data.cur();
+			tag = data.incr().move();
+			data.pos(sp);
+			if( tag.eq("text") ) {
+				idx = 0;
+				while( data.valid() ) {
+					val = data.match("<text>","</text>");
+					not( val )
+						 return false;
+					root[$row@$idx] = val.trim();
+					idx++;
+					not( data.ch().eq(',') ) {
+						row++;
+						break; 
+					} 
+						
+					data.incr();
+					if( data.ch().eq('<') ) {
+						sp = data.cur();
+						tag = data.incr().move();
+						data.pos(sp);
+						not( tag.eq("text") ) break;				
+					} else break;
+				}
+				data.ch();
+				bchk = false;
+			}
+		} 
+		if( bchk ) {
+			line = data.findPos("\n");
+			print("line=>$line");
+			not( line.ch() ) continue;
+			idx =0;
+			while( line.valid() ) {
+				val = line.findPos(",");
+				root[$row@$idx] = val.trim();
+				idx++;
+			}
+			row++;
+		}
+	}
+	return root;
+}
+
+getStateType(rc) {
+	state = rc.state();
+	return state & 0xF;
+}
+
+findArrayCode(arr, code) {
+	while(key,arr) {
+		if( key.eq(code) ) return true;
+	}
+	return false;
+}
+
+getEpsPage(page, ref, db) {
+	not( Cf[pageData] ) Cf[pageData] = {};
+	root = Cf[pageData];
+	root.removeAll();
+	not( db ) db = instance('config.model');
+	sql ="select b.data as data
+		from (select idx as tree_idx, sort from epsTreeList where pidx in (select idx from epsTreeList where type='mission' and ref='$ref') ) A, epsTreeStep B
+		where 
+			  A.tree_idx = B.tree_idx
+		order by sort";
+	rst='';
+	while( cur, db.fetchAll(sql,root) ) {
+		rst.add(cur[data]);
+	}
+	return page.widget(rst);
+}
+
+getTypePath(ty) {
+	path=conf('project.workspace'), typePath=conf("project.$ty");
+	return "$path\\$typePath";
+}
+
+exploreFiles(path, root, modify ) {
+	ff = instance('eps.filefind');
+	not( root ) root = {type:explore};
+	not( modify ) modify = 0;
+	_child = callback(path, parent) {
+		ff.fetch(path,  parent, NULL, modify);
+		while( c, parent) {
+			if( c.state(FF.folder) ) { 
+				_child("$path/$c[name]", c);
+			}
+		}
+	}
+	_child(path, root);
+	return root;
+}
+
+getPage(page, ref) {
+	not( Cf[pageData] ) Cf[pageData] = {};
+	root = Cf[pageData];
+	cur = root[$ref];
+	if( cur ) return cur;
+	root.removeAll();
+	db = get('global.config');
+	sql ="select b.data as data
+		from (select idx as tree_idx, sort from epsTreeList where pidx in (select idx from epsTreeList where type='mission' and ref='$ref') ) A, epsTreeStep B
+		where 
+			  A.tree_idx = B.tree_idx
+		order by sort";
+	rst='';
+	while( cur, db.fetchAll(sql,root) ) {
+		rst.add(cur[data]);
+	}
+	cur = page.widget(rst);
+	
+	print("getPage ################# ref=$ref, $cur");
+	root[$ref] = cur;
+	return cur;
+}
+
+makeFormData(db, node, &data) {&param={};
+page_idx=node[page_idx], sql_cd=node[sql_cd];
+db.exec("delete from project_page_form where page_idx=#{page_idx} and sql_cd=#{sql_cd}", node);
+data.findPos("#form");
+row=0, col=0;
+print();
+while( data.valid() ) {
+	line = data.findPos("\n");
+	not( line.ch() ) continue; 
+	prev = line.prevChar();
+	while( line.valid() ) {
+		field = line.move().trim();
+		ch= line.ch();
+		if( ch.eq(":") ) {
+			 line.incr();
+			 ch=line.ch();
+		}
+		if( ch.eq("{") ) {
+			sp = line.cur();
+			line.match();
+			ep = line.cur();
+			param.reuse().parseJson( line.value(sp,ep,true) ); 
+		}
+		not( field ) break;
+		ch=line.ch();
+		param.put(field, row, col, page_idx, sql_cd);
+		db.exec("insert into project_page_form (  
+			page_idx, sql_cd, field, label, row_num, col_num, tag, style, prop, alert , 
+			next_focus, class_nm, data, width, info, note
+		) values (
+			#{page_idx}, #{sql_cd}, #{field}, #{label},#{row}, #{col}, #{tag}, #{style}, #{prop}, #{alert},
+			#{next}, #{class}, #{data}, #{width}, #{info}, #{note}
+		)", param);
+		not( ch.eq(",", "\\") ) break;
+		line.incr();
+		col++;
+	}
+	if( prev.eq("\\") ) continue;
+	row++;
+	col=0, sep=0;
+} }
+
+getLocalPath(&path) {not( path ) return System.path();
+if( path.start('/') ) {
+	a=System.path();
+	a.add(path);
+	return getLocalPath(a);
+}
+s='';
+while( path.valid() ) {
+	left = path.findPos('/');
+	s.add(left);
+	if( path.valid() ) s.add("\\");
+}
+return s;}
+
+jobTrigger(target, name, stat) {
+root = Cf[jobRoot];
+not(root ) {
+	root = {};
+	Cf[jobRoot] = root;
+}
+root[target] = target.utf8();
+root[name] = name.utf8();
+
+db = get('global.config');
+last = db.value("select modify_dtm from comm_job_file where target=#{target} and name=#{name}", root);
+tm = System.localtime();
+
+if( last ) {
+	dist = tm-last;
+	print("dist====$dist");
+	if( stat.eq(3) ) {
+		if( dist<100 ) {
+			print("xxxxxx may be dup xxxxxxx");
+			return;
+		}
+	}
+}
+
+type='folder';
+if( instance('my.file').isFile("$root[target]/$root[name]") ) {
+	type='file';
+}
+
+cnt = db.exec("update comm_job_file set stat='$stat', modify_dtm=$tm where  target=#{target} and name=#{name}",root);
+if( db.error() ) {
+	print("db error : $db.error()");
+	return;
+}
+not( cnt ) {
+	db.exec("insert into comm_job_file ( target, name, type, stat, modify_dtm) values ( #{target}, #{name}, '$type', '$stat', $tm)", root);
+}
+
+print("$last, $cnt, $targetNm/$fileNm");}
+
+_arr(cf, key) {
+	arr = cf[$key];
+	not( arr ) {
+		arr=[];
+		cf[$key]=arr;
+	}
+	return arr;
+
+}
+
+_setVal(cf, key, val) {if( typeof(cf,'array') ) {
+	while( cur, cf ) {
+		if( key.eq(cur) ) return;
+	} 
+	cf.add(key);
+} else if( typeof(cf,'node') ) {
+	cf[$key]=val;
+}
+}
+
+_getVal(cf, key, val) {not( cf ) return;
+data = cf[$key];
+if( val ) {
+	not( data ) {
+		cf[$key] = val;
+		return val;
+	}
+}
+return data;}
+
+_val(&code, data) {_obj=func(&s) {
+	obj=null;
+	while( n,16 ) {
+		key=s.move().trim();
+		print("xxxxxxx $key xxxxxxxxxx");
+		not( key ) break;
+		if( n.eq(0) ) {
+			obj=get(key);
+		} else {
+			not( obj ) {
+				print("xxxxxxx $key not define xxxxxxxxxx");
+				return null;
+			}
+			v=obj[$key];
+			obj=v;		
+		}
+		c=s.ch();
+		if( c.eq('.') ) {
+			s.incr();
+		} else {
+			break;
+		}
+	}
+	return obj;
+}
+
+if( code.find('#') ) {
+	key=code.findPos('#');
+	obj=get(key);
+	not( obj ) return null;
+	
+	key=code.move();
+	ctrl=obj[$key];
+	c=code.ch();
+	if( c.eq('.') ) {
+		code.incr();
+		fc=code.move();
+		switch(fc) {
+		case val: 
+			if( data ) ctrl.value(data);
+			return ctrl.value();
+		default:
+			return ctrl[$fc];
+		}
+		return null;
+	} else {
+		return ctrl;
+	}
+}
+return _obj(code);
+}
+
+_split(&str, sep) {not( sep ) sep=',';
+not( Cf[splitVar] ) Cf[splitVar]=[];
+arr = Cf[splitVar].reuse();
+while( str.valid() ) {
+	arr.add( str.findPos(sep).trim() );
+}
+return arr;
+}
+
+_map(node, &data, flag) {reset=false;
+if( flag ) {
+	switch( flag) {
+	case in:
+		not( Cf[mapArray] ) Cf[mapArray]=[];
+		arr = Cf[mapArray].reuse();
+		field = data.trim();
+		while(cur, node) {
+			val = cur[$field];
+			if( val ) arr.add(val);
+		}
+		return arr;
+	case reset: 		reset=true;
+	default: return null;
+	}
+}
+
+ch  = data.ch();
+print("ch====$ch");
+if( ch.eq('#') ) {
+	
+	data.incr();
+	code = data.move();
+	if( data.ch().eq('(') ) {
+		in = data.match();
+		not( in ) return null;
+		field = in.move().trim();
+		op = in.ch();
+		print("xxx====$code, $field, $op $data");
+		if( op.eq('=') ) {
+			in.incr();
+			key = in.trim();
+			cur = node.findOne(field, key);
+		print("xxx====$code, $field, $op, $key, $cur");
+			if( cur ) {
+				return cur[$code];
+			}
+		}
+	}
+	return null;
+}
+while( data.valid() ) {
+	left = data.findPos(',');
+	not( left.ch() ) break;
+	k=left.findPos('=').trim();
+	v=left.trim();
+	node[$k] = node[$v];
+	if( reset ) node[$v]=null;
+	print("_map ========= $k, $v");
+}
+return node;
+
+}
+
+_kindCd(db, city) {node = Cf[kindNode];
+not( node ) {
+	node={};
+	Cf[kindNode] = node;
+	db.fetchAll("select A.ref1, A.ref3 from comm_tree A, (select code from comm_tree where ref='CC' and ref1='group_cd' ) B where A.pcode=B.code and use_yn='Y'", node);
+}
+val = _map(node, "#ref3(ref1=$city)");
+not( val ) return null;
+return val.value(0,1);}
+
+_sum(obj, field, sp, ep) {sum=0;
+not( sp ) sp=0;
+if( typeof(obj,'node') ) {
+	not( ep ) ep=obj.childCount();
+	while(n, ep, sp ) {
+	 	cur=obj.child(n);
+	 	sum+=cur[$field];
+	}
+} else if( typeof(obj,'array') ) {
+	while( cur, obj ) {
+		if( typeof(cur,'node') ) {
+			sum+=cur[$field];
+		} else if( typeof(cur,'number') ) {
+			sum+=cur;
+		}
+	}
+}
+
+return sum;}
+
+_node(val, key, reuse) {
+if( typeof(val,'node') ) {
+	node=val;
+	if( key ) {
+		sub=node[$key];
+		if( sub ) {
+			if( reuse ) sub.removeAll();
+		} else {
+			if( typeof(def,'node') ) 
+				sub=def;
+			else
+				sub={};
+			node[$key] = sub;
+		}
+		return sub;
+	}
+	return node;
+}
+
+not(val ) val='temp';
+node = Cf[$val];
+not( node ) {
+	node={};
+	Cf[$val] = node;	
+}
+if( key ) node.removeAll();
+return node;
+}
+
+_query(key) {	not( Cf[queryData] ) Cf[queryData] = {};
+	node = Cf[queryData];
+	not( key ) {
+		return node;
+	}
+	id=key;
+	id.add("Query");
+	print("##### Query ID: $id #####");
+ 	return node[$id];}
+
+_replace(&data, src, dest) {str='', n=0;
+while( data.valid() ) {
+	if( n ) str.add(dest);
+	str.add( data.findPos(src).trim() );
+	n++;
+}
+return str;}
+
+_find(obj, val, sub) {if( typeof(obj,'array') ) {
+	not(val ) return -1;
+	while( v, obj, n, 0) {
+		if( val.eq(v) ) return n;
+	}
+	return -1;
+} else if( typeof(obj,'node') ) {
+	if( sub ) {
+		while( c, obj, n, 0 ) {
+			if( c[$val].eq(sub) ) return n;
+		}
+	} 
+	return -1;
+}
+}
+
+_err(type, msg) {conf("lastError.${type}", msg, true);
+
+print("##### lastError.${type} => $msg");}
+
+_nodeVal(node, &data) {		while( data.valid() ) {
+			k=data.move();
+			not( data.ch().eq(':') ) {
+				break;
+			}
+			data.incr();
+			data.ch();
+			if( data.start('<s>', '<text>') ) {
+				if( data.start('<s>') ) {
+					v=data.match('<s>','</s>');
+				} else {
+					v=data.match('<text>','</text>');
+				}
+				if( data.ch().eq(',') ) data.incr();
+			} else if( data.ch().eq() ) {
+				v=data.match();
+				if( data.ch().eq(',') ) data.incr();
+			} else {
+				v=data.findPos(',').trim();
+			}
+			node[$k]=v;
+		}		
+}
+
+fileRead(path, flag) {return instance('my.file').readAll(path);}

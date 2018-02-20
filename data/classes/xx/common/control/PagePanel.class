@@ -1,0 +1,157 @@
+PagePanel {
+PagePanel(tag, parentCtrl) {
+		parentCtrl.inject(db, cf, xmlNode);
+		this.addClass('common/control.pageBase');
+		this.initControl();
+	}
+
+changeTab(tab) {
+	this[currentTab]=tab;
+	/* 현재 탭의 페이지 갯수 */
+	total=tab[pageNode].childCount();
+	/* 페이지 출력 전체영역 */
+	pageNavi = tag.child(1); 
+	
+	/* 페이지 갯수에따른 출력영역 */
+	pw=total*60;
+	this[pageNaviRect] = pageNavi[rect].center(pw, 55);
+	
+}
+
+conf() {
+	confNodeLayout(tag);
+}
+
+draw(draw, tag) {
+	drawNodeStyle(draw, tag);
+	tab=this[currentTab];
+	not( tab ) return;
+	
+	tab.inject(currentPage, pageNode);
+	total=pageNode.childCount();
+	
+	
+	while( cur, tag ) {
+		switch( cur[tag] ) {
+		case PrevButton:
+			if( currentPage>0 ) {
+				type = when( cur[rect].eq(this.mouseDownRect), 'p', 'n' );
+			} else {
+				type = 'd';
+			}
+			rc=drawNodeImage(draw, cur[rect], tag, 'PrevImage', type, true);
+			rc.incrX(35,true);
+			drawNodeText(draw, rc, '이전', 'left', 22, '#FAFAFA');
+		case PageNai:
+			this[pageNaviRect].inject(sx, sy );
+			while( n, total ) {
+				rc=Class.rect(sx, sy, 55, 55 );
+				if( n.eq(currentPage) ) {
+					drawNodeImage(draw, rc, tag, 'PageImage', 'on', true);
+				} else {
+					drawNodeImage(draw, rc, tag, 'PageImage', 'off', true);
+				}
+				sx+=60;
+			}
+		case NextButton:
+			next=currentPage+1;
+			if( next<total ) {
+				type = when( cur[rect].eq(this.mouseDownRect), 'p', 'n' );
+			} else {
+				type = 'd';
+			}
+			rc=drawNodeImage(draw, cur[rect], tag, 'NextImage', type, true);
+			rc.incrX(30);
+			drawNodeText(draw, rc, '다음', 'left', 22, '#FAFAFA');
+		default:
+		}
+	}
+}
+
+initControl() {
+	tag[type]='hbox';
+	tag.addNode({tag:PrevButton, Width:126} );
+	tag.addNode({tag:PageNai} );
+	tag.addNode({tag:NextButton, Width:126} );
+	setNodeSize(tag, true);
+}
+
+mouseDown(pos) {
+	tab=this[currentTab];
+	tab.inject(currentPage, pageNode);
+	total=pageNode.childCount();
+	while( cur, tag ) {
+		switch( cur[tag] ) {
+		case PrevButton:
+			if( currentPage<=0 ) {
+				if( currentPage<0 ) tab[currentPage]=0;
+				continue;
+			}
+			if( cur[rect].contains(pos) ) {
+				this.mouseDownRect = cur[rect];
+				break;
+			}
+		case PageNai:
+			if( this[pageNaviRect].contains(pos) ) {
+				this.mouseDownRect = this[pageNaviRect];
+				break;
+			}
+		case NextButton:
+			last=total-1;
+			print("last=$last, currentPage=$currentPage");
+			if( last<=currentPage ) {
+				if( last<currentPage ) tab[currentPage]=last;
+				return;
+			}
+			if( cur[rect].contains(pos) ) {
+				this.mouseDownRect = cur[rect];
+				break;
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+}
+
+mouseUp(pos) {
+	tab=this[currentTab];
+	tab.inject(currentPage, pageNode);
+	total=pageNode.childCount();
+	while( cur, tag ) {
+		switch( cur[tag] ) {
+		case PrevButton:
+			if( cur[rect].contains(pos) ) {
+				if( cur[rect].eq(this.mouseDownRect) ) {
+					tab[currentPage--];
+				}
+			}
+		case PageNai:
+			this[pageNaviRect].inject(sx, sy );
+			while( n, total ) {
+				rc=Class.rect(sx, sy, 55, 55 );
+				if( rc.contains(pos) ) {
+					tab[currentPage]=n;
+					listBox=this.findControl('ListBox');
+					listBox.drawPage(tab);
+				}
+				sx+=60;
+			}
+		case NextButton:
+			if( cur[rect].contains(pos) ) {
+				if( cur[rect].eq(this.mouseDownRect) ) {
+					tab[currentPage++];
+					listBox=this.findControl('ListBox');
+					listBox.drawPage(tab);
+				}
+			}
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+}

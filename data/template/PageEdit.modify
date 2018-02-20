@@ -1,0 +1,20 @@
+	leftTab.onChange() {
+		page=@me.current();
+		pid=page[id];
+		if( pid.find('DrawClassTree') || pid.find('PageTagTree') ) {
+			page[tree].update();
+		}
+		if( pid.find('PageInfo') ) {
+			node=this.currentPageNode;
+			form=get("PageEdit.@{ProjectId}PageForm"); 
+			not( form[src].value() ) {
+				classPage=form[classPage], src=getClassInfo( Cf.info('funcVar', node[page], 'init') );
+				classPage[src].value( src );
+			}
+		} 
+		if( page.setContentPage ) {
+			page.setContentPage();			
+		} else {
+			this.contentCurrentPage();
+		}
+	}

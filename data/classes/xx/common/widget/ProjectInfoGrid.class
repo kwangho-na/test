@@ -1,0 +1,88 @@
+ProjectInfoGrid {
+	ProjectInfoGrid(page) {
+		this.addClass(common.Config );
+		db=Class.db('config');
+		dataModel=Class.model('ProjectInfo');
+		grid=page.grid;
+		grid.model( dataModel, gridMakeField('
+			project_cd: 프로젝트 코드#120, 
+			project_nm:프로젝트 명#250, 
+			project_desc:설명#300', true)
+		);
+		grid.check('sortEnable', true);
+		grid.eventMap(onChange, this.gridChange, 'node');
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+	}
+	initGrid() {
+		root=grid.rootNode();
+		db.fetchAll("select project_idx, project_cd, project_nm, project_desc, note from project_info where use_yn='Y'", root.removeAll() );
+		grid.update();
+		page.deleteProject.hide();
+		gridHeaderWidth(grid);
+	}
+	gridChange( node) {
+		page.projectChange(node);
+	}
+	gridDoubleClick(node) {
+		page.projectSelect(node);
+	}
+ 	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+	gridClick(node, column) {
+		field=grid.field(column);
+		switch( field ) {
+		case check:	gridCheck(grid, node, page.deleteProject );
+		case project_desc:	
+			grid.edit(node, 3);
+		}
+	}
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		switch( type ) {
+		case create:
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+					node[modify#$field]=true;
+				}
+				node[$field]=data;
+			}
+			grid.update();
+		default: break;
+		}
+	}
+ 
+}

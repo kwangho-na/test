@@ -1,0 +1,85 @@
+menu(db, page) {
+	this[menuRoot] = null;
+	this.loadMenu(page);
+	menuNode={};
+}
+loadMenu(page, ref, auth) {
+	sql="SELECT code as id, pcode as pid, value as text, depth, url, icon, ref1, ref5 as type, sort FROM comm_tree WHERE  ref='MN' and useyn='Y' and depth>0 ORDER BY depth, pcode, sort, seq";		
+	node = db.fetchAll(sql, menuNode.removeAll() );
+
+	if( db.error() ) {
+		err= db.error();
+		print("db error : $err");
+		return;
+	}
+
+	menuNode=func(node, depth) {
+		not( depth ) depth=1;
+		root = {};
+		while( cur, node ) {		
+			if( cur[depth].eq(depth)  ) {
+				root.addNode(cur);
+			} else {
+				parent = node.findOne("id", cur[pid]);
+				if( parent ) parent.addNode(cur);
+			}
+		}
+		return root;
+	}
+	menuText=func( sub, depth ) {
+		data = '';
+		not( depth ) 
+			depth=0;
+		if( sub[text].eq('-') ) {
+			data.add('-,');
+			return data;
+		}
+		if( depth.eq(0) ) {
+			data.add("{id: ROOT, ");
+		} else {
+			data.add("{ id: $sub[id], text: $sub[text], icon:$sub[icon], ");
+		}
+		if( sub.size() ) {
+			data.add("type:menu, actions:[");
+			while(node, sub ) {
+				data.add( menuText(node, depth+1) );
+			}
+			data.add("]}");
+		} else {
+			data.add("}");
+		}
+		if( depth ) data.add(",");
+		return data;	
+	}
+
+	root = menuNode(node);		
+	menu = menuText( root, 0);
+	toolbar = '';
+	this[menuRoot] = root;
+	while(cur, node) {
+		if( cur[ref1].eq('tool', 'tool&sep') ) {
+			if( cur[ref1].eq('tool&sep') ) {
+				toolbar.add("-,");
+			}
+			toolbar.add("${cur[pid]}.${cur[id]},");
+		}
+	}
+	eval("page[menus] = $menu");
+	eval("page[toolbars]= [$toolbar]");
+
+	print("page[menus] = $menu");
+	print("page[toolbars]= [$toolbar]");
+	page.menubar();
+	page.toolbar();
+}
+findMenu(id) {
+	find=callback(node) {
+		while( cur, node ) {
+			if( cur[id].eq(id) ) return cur;
+			menu =  find(cur);
+			if( menu ) 
+				return menu;
+		}
+	}
+	return find(this[menuRoot]);
+}

@@ -1,0 +1,13 @@
+CreateXmlEditor {
+	CreateXmlEditor(page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+	}
+	initPage(node) {
+		cf.currentNode=node;
+		if( node[src] ) {
+			this.setSrc( node[src] );
+		} else {
+			this.setSrc("<Page>\n\t^|\n</Page>", true);
+		}
+ 	}
+}

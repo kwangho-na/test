@@ -1,0 +1,82 @@
+MainLoading {
+MainLoading(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+closePopup() {
+	this[pageStart]=false;
+	tag[loadingWidget].hide();
+}
+
+conf() {
+	this.confLayout(tag);
+	this[pageStart]=true;
+}
+
+draw(draw, tag, timeline) { 
+	show=true;
+	if( timeline ) {
+		tid=timeline[tid];
+		frame=Cf.timeLine("${tid}.current");
+		if( Cf.timeLine("${tid}.running") ) {
+			opa=30;
+			opa+=frame*7;
+			
+		} else {
+			opa=100;
+		}
+		if( frame<15 ) show=false;
+		draw.opacity(opa);
+	}
+	draw.mode();
+	draw.effect(
+		DRAW.RoundBox, tag[rect].incr(2), 15, '#cacaca', '#ffffff', 2
+	);
+	while( cur, tag ) {
+		switch(cur[id] ) {
+		case title:
+			img=imageLoad(tag,'TitleImage');
+			draw.drawImage(img.center(cur[rect]), img);
+		case loadingBox:
+			if( show ) this.showLoading(cur[rect]);
+		case footer:
+			img=imageLoad(tag,'FooterImage');
+			img.imageSize().inject(w,h);
+			rc=cur[rect].move('bottom', h+40);
+			draw.drawImage(rc.center(w,h), img);
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+	this.mouseDownControl(tag,pos);
+}
+
+mouseUp(pos) {
+	this.mouseDownControl(tag,pos);
+}
+
+showLoading(rc) { 
+	widget=tag[loadingWidget];
+	main=this.mainControl();
+	canvas=main.canvas;
+	not( widget ) {
+		widget=canvas.widget({tag:canvas});
+		widget.flags('splash, top');
+ 		widget.playGif('namzatang/Images/main/loading2.gif');
+		tag[loadingWidget]=widget;
+	}
+	rcGlobal=canvas.mapGlobal(rc.center(300,300));
+	widget.move(rcGlobal.lt());
+	widget.size(rcGlobal.size());
+	widget.show();
+	return lw;
+}
+}

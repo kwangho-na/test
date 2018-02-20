@@ -1,0 +1,20 @@
+CreateClassEditor {
+	CreateClassEditor (page) { 
+		this.addClass(common.Config, dev.EditorSrc );
+	}
+
+	initPage(node) {
+		cf.editNode=node;
+		if( node[PageMode].eq('edit') ) {
+			page.save.value("수정");
+		} else {
+			page.save.value("저장");
+		}
+		tag=node[tag];
+		if( node[src] ) {
+			this.setSrc(src);
+		} else {
+			this.setSrc(fmt(tr('template#class.control')), true);
+		}
+ 	}
+}

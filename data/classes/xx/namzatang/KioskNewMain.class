@@ -1,0 +1,1320 @@
+KioskNewMain {
+KioskNewMain(page) {
+	this.addClass('pages/common.KioskNew');
+	db=Class.db('namzatang_local');
+	not( db.open() ) db.open('data/namzatang.db');
+	
+	timelineNode={};
+	canvas=page.canvas;
+	canvas.eventMap( onDraw, this.canvasDraw, 'draw');
+	canvas.eventMap( onMouseDown, this.canvasMouseDown, 'pos');
+	canvas.eventMap( onMouseUp, this.canvasMouseUp, 'pos');
+	canvas.eventMap( onMouseMove, this.canvasMouseMove, 'pos');
+	canvas.eventMap( onEvent, this.commandEvent, 'type, node');	
+	
+	/* 키오스크 설정정보 세팅 */
+	this.initConfig();
+	
+	/* 타이머 설정 */
+	canvas.timer( 1000, callback() {
+		this.timeout();
+	}, this);
+	
+	/* 키오스크 Worker 설정 */
+	kioskWorker=Class.worker('kiosk');
+	kioskWorker.start(callback(node) {
+		not( node ) return;
+		this.commandWork(node[command], node);
+	});
+
+	/* QTMon 소켓 디스패쳐 설정 */
+	kioskDeviceNode={};
+	kioskDeviceSocket=Class.socket("KioskDevice");
+	kioskDeviceSocketWorker = Class.worker("KioskDevice"); 
+	kioskDeviceSocketWorker.start( func() {
+		not( kioskDeviceNode[StartSocket] ) return;		
+		recv=kioskDeviceSocket.readBuffer();
+		if( recv ) {
+ 			kioskDeviceNode[recvData]=recv;
+			print("kioskDeviceSocketWorker [$kioskDeviceNode]");
+			_canvasEvent( kioskDeviceNode, KIOSK.SOCKET_RECV_DATA);
+		}
+	});
+	
+	/* 키오스크 TransData */
+	include('kioskNew/page.TransDataControl');
+	kioskTransData = newClass('kioskNew/page.TransDataControl', this, canvas);
+	
+	/* EasyCheck 설정 */
+	easyCardWeb				=Class.web('EasyCard');
+	easyCardNode			={};
+	easyCardRequest		={ method:'GET', param:{}, header:{} };
+	easyCardRequest[url]	= cf[easyCardUrl];
+	easyCardResponse	=callback(type, data) {
+		print("easyCardResponse => type=$type, data=$data");
+		switch(type) {
+		case read:
+			param=easyCardRequest[param];
+			easyCardRequest[status] = 'recv'; 
+			_log("# EasyCard Read Ok [요청노드: $easyCardRequest[funcType]#($parm[REQ]), 응답데이터: $data]");
+			this.easyCardRecvParse(data.ref() );
+		case finish:
+			easyCardRequest.status=null;
+		case error:
+			_log("## EasyCard call Error [요청노드: $easyCardRequest[funcType]#($parm[REQ]), 에러내용: $data]");
+			this.easyCardRecvParse(data.ref(), true );
+		}
+	};
+
+	this.initKiosk();
+}
+
+DownloadDidSchedule() {
+	_download=callback(node) { 
+		url=node[ad_contents_url];
+		saveImagePath=node[saveImagePath];
+		print("down load URL=$url, savePath=$saveImagePath");
+		not( url ) return;
+		web = Cf.webConnection(url, null, 'GET' );
+		web.download(saveImagePath, callback(type, recv, total) {
+			switch( type ) {
+			case finish:	
+				node[down_yn]='Y';
+				print("DID_SCHEDULE download finish $node");
+			case error:
+				node[error]=data;
+			}
+		});
+	};
+	root=_node(cf, 'downloadMenus');
+	db.fetchAll("select menu_cd, menu_nm, menu_type from tb_menu_mst ", root.removeAll() );	
+	while( cur, root ) {
+		if( node[down_yn].eq('Y') ) continue;
+		_download(cur);
+		print("download : $cur");
+	}
+	print("DownloadDidSchedule finish");
+	return true;
+}
+
+addCanvasEvent(type, node) {
+	not( node ) return;
+	canvas.postEvent(type, node);
+}
+
+addPlayer(player) {
+	_arr(this,'MoviewPlayers').add(player);
+}
+
+alert(msg, title) {
+	not( title ) title="알림";
+	this.closePopup();
+	root=xmlNode.child(0);
+	popup=null;
+	while( cur, root ) {
+		not( cur[tag].eq('Popup') ) continue;
+		if( cur[id].eq('MessageWindow') ) {
+			popup=this.getControl(cur); 
+			pageNode=popup.loadPage();
+			not( pageNode ) {
+				page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+				return;
+			}
+			titleNode=findTag('Title', pageNode);
+			messageNode=findTag('Message', pageNode);
+			titleNode[title]=title;
+			messageNode[message]=msg;
+			not( pageNode[pageId] ) pageNode[pageId]=popupId;
+			break;
+		}
+	}
+	cf[popupStartTick]=System.tick();
+	cf[popupControl]=popup;
+	this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+	popup.conf();
+	this.update();
+	
+}
+
+canvasDraw(draw) {
+	/*
+	geo=canvas.geo();
+		not( geo.eq(this.prevGeo) ) {
+		this.chageScroll(geo, this.prevGeo);
+		this.prevGeo=geo;
+	}
+	*/
+	draw.begin(canvas);
+	while( tm, timelineNode ) {
+		not( tm.state(NODE.start) ) continue;
+		tid=tm[tid];
+		if( Cf.timeLine("${tid}.running") ) { 
+			this.draw(draw, tm);
+			if( cf[popupControl] ) {
+				cf[popupControl].draw(draw,tm);
+			}
+			draw.end();
+			return;
+		} else {
+			tm.state(NODE.start, false);
+			this.draw(draw, tm);
+			if( cf[popupControl] ) {
+				cf[popupControl].draw(draw,tm);
+			}
+			draw.end();
+			return;			
+		}
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].draw(draw, null, tm);
+	} else {
+		this.draw(draw );
+		if( cf[popupControl] ) {
+			cf[popupControl].draw(draw,tm);
+		}
+	}
+	if( cf[selectedItem] ) {
+		rc=cf.selectedItem.rect;
+		draw.rectLine(rc.incr(1), 0, '#afa0ea',3);
+	}
+	if( this.mouseDownAction ) {
+		draw.save().pen('#cab0e9', 4);
+		draw.polyLine(this[mouseActionPoints]);
+		draw.restore();
+	}
+	draw.end();
+}
+
+canvasMouseDown(pos) {
+	while( rc, cf[ActionRects] ) {
+		if( rc.contains(pos) ) {
+			_arr(this,'mouseActionPoints').reuse();
+			this.mouseDownAction=true;
+		}
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].mouseDown(pos);
+		return;
+	} else if( cf[popupControl] ) {
+		cf[popupControl].mouseDown(pos);
+		return;
+	}
+	this.mouseDown(pos);
+}
+
+canvasMouseMove(pos) {
+	if( this.mouseDownAction ) {
+		this[mouseActionPoints].add(pos);
+		this.update();
+	}
+	not( cf.mouseMoveUse ) return;
+}
+
+canvasMouseUp(pos) {
+	if( this.mouseDownAction ) {
+		arr=Cf.direction(this[mouseActionPoints]);
+		print("canvasMouseUp=$arr");
+		switch( arr.size() ) {
+		case 1:
+			arr.inject(a);
+			switch(a) {
+			case Right:
+				this.openPopup('OrderConfirmNew');
+			case Left:
+				page.flags('splash');
+				page.open();
+			}
+ 		case 2:
+			arr.inject(a,b);
+			switch(a) {
+			case Right:
+				switch(b) {
+				case Down:	this.loadStackPage('AdminLogin');
+				case Left:	this.loadStackPage('WebView');
+				default:
+				}
+			case Left:
+				switch(b) {
+				case Down:
+					page.flags('window');
+					page.open();
+				default:
+				}
+			}
+		case 3:
+			arr.inject(a,b,c);
+			if( a.eq('Left'), b.eq('Down'), c.eq('Right') ) {
+				_log("#exit kiosk");
+				page.exit();
+			}
+		case 4:
+			arr.inject(a,b,c,d);
+			if( a.eq('Right'), b.eq('Down'), c.eq('Left'), d.eq('Up') ) {
+				pageLoad('dev.main').open();
+			}
+		default:
+		}
+		this[mouseActionPoints].reuse();
+		this.mouseDownAction=false;
+		this.update();
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].mouseUp(pos);
+		return;
+	} else if( cf[popupControl] ) {
+		cf[popupControl].mouseUp(pos);
+		return;
+	}
+	this.mouseUp(pos);
+}
+
+chageScroll(geo, prev) {
+	while( widget, cf[didWidgets] ) {
+		not( widget ) return;
+		if( widget.is('visible') ) {
+			dx=geo.x()-prev.x(), dy=geo.y()-prev.y();
+			leftTop=widget.geo().lt();
+			widget.move(leftTop.incrY(dy));
+		}
+	}
+}
+
+closeKiosk() {
+	player=cf.moviePlayerWidget;
+	if( player ) {
+		player.quit();
+	}
+	while( player, _arr(this,'MoviewPlayers') ) {
+		player.quit();
+	}
+	kioskDeviceSocket.close();
+}
+
+closePopup(popupId) {
+	root=this[mainNode];
+	not( root ) {
+		root=xmlNode.child(0);
+	}
+	popup=null;
+	if( popupId ) {
+		while( cur, root ) {
+			not( cur[tag].eq('Popup') ) continue;
+			if( cur[id].eq(popupId) ) {
+				popup=this.getControl(cur); 
+				break;
+			}
+		}
+	}
+	not( popup ) {
+		popup=cf[popupControl];
+	}	
+	/* 탐업창 close 처리 (로딩창 닫기 등) */
+	cashOpen=false;
+	if( popup ) {
+		popup.inject(tag);
+		if( tag[id].eq('MessageWindow') ) {
+			order=cf[OrderHeader];
+ 			if( order[InputCashOk] ) {				
+				if( order[DelayCount]>2 ) {
+					cashOpen=true;
+				}
+			}
+		}
+		popup.closePopup();	
+	}
+	
+	/* 웹뷰를 닫는다 */
+	webView=this.webviewWidget;
+	if( webView ) {
+		webView.hide();
+	}
+	
+	/* 열려있는 동영상 플레이 닫는다 */
+	while( player, _arr(this,'MoviewPlayers') ) {
+		player.hide();
+	}
+	
+	/* QtMon메시지 처리 */
+	switch( kioskDeviceNode[status] ) {
+	case '02,3': this.qtMonSendData('03,3,0,1,0');
+	default:
+	}
+	
+	cf[popupControl]=null;
+	if( cashOpen ) {
+		this.openPopup('SelectCashReceipt');
+	}
+	this.update();
+}
+
+closeStackPage() {
+	not( cf[stackPage] ) return;
+	this.closePopup();
+	cf[stackPage].closePage();
+	cf[stackPage]=null;
+	this.update();
+}
+
+commandAdd(type, node) {
+	not( node ) return;
+	node[command]=type;
+	kioskWorker.push(node);
+}
+
+commandEvent(type, tag) {
+	switch( type ) {
+	case KIOSK.Log:
+		cf.debugEditor.append( tag[logMessage], true );
+	case KIOSK.EashCheckError:
+		msg=tag[ErrorMessage];
+		not( cf[CashReceiptType] ) {
+			this.closePopup();	
+		}
+		this.alert(msg, "결제오류");
+	case KIOSK.EasyCheckOk:
+		_log("# 카드결제 완료 : $tag");
+		order_completeCardProcess(db, tag, cf[OrderHeader], this);
+ 	case KIOSK.CornerMenuLoadFinish:
+ 		cf.StoreLoadTick=System.tick();
+		this.getControl(tag).makeDisplayTab();
+		if( cf[BillnCookStore] ) {
+			this.loadStackPage('BillnCookMain');
+		} else {
+			this.goHome();
+		}
+	case KIOSK.CornerTabReset:
+		_log("commandEvent : case KIOSK.CornerTabReset");
+ 	case KIOSK.CornerTabChange:
+ 		_timeline('CornerTabChange', tag, 'FadeInOut');
+ 	case KIOSK.CornerLeftButtonClick:
+ 		_timeline('ShiftMenu', tag, 'PrevBlock');
+ 	case KIOSK.CornerRightButtonClick:
+ 		_timeline('ShiftMenu', tag, 'NextBlock');
+ 	case KIOSK.CartQtyMinus:
+  		_timeline('ShoppingCart', tag, 'QtyMinus');		
+ 	case KIOSK.CartQtyPlus:
+  		_timeline('ShoppingCart', tag, 'QtyPlus');		
+ 	case KIOSK.CartRowDelete:
+  		_timeline('ShoppingCart', tag, 'RowDelete');		
+ 	case KIOSK.CartScrollUp:
+  		_timeline('ShoppingCart', tag, 'ScrollUp');		
+ 	case KIOSK.CartScrollDown:
+  		_timeline('ShoppingCart', tag, 'ScrollDown');			
+	case KIOSK.ButtonClick:
+		switch(tag[id]) {
+		case Home: 
+			if( cf[BillnCookStore] ) {
+				this.loadStackPage('BillnCookMain');
+			} else {
+				this.goHome();
+			}
+		case ClearAll: 
+			this.goHome();
+		case SelectMobileGift:
+			if( cf[ShoppingCart.OrderTotalPrice]] ) {
+				this.openPopup('SelectMobileGiftNew');
+			}
+		case SelectCash:
+			/* 현금 방출상태 확인 요청 */
+			this.qtMonSendData("07,4,1,0,1,0");
+			
+			if( kioskDeviceNode[DiviceError] ) {
+				page.alert("현금 입룰력 상태 오류, 관리자에 문의하세요");
+				return;			
+			}
+			not( kioskDeviceNode[StartSocket] ) {
+				page.alert("DeviceMon 프로그램에 연결되지 않았습니다. 연결을 확인하세요");
+				return;
+			}
+			
+			if( cf[ShoppingCart.OrderTotalPrice]] ) {
+				cf[OrderHeader.PayType]='Cash';
+				this.openPopup('OrderConfirmNew');
+			}
+		case SelectCard:
+			if( cf[ShoppingCart.OrderTotalPrice]] ) {
+				cf[OrderHeader.PayType]='Card';
+				this.openPopup('OrderConfirmNew');
+			}
+		default: _log("KIOSK.ButtonClick: $tag[id] is not define");
+		}
+ 	case KIOSK.SOCKET_RECV_DATA:
+ 		data=tag[recvData];
+ 		if( data ) {
+ 			this.qtMonRecvData(data.ref());
+ 			tag[recvData]=null;
+ 		}
+ 	case KIOSK.SOCKET_SEND_DATA:
+ 		data=tag[sendData];
+ 		if( data ) {
+ 			this.qtMonSendData(data.ref());
+ 			tag[sendData]=null;
+ 		}
+ 	case KIOSK.TRANS_DATA_OK:
+ 		this.updateKioskData(tag);
+ 	case KIOSK.OrderComplete:
+		order=cf[OrderHeader];
+ 		not( order_completeProcess(db, order, this ) ) {
+ 			page.alert(order[error]);
+ 			_log("## 주문 완료처리중 오류가 발생했습니다 : $order");
+ 		}
+ 		cf[OrderHeader.PayType]=null;
+	default:
+		typeNm=getEventTypeName(type);
+		_log("commandEvent type not define => type: $typeNm");
+	}
+}
+
+commandWork(type, tag) {
+	switch( type ) {
+	case KIOSK.CornerMenuReload:
+		this.getControl(tag).loadMenus(); 
+		System.sleep(2500);
+		_canvasEvent(tag, KIOSK.CornerMenuLoadFinish);
+	case KIOSK.DownloadMenu:	
+		this.downloadMenus();
+	case KIOSK.DownloadDidSchedule:	
+		this.downloadDidSchedule();
+	case KIOSK.SOCKET_CONNECT:
+		if( kioskDeviceSocket.connect(cf[qtMonHost], cf[qtMonPort]) ) {
+			_log("# kioskDeviceSocket: connect ok", true);
+			kioskDeviceNode[StartSocket]=true;
+			kioskDeviceNode[ConnectCheck]=System.tick();
+			this.qtMonSendData('$01,4,1,0,1,0');
+			this.qtMonSendData('$21,01,1,1');
+		} else { 
+			errorCount=kioskDeviceNode[errorCount++];		
+			_log("## kioskDeviceSocket: ERROR = connect fail=>host=$cf[qtMonHost], port=$cf[qtMonPort], errorCount:$errorCount", true);
+		}		
+	case KIOSK.MasterTransData:
+		kioskTransData.masterDownload();
+	}
+}
+
+	conf() {
+	tag=xmlNode.child(0);
+	this.confLayout(tag);
+}
+
+downloadMenus() {
+	
+	_download=callback(node) { 
+		url=cf.menuUrl;
+		if( node[menu_type].eq('C') ) {
+			url.add("/comm/${node[menu_cd]}.png");
+		} else {
+			url.add("/$cf[storeCd]/${node[menu_cd]}.png");
+		}
+		saveImagePath="$cf[menuImagePath]/${node[menu_cd]}.png";
+		print("down load URL=$url, savePath=$saveImagePath");
+		not( url ) return;
+		web = Class.web('KioskDownload');
+		web.download(url, saveImagePath, callback(type, recv, total) {
+			switch( type ) {
+			case finish:	
+				node[down_yn]='Y';
+				_downList();
+				print("menu download finish $node");
+			case error:
+				node[error]=data;
+			}
+		});
+	};
+	_downList() {
+		while( node, root ) {
+			if( node[down_yn].eq('Y') ) continue;
+			_download(node);
+			print("download : $cur");
+		}
+		
+	}
+	root=_node(cf, 'downloadMenus');
+	db.fetchAll("select menu_cd, menu_nm, menu_type from tb_menu_mst ", root.removeAll() );	
+	_downList();
+	print("downloadMenus finish");
+	return true;
+}
+
+draw(draw,  timeline) {
+	main=this[mainNode];
+	not( main ) {
+		main=xmlNode.child(0);
+		this[mainNode]=main;
+	}
+	this.drawControl(draw, main, timeline);
+	version=conf('version#kiosk.main');
+	rc=Class.rect(390,15,200,40);
+	draw.font(12,'normal','#f0f0f0');
+	draw.text(rc, "ver. $version");
+	
+}
+
+easyCardCall(reqCd) {
+	if( easyCardRequest[status] ) {
+		dist=System.tick()-easyCardRequest[startTick];
+		if( dist>6000 ) {
+			log("## easyCardRequestCall: $easyCardRequest[status] 대기시간 초과. 연결을 초기화 합니다");
+			easyCardRequest[status]=null;	
+		}
+		return false;		
+	}
+	
+	moneyPaperType='';
+	money			='';
+    depth 			='';
+	cancelDt		='';
+	cancelNo		='';
+	productCd		='';
+	productCd		='';
+	saleNo			='';	
+	webMsg		='';
+    keyInYn 		="Y";
+	termNo 			='';
+    vat 				='';
+	timeout 			=30;
+	addField		='';
+	receiveHandle	='';
+	termType		='';
+	disType			='';
+	option			='';
+	extOption		='';
+	
+	switch( reqCd ) {
+	case D1:
+		args(1, money, depth, saleNo, webMsg, vat );
+ 		not( depth ) 		depth='00';
+		not( saleNo ) 	saleNo = System.localtime();
+		not( webMsg )	webMsg ="web${saleNo}";
+	    not( keyInYn )	keyInYn ='Y';
+		not( vat )			vat= "A";
+	case B1:
+		args(1, moneyPaperType, money);
+		not( moneyPaperType ) moneyPaperType='00';
+	}
+	
+	/*
+	# 전문구분 : D1 승인 , D4 취소 , B1 현금승인(공제), B2 현금취소 (공제), CC 취소 (신용거래 종료) ....
+    reqCd;
+    # 현금영수증거래용도 : 00 개인현금 , 01 사업자현금
+    moneyPaperType;
+    # 금액
+    money;
+    # 할부 : 00 일시불 , N 할부개월수 ex..) 3개월 - 03
+    depth = "00";
+    # 취소(원승인일자)
+    cancelDt;
+    # 취소(원승인번호)
+    cancelNo;
+    # 상품코드
+    productCd;
+    # 임시판매번호
+    saleNo = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+    # 웹전송메세지
+    webMsg;
+    # keyin 허용 : Y keyin 요청 - 취소거래시
+    keyInYn = "Y";
+    # 단말기번호 : easycard 프로그램에서 멀티tid 옵션을 "사용"으로 했을 시에만 사용 가능
+    termNo;
+    # 타임아웃 : Default 15초 ex..) 20초 - 20 
+    timeout = Config.easyCardTimeout;
+    # 부가세 : A 자동계산 , M 수동 ex..) 91원 - M91 , F 면세
+    vat = "A";
+    # 추가필드 
+    addField;
+    # 수신 핸들값 : 실시간 상태값 수신시 수신 핸들값 대입
+    receiveHandle;
+    # 단말기 구분 : 40 일반거래 , WV 텃밭마트(BC현장할인)
+    termType;
+    # 할인/적립 구분  : 유인 2.0.1.05 이상 사용가능
+    disType;
+    # 거래옵션 - 무인 3.0.1.6 이상 사용가능
+    option;
+    # 거래확장옵션 - 유인 2.0.1.11 이상 사용가능
+    extOption
+	*/
+
+	value="$reqCd^$moneyPaperType^$money^$depth^$cancelDt^$cancelNo^$productCd^$saleNo^$webMsg^$keyInYn^$termNo^$timeout^$vat^$addField^$receiveHandle^$termType^$disType^$option^$extOption";
+	
+	_log("easyCardRequestCall: $func, $value");
+	param=easyCardRequest[param];
+	tick=System.tick();
+	param[REQ]=value;
+	param[callback]="result_${tick}";
+	easyCardRequest[funcType]=func;
+	easyCardRequest[status]='start';
+	easyCardRequest[startTick]=tick;
+	easyCardWeb.call(easyCardRequest, easyCardResponse);
+}
+
+easyCardRecvParse(&data, error) {
+	_sendError=func(msg) {
+		pi=cf.PosInfo;
+		pi[ErrorMessage]=msg;
+		_canvasEvent(pi, KIOSK.EashCheckError);
+	};
+	
+	if( error ) {
+		_sendError("Easy Check 인증중 오류가 발생했습니다.\n오류: $data", "결제오류");
+		return;
+	}
+	data.findPos('{',1,1);
+	str=data.utf8();
+	node=easyCardNode.parseJson(str);
+	_log("easyCardRecvParse: $node");
+	
+	if( node[SUC].eq('00') ) {
+		if( node[RS04].eq("0000") ) {
+			/* 카드승인 */
+			_canvasEvent(node, KIOSK.EasyCheckOk);
+		} else { 
+			if( cf[CashReceiptType] ) {
+				msg="Easy Check 승인중";		
+			} else {
+				msg="카드 승인중";
+			}
+			_sendError("$msg 오류가 발생했습니다.\n오류코드: $node[RS04]\n오류내용: $node[RS16]\n$node[RS17]", "결제오류");		
+		}
+	} else {
+		_sendError("카드승인 결제 오류가 발생했습니다.\n오류: $node[MSG]", "결제오류");	
+	}
+}
+
+goHome() {
+	this.closePopup(); 
+	
+	/* 현금 영수증 구분 (Personal, Company, Node) */
+	cf[CashReceiptType]	=null;
+	
+	/* TakeOut 구분 (Hall, BoilTakeout, TakeOut) */
+	cf[OrderSelectType]	=null;
+	
+	not( cf[CornerTab] ) {
+		tab=this.findTag('CornerTab' );
+		print("tab=$tab");
+		cf[CornerTab]=this.getControl(tab);
+	}
+	cf[CornerTab].makeDisplayTab();
+	cf[ShoppingCart].removeAllMenu();
+}
+
+initConfig() {
+	/* 기본설정 정보 (향후 config DB에서 불러온다) */
+	cf.debug=true;
+	cf.storeCd='1001';
+	cf.pagePath='namzatang/pages';
+	cf.pageXmlPath='namzatang/pageXml';
+	cf.imagePath='namzatang/Images';
+	cf.menuImagePath='namzatang/Images/menus';
+	cf.menuUrl='http://namzatang.happy-mate.co.kr/img_kiosk/menu';	
+	cf.cornerUrl='http://namzatang.happy-mate.co.kr/img_kiosk/corner';
+	
+	/* 쇼핑 카트 정보 */
+	cf.ShoppingCart=null;
+	cf.CornerTab=null;
+	
+	/* 윈도우 & 타이머 정보 */
+	cf.popupStartTick=System.tick();
+	cf.didWidgets=[];
+	cf.popupControl=null;
+	cf.clipRect=null;
+
+	/* 드로우 정보 */
+	cf.timelineDraw = false;
+	cf.editPageType ='B';
+	
+	/* QTMon 정보 */
+	cf[qtMonHost]	= conf('setup#kiosk.qtMonHost');
+	cf[qtMonPort]		= conf('setup#kiosk.qtMonPort');
+	
+
+	/* 주문관리*/
+	cf.MobileOrderList	={tag:MobildOrder};	
+	cf.OrderHeader		={tag:OrderHeader};
+	cf.PosNo='2';
+	
+	/* 포스정보 */
+	cf[easyCardUrl]	= conf('setup#kiosk.easyCardUrl');
+
+	_setPosInfo=func(pos) {
+    	pos.PosNo = "01";
+    	pos.VanCode = "01";
+    	pos.VanName = "KCP";
+    	pos.VanIP = "203.238.36.156";
+    	pos.VanPort = 19834;
+    	pos.VanTermID = "1002189855";
+    	pos.VanData1 = "0031";
+	};
+	cf.PosInfo={};
+	_setPosInfo( cf.PosInfo );
+}
+
+	initKiosk() {
+	cf.pageStart=false;
+	cf.pageRate=1;
+	pageXml=cf.pageXml;
+	if( pageXml ) {
+		this.loadXml("${cf[pageXmlPath]}/${pageXml}", xmlNode.initNode());
+	}
+	this.timelineStart('ShiftMenu', 550, 22, 'in');
+	this.timelineStart('SlideMenu', 550, 22, 'out');
+	this.timelineStart('CornerTabChange', 550, 20, 'in');
+	this.timelineStart('SelectMenu', 650, 30, 'out');
+	this.timelineStart('ShoppingCart', 500, 20, 'out');
+	this.setCanvasSize();
+}
+
+loadMainPage(pageXml) {
+	cf.pageXml=pageXml;
+	if( pageXml ) {
+		this.loadXml("${cf[pageXmlPath]}/${pageXml}", xmlNode.initNode());
+	}
+	this.pageStart();
+	root=xmlNode.child(0);
+	if( root ) {
+		rc=System.info('screenRect',0);
+		w=min(root[Width], rc.width() ), h=min(root[height], rc.height() );
+		page.size(w,h);
+		canvas.size(root[Width],root[Height]);
+	}
+}
+
+loadStackPage(pageId) {
+	root=this[stack$pageId];	
+	page=null;
+	if( root ) {
+		page=root.child(0);
+	} else {
+		node=xmlNode.child(0);
+		root=node.addNode({tag:stack, id=$pageId});
+		this[stack$pageId]=root; 
+		file=Class.file();
+		fileName="$cf[pageXmlPath]/${pageId}.xml";
+		if( file.isFile(fileName) ) {
+			this.loadXml(fileName, root.removeAll() );
+		}
+		not( root.childCount() ) {
+			_log("loadStackPage error={ $pageId loading fail}");
+			return null;
+		}
+		page=root.child(0);
+		page[type]='vbox';
+		setNodeSize(page, true);
+		treePage=get('Kiosk.EditPageTree');
+		if( treePage ) {
+			treePage.tree.update();
+		}
+	}
+	tag=page.child(0);
+	ctrl= this.getControl(tag);
+	ctrl.conf(); 
+	cf[stackPage]=ctrl;
+	this.update();
+	return ctrl;
+}
+
+mouseDown(pos) {
+	cf[mouseDownTick]=System.tick();
+	cf[mouseDownControl]=null;
+	root=xmlNode.child(0);
+	this.mouseDownControl(root, pos);
+}
+
+mouseUp(pos) {
+	root=xmlNode.child(0);
+	this.mouseUpControl(root, pos);
+	cf[mouseDownTick]=0;
+	cf[mouseDownControl]=null;	
+}
+
+openPopup(popupId) {
+	this.closePopup();
+	root=xmlNode.child(0);
+	popup=null;
+	while( cur, root ) {
+		not( cur[tag].eq('Popup') ) continue;
+		if( cur[id].eq(popupId) ) {
+			popup=this.getControl(cur); 
+			pageNode=popup.loadPage();
+			not( pageNode ) {
+				page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+				return;
+			}
+			not( pageNode[pageId] ) pageNode[pageId]=popupId;
+			break;
+		}
+	}
+	not( popup ) {
+		page.alert("$popupId 팝업 정보가 존재하지 않습니다");
+		return;
+	}
+	cf[popupStartTick]=System.tick();
+	cf[popupControl]=popup;
+	this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+	popup.conf();
+	this.update();
+}
+
+pageStart() {
+	cf[pageStart]=true;
+	cf[pageStartTick]=System.tick();
+	cf[classErrorCheck].initNode();
+	tag=xmlNode.child(0);
+	tag[type]='vbox';
+	setNodeSize(tag, true);
+	this[mainNode]=tag;
+	this.setPageRate(1);
+	_log("XX Page Start [ROOT NODE: $root, $cf] XX");
+	if( cf[pageXml].eq('KioskNew.xml') ) {
+		this.openPopup('PopupLoading');
+	}
+	arr=_arr(cf,'ActionRects').reuse();
+	sx=tag[rect].right() - 100;
+	arr.add( Class.rect(0,0,100,100) );
+	arr.add( Class.rect(sx,0,100,100) );	
+}
+
+print(root, depth) {
+	not( root ) root=xmlNode;
+	not( depth ) depth=0;
+	indent='';
+	while( n, depth ) indent.add(" ");
+	while( cur, root ) {
+		print("$indent $cur[tag]=$cur[rect]");
+		this.print(cur, depth+1);			
+	}
+}
+
+qtMonRecvData(&recv) {
+	_log("qtMonRecvData => $cmd: $recv");
+	/* 현금 입력 결과 */
+	not( recv.ch().eq('$') ) {
+		_log("# qtMonRecvData: not valid [recv => $recv]");
+		return;
+	}
+	recv.incr();
+	cmd=recv.findPos(',').trim();
+	switch( cmd ) {
+	case '01':		/* 현금Reset*/
+		recv.split().inject( paramCount, success, c1, c5, m1, m5);
+		not( success.eq('0') ) {
+			_log("## 현금리셋 오류 : 100원 리셋상태 $c1, 천원 리셋상태: $m1");
+			return;
+		}				
+	case '02':		/* 현금입력*/
+		not( cf[popupControl] ) {
+			_log("# qtMonRecvData: not open cash input popup !!!");
+			return;
+		}
+		order=cf[OrderHeader];
+		pageNode = cf[popupControl].getMainNode();
+		recv.split().inject( paramCount, success,a,b,c, price, m1, m5, m10, m50);
+		not( success.eq('0') ) {
+			_log("## 현금입력 오류 : 투입불가: $a, 에러여부:$b, 연결여부:$c");
+			return;
+		}		
+		total=m1*1000;
+		total+=m5*5000;
+		total+=m10*10000;
+		total+=m50*50000;
+		order[InputCashPrice]=total;
+		
+		info=print( m1, m5, m10, m50, total );
+		_log("# 현금입력 : $info");
+		this.update();
+	case '03':		/* 현금입력 끄기*/
+		_log("# 현금입력 상태 끄기");
+		recv.split().inject( paramCount, success );
+		not( success.eq('0') ) {
+			_log("## 현금입력 상태 끄기 오류 : $success");
+			return;
+		}
+	case '04':		/* 잔액배출 */
+		order=cf[OrderHeader];
+		recv.split().inject( paramCount, success, totalOut, currentOut, c1, c5, m1, m5, ,m10 );
+		not( success.eq('0') ) {
+			_log("## 잔액배출 오류 : 총배출액:$totalOut , 현배출액: $currentOut");
+			order[CashOutputOk]=false;
+			order_cashOutError(db, totalOut, currentOut, order, cf, this);
+			return;
+		} 
+		order[CashOutputOk]=true;
+		
+	case '07':		/* 현금입출력 상태 */
+		recv.split().inject( paramCount, success, c1, c5, m1, m5, ,m10 );
+		kioskDeviceNode[DiviceError]=false;
+		not( success.eq('0') ) {
+			_log("## 현금입출력 상태 오류 $success [100원 방출상태 $c1, 천원방출상태: $m1]");
+			if( c1.eq('1','2')  || m1.eq('1','2') ) {
+				kioskDeviceNode[DiviceError]=true;
+			} 
+			return;
+		} 
+	case '91':		/* 바코드 인식 */
+		cf[popupControl].inject(tag);
+		if( tag[id].eq('SelectMobileGiftNew') ) {
+			recv.split().inject( paramCount, success, barcode);
+			
+			node=findTag('MobileGift',tag);
+		 	this.getControl(node).setBarcode(barcode);
+		}
+	case '21': 	/* 인쇄 */	
+		arr=recv.split();
+		subCode=arr[0];
+		if( subCode.eq('02') ) {
+			arr.inject( subCode, paramCount, printKind, papper, printHeadUp, jam  );
+			msg='';
+			if( printKind.eq(0) ) {
+				msg.add("## 영수증 프린터 : ");
+			} else {
+				msg.add("## 주망 프린터 $printKind : ");
+			}
+			if( papper.eq('1') || printHeadUp.eq('1') || jam.eq('1') ) {
+				if( papper.eq('1') ) msg.add("용지 없음 ");
+				if( printHeadUp.eq('1') ) msg.add("프린터 헤더 열림 ");
+				if( jam.eq('1') ) msg.add("용지 걸림");
+				msg.add("오류가 발생했습니다");
+				_log(msg);
+			}
+		} else if( subCode.eq('03') ) {
+			arr.inject( subCode, paramCount, success);
+			if( success.eq('0') ) {
+				_log("## 영수증 출력 오류가 발생했습니다");
+				return;
+			}
+		}
+	default: 
+		_log("# qtMonRecvData: command not define [command=>$cmd recv=>$recv]");
+	}	
+}
+
+qtMonSendData(send) {
+	not( send ) return;
+	kioskDeviceNode[recvData]=null;
+	if( send.ch().eq('$') ) {
+		kioskDeviceSocket.sendBuffer("$send\n");
+	} else {
+		if( send.start('02,3') ) {
+			kioskDeviceNode[status]='02,3';
+		} else {
+			kioskDeviceNode[status]=null;
+		}
+		s='$';
+		s.add(send);
+		kioskDeviceSocket.sendBuffer("$s\n");
+	}	
+}
+
+setCanvasSize() {
+	root=xmlNode.child(0);
+	if( root ) {
+		w=this.rate(root[Width]), h=this.rate(root[Height]);
+		_log("setCanvasSize = Width:$w, Height:$h");
+		if( w, h ) canvas.size(w,h);
+	}
+}
+
+setDebugEditor(editor) {
+		cf.debugEditor=editor;
+	}
+
+	setPageRate(rate) {
+	not( rate) return;
+	not( typeof(rate,'number') ) {
+		rate=rate.toNumber();
+	}
+	if( rate ) cf.pageRate=rate;
+	this.setCanvasSize();
+	this.conf();
+	this.print();
+	this.update();
+}
+
+setSoltOut(node) {
+	map=_node(cf,'SoltOutMap');
+	menuCd=node[menu_cd];
+	root=this.findTag('CornerTab'); 
+	while( tab, root) {
+		while( menu, tab ) {
+			not( menu[menu_cd].eq(menuCd) ) {
+				continue;
+			}
+			menu[use_yn]=node[use_yn];
+			map[$menuCd]=menu;
+			print("menu=");
+			this.update();
+			return;
+		}
+	} 
+}
+
+showLoading(rc) { 
+		lw=cf.loadingWidget;
+		not( lw ) {
+			lw=canvas.widget({tag:canvas});
+			lw.flags('splash, top');
+			lw.style("background-color: rgba(0,0,0,0%)");
+			lw.playGif('namzatang/Images/loading2.gif');
+			cf.loadingWidget=lw;
+		}
+		rcGlobal=canvas.mapGlobal(rc.center(125,125));
+		lw.move(rcGlobal.lt());
+		lw.size(rcGlobal.size());
+		lw.show();
+		return lw;
+	}
+
+	showMoviePlayer(rc, path) { 
+	player=this.playerWidget;
+	not( player ) {
+		player=canvas.widget(tr('widget#namzatang.moviePlayer'), true);
+		player.flags('top,splash');
+		player.open();
+		this.addPlayer(player);
+		this.playerWidget=player;
+		cf[didWidgets].add(player);
+	}
+	rcGlobal=canvas.mapGlobal(rc);
+	player.move(rcGlobal.lt());
+	player.size(rcGlobal.size());
+	player.show();
+	if( path ) {
+ 		player.show();
+		player.initPage(path);		
+	}
+}
+
+showWebview(rc, url) { 
+	webView=this.webviewWidget;
+	not( webView ) {	 
+		webView=canvas.widget({tag:webview});
+		webView.flags('splash, top');
+		webView.scroll('hide');
+		webView.open();
+		this.webviewWidget=webView;
+		cf[didWidgets].add(webView);
+	}
+	if( url ) {
+		webView.url(url);
+	}
+	rcGlobal=canvas.mapGlobal(rc);
+	webView.move(rcGlobal.lt());
+	webView.size(rcGlobal.size());
+	webView.show();
+}
+
+timelineCheck(cmd, target, style) {
+	not( cmd ) {
+		while( tm, timelineNode ) {
+			not( tm.state(NODE.start) ) continue;
+			if( Cf.timeLine("${tm[tid]}.running") ) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	if( target ) {
+		tm=timelineNode.findOne('tid',cmd);
+		not( tm ) {
+			_log("$cmd 타임라인을 찾을수 없습니다");
+		}
+		tm.inject(duration, range, mode);
+		tm.state(NODE.start, true);
+		tm[drawCount]=0;
+		tm.target=target;
+		tm.command=target.command;
+		tm.timelineStyle=style;
+		Cf.timeLine("${cmd}.start", canvas, duration, range, mode);
+	} else {
+		return Cf.timeLine(cmd);
+	}
+}
+
+timelineStart(tid, duration, range, mode, state) {
+	not( state ) state="stay";
+	tm=timelineNode.findOne('tid',tid);
+	not( tm ) {
+		tm=timelineNode.addNode();
+	}
+	tm.state(0);
+	if( state.eq('stay') ) {
+		tm.state(NODE.stay, true);
+	} else {
+		tm.state(NODE.start, true);
+	}
+
+	tm[tid]=tid;
+	tm[startTick]=System.tick();
+	tm.put(duration, range, mode);
+	_log("타임라인 시작 : 타임라인 아이디=$tid, 상태: $state, 시작tick: $tm[startTick]");
+	if( tm.state(NODE.start)) {
+		Cf.timeLine("${tid}.start", canvas, duration, range, mode);
+	}
+	return tm;
+}
+
+timelineStop(key) {
+	if( key ) {
+		Cf.timeLine("${key}.stop");
+	} else {
+		while( key, Cf.timeLine() ) {
+			if( Cf.timeLine("${key}.running") ) {
+				Cf.timeLine("${key}.stop");
+			}
+		}
+	}
+	timelineNode.removeAll();
+}
+
+timeout() {
+	not( cf[pageStart] ) {
+		return;
+	}	
+	/* 타임아웃 체크 */
+	timeoutCount=cf[timeoutCount++];
+	mod=timeoutCount % 240;
+	not( mod ) {
+		print("timeoutCheck ========= $timeoutCount");		
+	}
+
+	order=cf[OrderHeader];
+
+	/* 팝업처리 */
+	if( cf[popupControl] ) {
+		popup=cf[popupControl];
+		tag=popup[tag];
+		dist = System.tick() - cf[popupStartTick];
+		if( tag[id].eq('CompleteOrder') ) {
+			/* 주문완료 팝업 3초*/
+			if( dist > 2200 ) {
+				order.initNode();
+				this.goHome();
+			}
+		} else if( tag[id].eq('PopupLoading') ) {
+			/* 페이지 로딩 팝업 5초*/
+			if( dist > 5000 ) {
+				this.goHome();
+			}
+		} else if( dist > 220000 ) {
+			/* 팝업창 자동 닫기(220초) */
+			print("popupId => $tag[id] Close");
+			this.goHome();
+		}
+	}
+	/* QTMon 소켓연결 처리 */
+	if( kioskDeviceNode[StartSocket] ) {
+		not( kioskDeviceSocket.isConnect() ) {
+			kioskDeviceNode[StartSocket]=false;
+			_log("# QtMon socket close : $kioskDeviceNode");
+		}
+	} else {
+		/* 일정시간후 QtMon에 연결한다 */
+		if( kioskDeviceNode[ConnectCheck] ) {
+			/* 이미 연결되었다가 끊긴경우 */
+			dist=System.tick() - kioskDeviceNode[ConnectCheck];
+			if( dist > 10000 ) {
+				/* 새로운 소켓을 생성한후 연결시간 초기화. */
+				kioskDeviceNode[ConnectCheck]=System.tick();
+				errorCount=kioskDeviceNode[errorCount++];		
+				@kioskDeviceSocket=Class.socket("KioskSocket$errorCount");
+				_command(cf, KIOSK.SOCKET_CONNECT );
+			}
+		} else {
+			/* 처음 연결인 경우 연결시간 초기화 */
+			kioskDeviceNode[ConnectCheck]=System.tick();
+			_command(cf, KIOSK.SOCKET_CONNECT);
+		}
+	}	
+
+	
+	/* 현금입력 완료되면 일정시간후에 현금영수증 선택창으로 이동 */
+	if( order[InputCashOk] ) {
+		if( order[DelayCount++].eq(1) ) {
+			this.openPopup('SelectCashReceipt');
+		}
+	}
+	
+	
+	/* 빌앤쿡에 있으면 무시 */
+	if( cf[BillnCookStore] ) {
+		if( cf.StoreLoadTick ) {
+			dist=System.tick() - cf.StoreLoadTick;
+			if( dist>2000 ) {
+				cf.StoreLoadTick=0;
+				this.loadStackPage('BillnCookMain');
+			}
+		}
+		return;
+	}
+
+	
+	/* 결제중이면 연계처리 무시 */
+	if( order[PayType] ) return;
+
+	/* 모바일 결졔 주방프린터 연계처리(2초) */
+	not( cf[MobileOrderList.Wait] ) {
+		tm=System.tick();
+		not( cf[TransDataSyncTime] ) {
+			cf[TransDataSyncTime]=tm;
+		}
+		dist = tm - cf[TransDataSyncTime];
+		if( dist>2500 ) {
+			/* 2초마다 영수증 확인*/
+			dbBo=Class.db('tros_server');
+			mobileOrder=cf[MobileOrderList].removeAll();
+			mobileOrder[STORE_NO]		= cf.storeCd;
+			mobileOrder[SALE_DATE]		= System.date('yyyyMMdd');
+			dealNo=dbBo.value( tr('sql#kiosk.mobile#maxDealNo'), mobileOrder );		
+			if( cf[MobileDealNo] ) {
+				/* 모바일 주문번호가 다르다면 */
+				not( dealNo.eq(cf[MobileDealNo]) ) {
+					mobileOrder[DEAL_NO]=cf[MobileDealNo];
+					dbBo.fetchAll( tr('sql#kiosk.mobile#saleInfo'), mobileOrder );
+					_log("# order_kitchenPrintMobile=$mobileOrder");
+					order_kitchenPrintMobile(mobileOrder, this);				
+					cf[MobileDealNo]=dealNo;
+				}
+			} else {
+				cf[MobileDealNo]=dealNo;
+			}
+		}
+	}
+	/* TransData처리 */
+	if( timeoutCount.eq(30) ) {
+		_command(cf, KIOSK.MasterTransData);
+	}
+}
+
+updateKiosk(store) {
+	_log("# 스토어 변경 : $store");
+	this.openPopup('PopupLoading');
+	listBox=this.findTag('ListBox');
+	listBox[prevTab]=null;
+	listBox[currentTab]=null;
+	
+	tab=this.findTag('CornerTab');
+	tab[currentTab]=null;
+	
+	c=tab[@control];
+	c.reload(true);
+	if( store.eq('BillnCook') ) {
+		cf.BillnCookStore=true;
+	} else {		
+		cf.BillnCookStore=false;
+	}	
+}
+
+updateKioskData(node) {
+	/* CornerTab에서 변경 여부 체크해서 반영한다. */
+	while( cur, node[TB_CORNER_MST] ) {
+	}
+	while( cur, node[TB_CORNER_MENU] ) {
+	}
+	while( cur, node[TB_MENU_MST] ) {
+	}
+	while( cur, node[TB_DID_SCHEDULE] ) {
+	}
+	
+}
+
+}

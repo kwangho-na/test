@@ -1,0 +1,28 @@
+MainPage {
+MainPage(tag, parentCtrl) {
+		parentCtrl.inject(db, cf, xmlNode);
+		this.addClass('common/control.pageBase');
+		this.initControl();
+	}
+
+conf() {
+		this.confLayout(tag);
+	}
+
+draw(draw, tag) {
+		this.drawControl(draw, tag);
+	}
+
+initControl() {
+		not( tag[type] ) tag[type]='vbox';
+		setNodeSize(tag, true);	
+	}
+
+mouseDown(pos) {
+		this.mouseDownControl(tag,pos);
+	}
+
+mouseUp(pos) {
+		this.mouseUpControl(tag,pos);
+	}
+}

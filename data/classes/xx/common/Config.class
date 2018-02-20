@@ -1,0 +1,93 @@
+Config {
+	Config(page) {
+		cf={};
+		xmlNode={};
+	}
+
+	loadXml(fileName, root) {
+		cf.inject(imagePath);
+		not( root ) root=xmlNode;
+		xml=fmt( fileRead(fileName) );
+		this.parseXml(&xml, root.removeAll() );
+	}
+
+	parseProp(node, tag, &prop) {
+		node[tag]=tag;
+		while( prop.valid() ) {
+			k=prop.findPos('=').trim(); 
+			not( k ) break;
+			ch=prop.ch();
+			if( ch.eq() ) {
+				node[$k]=prop.match();
+			} else if( ch.eq('[') ) {
+				in=prop.match();
+				arr=[];
+				while( in.valid() ) {
+					arr.add( in.findPos(',').trim() );
+				}
+				node[$k]=arr;
+			} else {
+				node[$k]=prop.findPos(" \t\n",4).trim();
+			}
+		}
+	}
+
+	parseXml(&data, node) {
+		not( node ) {
+			node=xmlNode;
+			node.removeAll();
+		}
+ 		while( data.valid() ) {
+			ch=data.ch();
+			not( ch.eq('<') ) {
+				break;
+			}
+			if( data.ch(1).eq('!') ) {
+				data.match('<!--','-->');
+				continue;
+			}
+			sp=data.cur();
+			tag=data.incr().move();
+			sub = node.addNode();
+			if( data.ch().eq(':') ) {
+				sub[kind]=data.incr().move();
+				print("tag--->$tag, $kind");
+			}
+			in=data.find('>');
+			if( in.ch(-1).eq('/') ) {
+				prop=data.findPos('/>');
+				this.parseProp( sub, tag, prop); 
+			} else {
+				data.pos(sp);
+				if( sub[kind] ) {
+					in=data.match("<$tag:$sub[kind]","</$tag:$sub[kind]>");
+				} else {
+					in=data.match("<$tag","</$tag>",8);
+				}
+				not( in ) {
+					print("@@ xml parse $tag not match");
+					in=data.findPos("</$tag>");
+				}
+				prop=in.findPos(">");
+				this.parseProp( sub, tag, prop); 
+				cp=in.cur();
+				if( in.ch().eq('<') ) {
+					this.parseXml(in, sub);
+				} else {
+					val=in.trim();
+					if( val ) sub[data]=val;
+				}
+			}
+		}
+		return node.child(0);
+	}
+	arr(id) {
+		a=_arr(cf,id);
+		return a.reuse();
+	}
+	node(id) {
+		o=_node(cf,id);
+		return o.initNode();
+	}
+
+}

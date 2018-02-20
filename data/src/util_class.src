@@ -1,0 +1,687 @@
+stripComment(&src ) {
+	rst = '';
+	while( src.valid() ) {
+		left = src.findPos("/*",1,1);
+		rst.add(left);
+		not( src.valid() ) break;
+		not( src.match(1) ) {
+			print("########### comment match error ############");
+			break;
+		}
+	}
+	return rst;
+}
+
+makeClass(&src ) {
+	while( src.valid() ) { 
+		ch = src.ch();
+		not( ch )
+			break;
+		classNm = src.move().trim();
+		classParam = '';
+		c = src.ch();
+		param = null;
+		if( c.eq('(') ) {
+			param = src.match(1);
+			if( param.ch() ) {
+				classParam = param.value();
+			}
+		}
+		blib = when( classParam.eq('class'), true );
+		c = src.ch();
+		not( c.eq('{') ) {
+			print("not func body");
+			return false;
+		}
+		in = src.match(1);
+		cls='';
+		while( in.valid() ) {
+			c = in.ch();
+			if( c.eq('#') ) {
+				in.incr();
+				w = in.move();
+			} else {
+				w = in.move();
+				c = in.ch();
+			}
+			not( w ) break;
+			if( c.eq("(") ) {
+				param = in.match(1);
+				c=in.ch();
+				not( c.eq("{") ) {
+					print("$w func not valid");
+					return false;
+				}
+				body = in.match(1);
+				if( w.eq(classNm) ) { 
+					if( param.ch() ) {
+						not( classParam ) classParam=param.value();
+					} else {
+						param = classParam;
+					}
+					cls.add("\r\n\tclass[$w] = func($param) {\r\n$body\r\n\t}");
+				} else {
+					cls.add("\r\n\tnot(class[$w]) class[$w] = func($param) {\r\n$body\r\n\t}");
+				}
+			} else if( c.eq("#") ) {
+				c=in.ch();
+				if( c.eq('(') ) {
+					in.match(1);
+					c=in.ch();
+				}
+				not( c.eq("{") ) {
+					print("$w func not valid");
+					return false;
+				}
+				body = in.match(1);
+				cls.add("\r\n\tnot(class[$w]) class[$w] = func() {\r\n$body\r\n\t}");
+			} else {
+				print("$w $c not valid char");
+				return false;
+			}
+		}
+		not( blib ) {
+			cp = '';
+			if( classParam ) cp = ", $classParam";
+			cls.add("\r\n\tCf.setClass(class, '$classNm' $cp);");
+		}
+		cls.add("\r\n\treturn class;");
+		print("cls ############ $cls");
+		Cf.func("${classNm}($classParam) {\r\n\tnot(class) class={};\r\n$cls \r\n}\r\n");
+	}
+	return true;
+}
+
+stripLineComment(&src ) {
+	rst = '';
+	while( src.valid() ) {
+		left = src.findPos("//",1);
+		rst.add(left,"\r\n");
+		src.findPos("\n");
+	}
+	return rst;
+}
+
+makeSrc(&src) {
+	if( src.find('/*',1) ) {
+		src = stripComment(src.ref());
+	}
+	if( src.find('// ',1) ) {
+		src = stripLineComment(src.ref());
+	}
+	return src;
+}
+
+/*  */
+loadClassByDb(code) {not( Cf[classNode] ) Cf[classNode]= {};
+root = Cf[classNode];
+root.removeAll();
+db = instance('pages.model');
+
+if( code.find('.') ) {
+	groupName=code.find('.').trim();
+	className=code.find('.').right().trim();
+} else {
+	className=code, groupName='';
+}
+
+root.put( className, groupName);
+instance("pages.model").fetchAll("select 
+	class_func, 
+	class_param, 
+	case when length(class_src)=0 then class_data else class_src end as class_src, 
+	type 
+from 
+	class_info 
+where 
+	class_nm=#{className} 
+	#[groupName ? and class_grp=#{groupName}] 
+order by type", root );
+
+not( root.childCount() ) return false;
+
+rst="", classParam="";
+while( node, root ) {
+	fnm = node[class_func], fparam = node[class_param];
+	if( node[type].eq('A' ) ) {
+		classParam=fparam;
+	}
+	if( node[type].eq('S') ) {
+		rst.add("\r\nclass[$fnm]= callback($fparam) {\r\n${node[class_src]}\r\n}" );
+	} else {
+		rst.add("\r\nclass[$fnm]= func($fparam) {\r\n${node[class_src]}\r\n}" );
+	}
+}
+
+cp = '';
+if( classParam ) cp = ", $classParam";
+rst.add("\r\n\tCf.setClass(class, '$className' $cp);");
+rst.add("\r\n\treturn class;");
+
+Cf.func("${className}($classParam) {\r\n\tnot(class) class={};\r\n$rst \r\n}", false, groupName);
+print("loadClassByDb ############## ${className}($classParam)");
+return true;}
+
+makePages(db, dbcode, path) {not( db ) 			db = get('global.config');
+not( dbcode ) 	dbcode = 'pages';
+not( path ) 		path = 'data/pages';
+
+not( Cf[classNode] ) Cf[classNode]= {};
+node = Cf[classNode];
+
+result = '';
+while( file , instance('eps.filefind').fetchAll(path,'*.pages') ) { 
+		cmscode = file[fileName].findLast('.').trim();
+ 		node[func] = instance('eps.file').readAll("$path/$file[fileName]");
+		node[modifyDate] = file[modifyDate];
+		if( db.fetch("select count(1) as cnt from page_info where type_code='$dbcode' and cms_code='$cmscode'").eq('cnt',0) ) {
+			result.add("[new page=$cmscode], ");
+			db.exec("insert into page_info(type_code, cms_code, func, type, status, useyn, modifyDate) values ('$dbcode','$cmscode',#{func}, 'P', '0', 'Y',#{modifyDate})", node);
+		} else if( db.value("select count(1) as cnt from page_info where type_code='$dbcode' and cms_code='$cmscode' and modifyDate=#{modifyDate}", node).eq('0') ) {
+			result.add("[modify page=$cmscode],");
+			db.exec("update page_info set func=#{func}, src=null, modifyDate=#{modifyDate} where type_code='$dbcode' and cms_code='$cmscode'", node);
+		}
+}
+Cf.makeCmsTable(dbcode);
+return result;
+}
+
+/*  */
+saveClassFile(pageDb, &src, group, arr, tm) {dataNode=_node('classNode');
+
+not( tm ) tm = System.localtime();
+
+dataNode[lastModify] = lastModify;
+while( src.valid() ) { 
+	comment = '';
+	ch = src.ch();
+	if( ch.eq('/') ) {
+		while( ch.eq('/') ) {
+			ch = src.ch(1);
+			if( ch.eq('/') ) {
+				src.incr(2);
+				comment.add( src.findPos("\n") );
+			} else if( ch.eq('*') ) {
+				comment.add( src.match('/*', '*/',1) );
+			}
+			ch = src.ch();
+		}
+	}
+	not( ch ) break;
+	classNm = src.move().trim();
+	not( classNm ) break;
+	if( arr ) {
+		arr.add(classNm);
+	}
+	classParam = ''; 
+	param = null;
+	dataNode.put(group, classNm, comment );
+	if( src.ch().eq('(') ) {
+		param = src.match(1).trim();
+		if( param.ch() ) {
+			classParam = param;
+		}
+	}
+	blib = when( classParam.eq('class'), true );
+	dataNode[type] = when( blib, 'L' );
+	not( pageDb.exec("update class_mst set class_desc=#{comment}, type=#{type} where class_grp=#{group} and class_nm=#{classNm}", dataNode) ) {
+			pageDb.exec("insert into class_mst(class_grp, class_nm, class_desc, type, tm) values (#{group}, #{classNm}, #{comment}, #{type}, '$tm')", dataNode);
+	}
+	pageDb.exec("delete from class_info where class_grp=#{group} and class_nm=#{classNm}", dataNode);
+
+	not( src.ch().eq('{') ) {
+		dataNode[note] = "not func body";
+		pageDb.exec("update class_mst set note=#{note} where class_grp=#{group} and class_nm=#{classNm}", dataNode);
+		return false;
+	}
+	in = src.match(1);
+	cls='';
+	while( in.valid() ) { 
+		comment = '';
+		ch = in.ch();
+
+		if( ch.eq('/') ) {
+			while( ch.eq('/') ) {
+				ch = in.ch(1);
+				if( ch.eq('/') ) {
+					in.incr(2);
+					comment.add( in.findPos("\n") );
+				} else if( ch.eq('*') ) {
+					comment.add( in.match('/*', '*/',1) );
+				}
+				ch = in.ch();
+			}
+		}
+		w = in.move();
+		not( w ) break;
+		funcType='F';
+		print("w=$w");
+		if( w.eq('public', 'private', 'persist','static', 'interface') ) {
+			if( w.eq('public') ) {
+				funcType='P';
+			} else if( w.eq('private') ) {
+				funcType='Z';
+			} else if( w.eq('interface') ) {
+				funcType='I';
+			} else {
+				funcType='S';
+			}
+			w = in.move();
+		} 
+		not( in.ch().eq("(") ) {
+			dataNode[note] = "function:$w char:$ch is not valid : must be input func param";
+			pageDb.exec("update class_mst set note=#{note} where class_grp=#{group} and class_nm=#{classNm}", dataNode);
+			return false;				
+		}
+		param = in.match(1).trim(); 
+		not( in.ch().eq("{") ) {
+			dataNode[note] = "function:$w char:$ch is not valid : must be input func body";
+			pageDb.exec("update class_mst set note=#{note} where class_grp=#{group} and class_nm=#{classNm}", dataNode);
+			return false;
+		}
+		body = in.match(1);
+		if( w.eq(classNm) ) { 
+			if( param.ch() ) {
+				not( classParam ) classParam=param;
+			} else {
+				param = classParam;
+			}
+			dataNode[type] = 'A';
+		} else {
+			dataNode[type] = funcType;
+		}
+		if( body.finds('/*','//') ) {
+			fsrc = body;
+			if( fsrc.find('/*',1) ) {
+				fsrc = stripComment(fsrc.ref());
+			}
+			if( fsrc.find('//',1) ) {
+				fsrc = stripLineComment(fsrc.ref());
+			}
+		} else {
+			fsrc=null;
+		}
+		dataNode.put(w, param, body, fsrc, comment);
+		
+		pageDb.exec("insert into class_info(class_grp, class_nm, class_func, class_param, class_data, class_src, note, type, tm) values (#{group}, #{classNm}, #{w}, #{param}, #{body}, #{fsrc}, #{comment}, #{type}, '$tm')", dataNode);
+	}
+}
+
+return true;
+
+}
+
+loadClass(fullpath) {
+not( fullpath.find('.') ) {
+	className = fullpath;
+	if( loadClassByDb(className) ) {
+		print("load By DB : $className");
+		return true;
+	}
+	fullpath = "data/classes/${className}.class";	
+} 
+
+print("loadClass fullpath===$fullpath");
+data = inst('p1.file').readAll(fullpath);
+
+if( data.find('/*',1) ) {
+	data = stripComment(data.ref());
+}
+if( data.find('//',1) ) {
+	data = stripLineComment(data.ref());
+}
+return makeClass( data.ref() );}
+
+class(code, reload, setClass) {	not( Cf[classData] ) Cf[classData]={};
+	cf = Cf[classData]; 
+	if( reload ) {
+		cf[$code]=null;
+		if( setClass ) setStaticClass(code);
+	}
+	if( cf[$code] ) return cf[$code];
+	switch(code) {
+	case code:
+		not( typeof(codeClass,'class'), or(reload) ) loadClass('codeClass');
+		db = get('global.config');
+		cf[$code] = codeClass( db );			
+	case db: 
+		not( typeof(dbClass,'class'), or(reload) ) loadClass('dbClass');
+		cf[$code] = dbClass();
+	case parse:
+		not( typeof(parseClass,'class'), or(reload) ) loadClass('parseClass');
+		cf[$code] = parseClass();
+	case file:
+		not( typeof(fileClass,'class'), or(reload) ) loadClass('fileClass');
+		cf[$code] = fileClass();
+	default:
+		classCd="static.$code";
+		fc=Cf.class(classCd);
+		not( typeof(fc,'class'), or(reload) ) {
+			loadClassByDb(classCd);
+		}
+		cf[$code] = Cf.class(classCd,true);
+	}
+	return cf[$code];
+	}
+
+getLastSync(code) {return instance('config.model').value("select data from conf_info where grp='lastSync' and cd='$code'");}
+
+newClass(code, arr) {fc=Cf.class(code);
+not( typeof(fc,'class') ) {
+	include(code);
+}
+not( typeof(arr,'array') ) arr=args();
+return Cf.class(code, arr); 
+}
+
+_runClass(class, &s, node) {note='';
+print("_runClass : $class");
+while(s.valid() ) {
+	ch=s.ch();
+	not( ch ) break;
+	if( ch.eq('/') ) {
+		c1=s.ch(1);
+		if( c1.eq('/') ) {
+			s.incr(2);
+			note.add(s.findPos("\n"));
+		} else if( c1.eq('*') ) {
+			note.add(s.match());
+		}
+		continue;
+	}
+	s.ch();
+	funcNm=s.move();
+	ch=s.ch();
+	not( ch.eq('(') ) {
+		_err("ClassSaveAll", "$funcNm 함수 매개변수 매치에러");
+		break;
+	}
+	param=s.match();
+	ch=s.ch();
+	not( ch.eq('{') ) {
+		_err("ClassSaveAll", "$funcNm 함수 본문 시작에러");
+		break;
+	}
+	body=s.match(1);
+	not( body ) {
+		_err("ClassSaveAll", "$funcNm 함수 본문 내용없음");
+	} 
+	note='';
+	print("class.function('$funcNm', callback($param){ $body })");	 
+	Cf.call("class.function('$funcNm', callback($param){ $body })");	 
+}	}
+
+setStaticClass(code) {classNm = "static_${code}";
+if( code.eq('code','file','db','parse') ) classNm.add('Class');
+
+print("setStaticClass => $classNm");
+buf=instance('my.file').readAll("data/classes/${classNm}.class");
+
+not( buf ) {
+	print("## setStaticClass error : file not found => data/classes/${classNm}.class");
+	return;
+}
+
+db=instance('pages.model');
+saveClassFile(db, buf.ref(), 'static');
+
+print("setStaticClass ok!!!");
+}
+
+commonClass(code, reload, setClass) {not( Cf[classData] ) Cf[classData]={};
+cf = Cf[classData]; 
+if( reload ) {
+	cf[$code]=null;
+	if( setClass ) setStaticClass(code);
+	loadClassByDb(code);
+}
+if( cf[$code] ) return cf[$code];
+fc=Cf.class(code);
+not( typeof(fc,'class'), or(reload) ) {
+	loadClassByDb(classCd);
+	fc=Cf.class(classCd);
+}
+cf[$code] = fc();
+return cf[$code];
+}
+
+classLoad(code, setClass) {if( setClass ) {
+	if( code.find('.') ) {
+		group=code.find('.').trim();
+		name=code.find('.').right().trim();
+		print("setClass -> data/classes/${group}_${name}.class");
+		src=class('file').readAll("data/classes/${group}_${name}.class");
+		if( src ) {
+			arr=class('util').arr();
+			saveClassFile( instance('pages.model'), src.ref(), group, arr);
+			print("load classes arr: $arr");
+			while( classNm, arr ) {
+				classCode="${group}.${classNm}";
+				Cf.reloadClass(classCode);
+				loadClassByDb(classCode);
+			}		
+		} else {
+			print("class load error !!!");
+		}
+	}
+} else {
+	loadClassByDb(code);
+	print("load class code: $code");
+}
+}
+
+pageLoad(pcode, reload) {db = instance('pages.model');
+root=_node('pageLoadData');
+
+if( typeof(pcode,"page") ) {
+	args(1,pageCode, reload);
+	pageGroup=pcode[@cms.code];
+	print("@@@@@ ${pageGroup}.${pageCode} @@@@@@@@@");
+	return Cf.loadPage("${pageGroup}.${pageCode}", reload);
+} else {
+	root[pageGroup]	=pcode.find('.').trim();
+	root[pageCode]	=pcode.find('.').right().trim();
+	args(1,reload);
+}
+
+tm=db.value("select max(tm) as tm from epstreestep where tree_idx in (
+  select idx from epstreelist where pidx = (
+  select idx from epstreelist where ref='$pcode')
+)");
+
+not( tm ) {
+	return Cf.loadPage(pcode, reload);
+}
+
+not( Cf[tm#$pcode] ) {
+	pageTm=db.value("select max(tm) from pageFunc where cmsCode=#{pageGroup} and pageCode=#{pageCode}", root);
+	if( pageTm<tm ) {
+		Cf[tm#$pcode]=pageTm;
+	}
+}
+
+if( Cf[tm#$pcode], not(reload) ) {
+	if( Cf[tm#$pcode].eq(tm) ) {
+		print("$pageCode page reload already load !!!");
+	} else {
+		prevTm=Cf[tm#$pcode];
+		root.removeAll();
+		root[ref]=pcode;
+		print("$pageCode page reload [prev=$prevTm, tm=$tm]" );
+		db.fetch("select idx from epstreelist where ref=#{ref}",root);
+		db.fetchAll("select idx from epstreelist where pidx=#{idx}",root);
+		all=true, layout=false;
+		src="";
+		while( node, root, n, 0 ) {
+			db.fetch("select case when length(data)=0 then src else data end as data, tm from epstreestep where tree_idx=#{idx}", node);
+			if( node[tm]>prevTm ) {		
+				src.add(node[data],"\n");
+				if( n.eq(0) ) layout=true;
+			} else {
+				all=false;
+			}
+		}
+		node[modifyDate] 	=tm; 
+		if( all ) {
+			root[func]="${root[pageCode]}: { $src }";	
+			savePageInfo(root, true);
+		} else {
+			if( layout) {
+				root[func]="${root[pageCode]}: { $src }";	
+			} else {
+				root[func]="${root[pageCode]}: { layout: skip, $src }";
+			}
+			savePageInfo(root, false);
+		}
+		reload=true;
+	}
+} 
+Cf[tm#$pcode]=tm;
+
+print("pageLoad : $pcode");
+return Cf.loadPage(pcode, reload);
+}
+
+setPageClass(classCode, page) {param=args();
+if( page.pageImpl ) {
+	page.alert("페이지 구현 클래스가 이미 등록되었습니다,  $classCode 등록 실패");
+}
+include(classCode);
+print("xxxxxxxxxxx $classCode xxxxxxxxxx");
+cls=newClass(classCode, param );
+page.pageImpl=cls;
+return cls;}
+
+makeClassEventFunc(code) {	err='';
+	not( code.find('.') ) {
+		err="$code is not valid class code";
+		return err;
+	}
+	groupName=code.find('.').trim();
+	className=code.find('.').right().trim();
+	file=instance('my.file');
+	fileName="data/classes/${groupName}_${className}.class";
+	not( file.isFile(fileName) ) {
+		err="$code not found class file";
+		return err;
+	}
+	node=class('util').node();
+	parseClassInit=func(&s, classNm) {
+		print("parseClassInit : $classNm");
+		c=s.ch();
+		not( c.eq('{') ) {
+			@err="$code not match class braket";
+			return false;
+		}
+		s.incr();
+		fnm=s.move().trim();
+		not( classNm.eq(fnm) ) {
+			@err="$classNm start func errror [start function: $fnm]";
+			return false;
+		}	
+		not( s.ch().eq('(') ) {
+			@err="$classNm is not function";
+			return false;
+		}
+		s.match();
+		not( s.ch().eq('{') ) {
+			@err="$classNm braket start error";
+			return false;
+		}
+		body=s.match();
+		sp=s.cur();
+		while( true ) {
+			left=body.findPos(".eventMap(");
+			not( body.valid() ) break;
+			
+			line=left.findLast("\n").right();
+			print("line======> $line");
+			not( line ) line=left;
+			var=line.trim();
+				
+			args=body.findPos(")");	
+			event=args.move().trim();
+			not( args.ch().eq(',') ) {
+				@err.append("$var $event comma error\n");
+				continue;
+			}
+			args.incr();
+			fc=args.findPos(',').trim();
+			param=when( args.valid(), args.trim() );
+			print("args=$args ($fc, $param )");
+			cur=node.addNode().val( varNm:var, eventNm:event, eventFunc: fc, eventParam: param );
+			print("@@ cur===> $cur");
+		}
+		return sp;		
+	};
+	makeClassSrc=func(&s) { 
+		while( s.valid() ) {
+			c=s.ch();
+			if( c.eq('/') ) {
+				if( s.ch(1).eq('/') ) {
+					s.findPos("\n");
+				} else if( s.ch(1).eq('*') ) {
+					s.match();
+				} else {
+					break;
+				}
+				continue;
+			}
+		}
+		classNm=s.move().trim();
+		sp=parseClassInit(s, classNm);
+		not( sp ) break;
+		not( node.childCount() ) {
+			@err="$className 에 추가할 이벤트 함수가 없습니다";
+			return;
+		}
+		
+		src=s.value(0,sp,true);
+		s.pos(sp);
+		
+		ok=false;
+		date=System.date('yyyy-MM-dd');
+		src.add("\r\n\r\n/* ================= $classNm 이벤트 함수 시작 =  생성일[$date] ================= */\r\n");
+		findFunc=func(&s, func) {
+			while(s.valid() ) {
+				s.findPos(func);
+				if( s.ch().eq('(') ) {
+					s.match();
+					if( s.ch().eq('{') ) return true;
+				}
+			}
+			return false;
+		};
+		while( cur, node) {
+			var=cur[eventFunc].move();
+			if( var.eq('this') ) {
+				eventFunc= cur[eventFunc].find('.').right().trim(); 
+				param=when( cur[eventParam], cur[eventParam].match() );
+				not( findFunc(s, eventFunc) ) {
+					ok=true;
+					src.add("\r\n/* [이벤트맵] ${cur[varNm]}.$cur[eventNm] */");
+					src.add("\r\n\tprivate ${eventFunc}($param) {\r\n\t\t\r\n\t}");
+				}
+			}
+		}
+		src.add("\r\n/* ================= $classNm 이벤트 함수 종료 ================= */\r\n");
+		not(ok ) {
+			@err="$className 이벤트가 이미 추가되었습니다";
+			return;
+		}
+		src.add(s);
+		
+		name=fileName.findLast('.');
+		ext=name.right();
+		while(n,100) {
+			backupFile="name ($n).$ext";
+			if( file.isFile(backupFile) ) {
+				file.copy(fileName, backupFile);
+				break;
+			}
+		}
+		file.writeAll(fileName, src);		
+	};
+	makeClassSrc( file.readAll(fileName) );
+	return err;
+}

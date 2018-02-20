@@ -1,0 +1,94 @@
+Grid {
+Grid(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+ }
+
+conf() {
+	if( this[styleButtons] ) {
+		while( cur, tag ) {
+			cur[rcImage]=null;
+			if( cur[rcText] ) cur[rcText]=null;
+		}
+	}
+	this.confLayout(tag);
+ }
+
+draw(draw, tag, timeline) {
+	drawNodeStyle(draw, tag);
+	if( this[styleButtons] ) {
+		while( cur, tag ) {
+			drawNodeButton(draw, cur, tag, this);
+		}
+	} else if( tag[type].eq('stack') ) {
+		page=this.currentPage;
+		if( page ) {
+			this.getControl(page).draw(draw, page, timeline);
+		}
+	} else {
+		this.drawControl(draw, tag, timeline);
+	}
+ }
+
+initControl() {
+	if( tag[style].eq('buttons') ) this[styleButtons]=true;
+	
+	if( this[styleButtons] ) {
+		not( tag[type] ) tag[type]='hbox';
+	} else {
+		not( tag[type] ) tag[type]='vbox';
+	}
+	setNodeSize(tag, true);
+	if( tag[CurrentPage] ) {
+		page=findTag(tag[CurrentPage], tag);
+		this.setCurrentPage(page);
+	}
+}
+
+mouseDown(pos) {
+	this.mouseDownRect=null;
+	if( this[styleButtons] ) {
+		while( cur, tag ) {
+			not( cur[rcImage].contains(pos) ) continue;
+			this.mouseDownRect=cur[rcImage];
+		}
+	} else if( tag[type].eq('stack') ) {
+		page=this.currentPage;
+		if( page ) {
+			this.getControl(page).mouseDown(pos);
+		}		
+	} else {
+		this.mouseDownControl(tag,pos);
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+ }
+
+mouseUp(pos) {
+	if( this[styleButtons] ) {
+		while( cur, tag ) {
+			not( cur[rcImage].contains(pos) ) continue;
+			if( cur[rcImage].eq(this.mouseDownRect) ) {
+				_canvasEvent(cur, KIOSK.ButtonClick );
+			}
+		}
+	} else if( tag[type].eq('stack') ) {
+		page=this.currentPage;
+		if( page ) {
+			this.getControl(page).mouseUp(pos);
+		}		
+	} else {
+		this.mouseUpControl(tag,pos);
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+ }
+
+setCurrentPage(page) {
+	this.currentPage=page;
+ }
+}

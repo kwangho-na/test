@@ -1,0 +1,319 @@
+TagAttributeGrid {
+	TagAttributeGrid(page) {
+		this.addClass(common.Config );
+		dataModel=Class.model('EditPageAttribute');
+		currentTagNode=null;
+		grid=page.grid;
+		grid.model( dataModel, 'attribute, value, note');
+		grid.check('headerHide', true);
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onFilter, this.gridFilter, 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		grid.eventMap(onMouseDown, this.gridMouseDown, 'pos, button');
+	}
+	gridWidthReset() {
+		this.gridWidthApply=false, this.delayCall=false;
+		this.attributeWidth=0, this.valueWidth=0;	
+		grid.update();
+	}
+
+	initGridData(tagNode) {
+		@currentTagNode=null;
+		grid.rootNode().initNode();
+		if( tagNode ) {
+			this.makeTagAttribute(tagNode);
+		}
+		grid.update();
+	}
+	makeTagAttribute(tagNode) {
+		if( currentTagNode==tagNode ) {
+			return;
+		}
+		@currentTagNode=tagNode;
+		root=grid.rootNode();
+		while( sub, root ) {
+			not( sub.refNode ) continue; 
+			if( sub.refNode==tagNode ) {
+				return;
+			}
+		}
+		tagNode.visible=true;
+		this.makeGridData(tagNode);
+	}
+	makeGridData(srcNode, attrRoot) {
+		not( typeof(srcNode,'node') ) {
+			return;
+		}
+		root=grid.rootNode();
+		_makeAttribute=func(src, depth) {
+			arr=src.keys().sort();
+			attrNode=[], attrData=[];
+			while( attr, arr ) {
+				if( attr.ch().eq('@') ) continue;
+				val=src[$attr];
+				if( attr.eq('id','kind','rect','type','tag','visible','Width','Height') ) {
+					continue;
+				}
+				if( typeof(val,'node') ) {
+					attrNode.addPair(attr,val);
+				} else {
+					attrData.addPair(attr,val);
+				}
+			}
+			_addNode=func(attr, val) {
+				node=root.addNode();
+				node[attribute]=attr;
+				node[srcNode]=src;
+				node[depth]=depth+1;
+				node[value]=val;
+				if( typeof(val,'node') ) {
+					node[tag]=nvl(val[tag], 'node');
+					node[refNode]=val;
+				}
+			};
+ 			while( pair, attrNode ) {
+				pair.inject(attr, val);
+				_addNode(attr, val);
+				_makeAttribute(val, depth+1);
+			}
+			if( src[id] ) 		_addNode('id', src[id]);
+			if( src[kind] ) 	_addNode('kind', src[kind]);
+			if( src[type] ) 	_addNode('type', src[type]);
+ 			if( src[rect] ) 	_addNode('rect', src[rect]);
+ 			if( src[Width] ) 	_addNode('Width', src[Width]);
+ 			if( src[Height] )	_addNode('Height', src[Height]);
+			while( pair, attrData ) {
+				pair.inject(attr, val);
+				_addNode(attr, val);
+			}
+			attrNode.delete(), attrData.delete();
+		};
+		tag=srcNode[tag];
+		if( tag ) {
+			node=root.addNode();
+			node[tag]=tag;
+			node[attribute]=tag;
+		} else {
+			node=root.addNode({tag:root, attribute: $attrRoot});
+		}
+		node[depth]=0;
+		node[refNode]=srcNode;
+		_makeAttribute(srcNode, 0);
+		this.gridWidthReset();
+	}
+ 	 gridMouseDown(pos) {
+		node = grid.at(pos);
+		not( node[ButtonArray]  ) return;
+		not( node.refNode ) return;
+		ref=node.refNode;
+		idx=node.index();
+		
+		node[ButtonArray].inject(margin,detail);
+		if( margin.contains(pos) ) {
+			root=node.parent();
+			if( ref[Margin] ) {
+				while(n,16) {
+					idx++;
+					cur=root.child(idx);
+					if( cur[attribute].eq('Margin') ) {
+						grid.edit(cur,1);
+					}
+				}
+			} else {
+				next=idx+1;
+				cur=root.insertNode(next,{attribute:Margin, value:'0,0,0,0', depth:0});
+				cur[srcNode]=node[srcNode];
+				grid.update();
+				grid.edit(cur,1);
+			}
+			return 'ignore';
+		} else if( detail.contains(pos) ) {
+			page.alert("상세 노드정보는 구현중입니다");
+			return 'ignore';
+		}
+	 } 
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		ref=node.refNode;
+		field=grid.field(draw.index());
+		if( over ) {
+			not( node.tag.eq('root')  || ref  ) {
+				draw.fill(rc,'#d0d0d0');
+			}
+		}
+		if( field.eq('attribute') ) {
+			rcGrid=grid.rect();
+			if( node.tag.eq('root')  || ref  ) {
+				rc.width( rcGrid.width()-6 );
+				rcIcon=rc.width(20).center(16,16);
+				if( node.tag.eq('root') ) {
+					draw.fill(rc,'#b0a09a');
+					draw.icon(rcIcon, "ficon.application-plus-black");
+				} else {
+					if( ref==currentTagNode ) {
+						draw.fill(rc,'#b0a09a');
+						draw.icon(rcIcon, "ficon.application-plus-black"); 
+					} else {
+						draw.fill(rc,'#dacbd0');
+						draw.icon(rcIcon, "ficon.application-plus"); 
+					}
+				}
+				draw.rectLine(rc,4,'#38241F');
+				draw.rectLine(rc.incrY(1,true),4,'#E9D5AF');
+				rc.incrX(20); 
+				rcText=rc.incrX(node[depth*20]);
+				draw.save().font('bold');
+				draw.text(rcText, node[attribute]);
+				draw.restore();
+			} else {
+				rcText=rc.incrX(node[depth*20]);
+				draw.rectLine(rc,34,'#b0a09a');				
+				draw.text(rcText.incrX(4), node[attribute]);
+				not( this.gridWidthApply ) {
+					x=rc.x();
+					x+=draw.textWidth(node[attribute]) + 25;
+					if( this.attributeWidth < x ) this.attributeWidth=x;
+
+					if( this.delayCall ) return;
+					page.delay(callback() {
+						attributeWidth=max(this.attributeWidth, 100);
+						valWidth=max(150, this.valueWidth);
+						if( valWidth>500 ) {
+							valWidth=500;
+						}
+						w=attributeWidth + valWidth;
+						rcGrid=grid.rect();
+						noteWidth=rcGrid.width() - w - 6;
+						grid.headerWidth(0, attributeWidth);
+						grid.headerWidth(1, valWidth );
+						grid.headerWidth(2, noteWidth );
+						grid.update();
+						this.gridWidthApply=true;
+					}, this, 500);
+					this.delayCall=true;
+				}
+			}
+		} else if( field.eq('value') ) {
+			if( node.tag.eq('root')  || ref  ) return;
+			draw.rectLine(rc,3,'#804000', 1, 'dash');
+			draw.rectLine(rc,4,'#b0a09a');
+			attr=node[attribute];
+			src=node[srcNode];
+			val=src[$attr]; 
+			draw.text(rc.incrX(4), val);
+			not( this.gridWidthApply ) {
+				x=draw.textWidth(val) + 60;
+				if( this.valueWidth < x ) this.valueWidth=x;
+			}
+		} else if( field.eq('note') ) {
+			if( ref  ) {
+				node[rect]=rc.move('end',120);
+				getRectArray(node, '4,5', 2, 'ButtonArray', 'hbox').inject(a,b);
+				draw.ctrl('btn', a, 'Margin'); 
+				draw.ctrl('btn', b, '상세정보'); 
+			} else {
+				draw.rectLine(rc,4,'#b0a09a');
+				if( node.type.eq('prop') ) {
+				} 
+			}
+		}
+ 	}
+	gridFilter(node) {
+  		if( node[tag].eq('root') || node[depth].eq(0) ) return true;
+  		if( node.refNode ) {
+			return node.refNode.visible;
+		} else if( node.srcNode ) {
+			return node.srcNode.visible;
+		}
+		return true;
+	}
+	gridClick(node, column) {
+		if( node.tag.eq('root') ) {
+			return true;
+		}
+ 	  	field=grid.field(column);
+ 		ref= node.refNode;
+ 		if( ref ) {
+ 			ok=true;
+ 		}
+ 		if( ok ) {
+			ref.toggle('visible');
+ 			grid.update();
+ 		} else if( field.eq('value', 'note') ) {
+ 			if( field.eq('value') ) {
+				if( ref.tag.eq('check') ) {
+					node.toggle('value');
+					ref="$node[widget]#$prop[code]";
+					currentNode[$ref]=node[value];
+					grid.update();
+				} else {
+ 					grid.edit(node,1);
+				}
+ 			} else {
+ 				grid.edit(node,2);
+ 			}
+ 		}
+	}
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		tag=node.tag;
+		setRect=func(&s) {
+			in=s.match();
+			in.split(',').inject(x,y,w,h);
+			src[$attr]=Class.rect(x,y,w,h);
+		};
+		gridInput=func(field) {
+			input = page.widget(conf('widget.gridInput') );
+			input.initWidget(page, field);
+			src=node[srcNode];
+			attr=node[attribute];
+			obj=src[$attr];
+			node[value]="$obj";
+			return input;
+		};
+		switch( type ) {
+		case create:
+			if( field.eq('value') ) return gridInput();
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			src=node[srcNode];
+			attr=node[attribute];
+			obj=src[$attr];
+			val="$obj";
+			not( val.eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+				}
+				if( field.eq('value') ) {
+					bconf=false;
+					if( typeof(obj,"node") ) {
+						src[$attr]=s.split('parse');
+					} else if( typeof( obj,"array") ) {
+						src[$attr]=s.split('parse');
+					} else if( typeof( obj,"rect") ) {
+						setRect(data);
+						bconf=true;
+					} else {
+						src[$attr]=data;
+						if( attr.eq('Margin') ) bconf=true;
+					}
+					p=get('Kiosk.EditPageCanvas');
+					if( p ) {
+						ctrl=p.x;
+						if( bconf ) ctrl.conf();
+						ctrl.update();
+					}
+					this.gridWidthReset();
+				} else {
+					node[$field]=data;
+				}
+			}
+			grid.update();
+		default: break;
+		}
+	}
+}

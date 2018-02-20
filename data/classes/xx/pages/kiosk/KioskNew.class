@@ -1,0 +1,233 @@
+KioskNew {
+KioskNew(page, canvas) {
+	this.addClass(common.Parse );
+	dbLog=Class.db('KioskLog');
+	not( dbLog.open() ) dbLog.open('data/KioskLog.db');
+	
+	_rate=func(a,b) { return nvl(this.rate(a), this.rate(b)) };
+	_log=func(msg, event) {
+		if( cf.debugEditor ) {
+			if( event ) {
+				this[logMessage]=msg;
+				this.mainControl().addCanvasEvent(KIOSK.Log, this);
+			} else {
+				time=System.date('hh:hh:ss');
+				cf.debugEditor.append(">>[$time] $msg");
+			}
+		}
+		if( msg.start('##') ) {
+			logType='E'
+		} else if( msg.start('#') ) {
+			logType='I'
+		} else {
+			logType='A';
+		}
+		tm=System.localtime();
+		dbLog.exec("insert into kiosk_logs(log_type, log_message, tm) values('$logType','$msg', '$tm')");
+		print(">> $msg");
+	}
+	_command=func(node, cmd) {
+		this.mainControl().commandAdd(cmd, node);
+	}; 
+	_canvasEvent=func(node, cmd) {
+		this.mainControl().addCanvasEvent(cmd, node);
+	}; 
+	_timeline=func(tid, target, style) { 
+		this.mainControl().timelineCheck(tid, target, style); 
+	};
+	_err(str ) {
+		sz=args().size();
+		switch( sz ) {
+		case 1: 
+			_log(str);
+		case 2: 
+			args(1,var);
+			_log( tr(str,var) );
+			not( var ) return true;
+		case 3:
+			args(1,a,b);
+			_log( tr(str,a,b) );
+			not( a.eq(b) ) return true;
+		}
+		return false;
+	};
+}
+
+confLayout(root) {
+	layout=root[type];
+	not( layout ) layout="vbox";
+	_rect=func(node, x, y, w, h ) {
+		if( node[Margin] ) {
+			if( typeof(node[Margin],'string') ) {
+				arr=[];
+				str=node[Margin].ref();
+				while( str.valid(), n, 0 ) {
+					val=str.findPos(',').trim();
+					arr.add(val.toNumber());
+				}
+				node[Margin]=arr;
+			} else {
+				arr=node[Margin];
+			}
+			sz=arr.size(), chk=false;
+			if( sz<3 ) chk=true;
+			while( val, arr, n, 0 ) {
+				v=this.rate(val);
+				not( v ) continue;
+				switch(n) {
+				case 0: x+=v; if(chk) w-=2*v;
+				case 1: y+=v; if(chk) h-=2*v;
+				case 2: w-=v;
+				case 3: h-=v;
+				}
+			}
+		}		
+		node[rect]=Class.rect(x,y,w,h);
+	};
+	
+	root[rect].inject(sx,sy,sw,sh);
+	space=root[space];
+	while( cur, root ) {
+		w=this.rate(cur[Width]);
+		h=this.rate(cur[Height]);
+		if( cur[class].eq('popup','layer') ) {
+			_rect(cur, 0, 0, w, h );
+			this.getControl(cur).conf();
+			continue;
+		}
+		_rect(cur, sx, sy, w, h );
+		this.getControl(cur).conf();
+		if( layout.eq('vbox') ) {
+			sy+=h;
+			if( space ) sy+=space;
+		} else if( layout.eq('hbox') ) {
+			sx+=w;
+			if( space ) sx+=space;
+		}
+	}
+}
+
+drawControl(draw, tag, timeline) {
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		this.getControl(cur).draw(draw,cur, timeline);
+	}
+}
+
+findControl(tag,root) {
+	if( tag.find('#') ) {
+		if( tag.ch().eq('#') ) tag= tag.value(1);
+		return this.findId(tag, root).get('@control');
+	}
+	return this.findTag(tag, root).get('@control');
+}
+
+findId(id, root) {
+	not( root ) root=xmlNode;
+	if( id.find('#') ) {
+		id.split('#').inject(a,b);
+		if( a && b ) {
+			node=this.findId(a,root);
+			if( node ) return this.findTag(b,node);
+		}
+		return null;
+	}
+	while( cur, root ) {
+		if( cur[id].eq(id) ) return cur;
+		find=this.findId(id, cur);
+		if( find ) return find;
+	}
+	return null;
+}
+
+findTag(tag, root, all) {
+	not( root ) root=xmlNode;
+	if( all ) {
+		arr=class('util').arr();
+		while( cur, root ) {
+			if( cur[tag].eq(tag) ) arr.add(cur);
+		}
+		return arr;
+	} else {
+		while( cur, root ) {
+			if( cur[tag].eq(tag) ) return cur;
+			find=this.findTag(tag, cur);
+			if( find ) return find;
+		}
+	}
+	return null;
+}
+
+getControl(cur, cid) {
+	ctrl=cur[@control];
+	if( ctrl ) return ctrl;
+	
+/* DB에서 class 데이터를 읽어오도록 수정
+	file=instance('kiosk.file');
+	if( file.isFile("${cf[pageXmlPath]}/${cid}.xml") ) {
+		classId="kiosk/sub.$cid";
+	} else {
+		classId="kiosk/control.$cid";
+	}
+*/		
+	not( cid ) {
+		cid=cur.tag;
+		not( cid ) return;
+	}
+	classId="KioskNew/control.$cid";
+	classErrorCheck=_node(cf, 'classErrorCheck');
+	if( classErrorCheck[$classId] ) return null;
+	include(classId);
+	ctrl=newClass(classId, cur, this );
+	not( ctrl ) {
+		classErrorCheck[$classId]=true;
+		_log("[error.getControl] $classId 컨트롤 로딩 실패\n cotrolNode: $cur"); 
+		return null;
+	}
+	cur[@control]=ctrl;
+	return ctrl;
+}
+
+mainControl() {
+	p=this;
+	while( p ) {
+		pp=p.parentCtrl;
+		not( pp ) return p;
+		p=pp;
+	}
+	return null;
+}
+
+mouseDownControl(root, pos) {
+	while( cur, root ) { 
+		not( cur[rect].contains(pos) ) continue;
+		this.getControl(cur).mouseDown(pos);
+	}
+}
+
+mouseUpControl(root, pos) {
+	while( cur, root ) { 
+		not( cur[rect].contains(pos) ) continue;
+		this.getControl(cur).mouseUp(pos);
+	}
+}
+
+rate(x) {
+		not( x ) return null;
+		x*=cf.pageRate;
+		return x;
+	}
+
+test() {
+	x=dbLog;
+	print();
+}
+
+update() {
+	not( canvas ) {
+		p=this.mainControl();
+		p.inject(canvas);
+	}
+	canvas.redraw();
+}
+}

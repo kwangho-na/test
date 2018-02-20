@@ -1,0 +1,532 @@
+## config(cc.pageTemplate)
+grid: 그리드,
+gridCrud: 그리드(CRUD),
+gridFetchMore: 그리드(FetchMore),
+gridSearchContent: 그리드(조회컨텐츠),
+tree:트리, 
+treeGrid:트리(그리드),
+treeSearchContent: 트리(조회컨텐츠),
+treeContent:트리(컨텐츠),
+splitterDivHbox: 페이지 세로분할,
+splitterDivVbox: 페이지 가로분할,
+editor:에디터, 
+draw:캔버스 드로우
+
+##  config(template#layout.draw)
+layout:
+<page>
+	<canvas id="canvas">
+</page>
+onInit() {
+	canvas=this.canvas;
+	canvas.eventMap( onDraw, this.canvasDraw, 'draw');
+	canvas.eventMap( onMouseDown, this.canvasMouseDown, 'pos');
+	canvas.eventMap( onMouseUp, this.canvasMouseUp, 'pos');
+	canvas.eventMap( onMouseMove, this.canvasMouseMove, 'pos');
+	canvas.eventMap( onEvent, this.canvasEvent, 'type, node');
+}
+canvasDraw(draw) {
+	rc=draw.rect();
+	draw.fill();
+	draw.rectLine( rc.incr(10), 0, '#ff0000', 4);
+}
+
+##  config(template#layout.grid)
+layout:
+<page>
+	<grid 	id="grid">
+</page>
+onInit() {
+	grid=this.grid;
+	grid.model(Class.model('${pageCode}Grid'), "id:아이디, name:이름" );
+	/* 이벤트맵
+	grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+	grid.eventMap(onClicked, this.gridClick, 'node, column');
+	grid.eventMap(onChange, this.gridChange, 'node');
+	grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+	grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+	grid.eventMap(onFilter, this.gridFilter, 'node');
+	grid.eventMap(onSort, this.gridSort, 'left, right');
+	*/
+	this.search();
+}
+search() {
+	root=grid.rootNode();
+	root.addNode({id:test, name:홍길동} );
+	grid.update();
+}
+
+##  config(template#layout.gridCrud)
+layout:
+<page>
+	<grid id="grid">
+	<hbox>
+		<button id="addNewNode" text="추가" icon="vicon.add_default">
+		<space>
+		<button id="deleteNode" text="삭제" icon="vicon.delete_default">
+	</hbox>
+</page>
+onInit() {
+	grid=this.grid;
+	grid.model(Class.model('${pageCode}Grid'), "check:선택#45, id:아이디, name:이름" );
+	grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+	grid.eventMap(onClicked, this.gridClick, 'node, column');
+	grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+	this.search();
+}
+/* 그리드 조회 */
+search() {
+	root=grid.rootNode();
+	root.addNode({id:test, name:홍길동} );
+	grid.update();
+}
+/* 그리드 그리기 */
+gridDraw(draw, node, over) {
+	rc=draw.rect();
+	field=grid.field(draw.index());
+	gridOver(draw, node, over);
+ 	switch( field ) {
+	case check:
+		if( node.state(NODE.add) ) {
+			gridModifyMark(draw, rc, '#a090ea');
+		}
+		icon=when( node[checked],   'func.check', 'func.add');
+		draw.icon(rc.center(16,16), icon);
+	default: 
+		draw.text(rc, node[$field].trim());
+	}
+	if( node.state(NODE.modify) && node[@$field] ) {
+		gridModifyMark(draw, rc);
+	}
+	draw.rectLine(rc,4,'#d0d0d0');
+}
+/* 그리드 클릭시 */
+gridClick(node, column) {
+	field=grid.field(column);
+	switch( field ) {
+	case check:	
+		gridCheck(grid, node, this.deleteNode );
+	default:		
+		grid.edit(node, column);
+	}
+}
+/* 그리드 inline 에디터 실행시 */
+gridEditEvent(type, node, data, index) {
+	field=grid.field(index);
+	switch( type ) {
+	case create:
+		return null;
+	case geometry: 
+		return data;
+	case finish:
+		not( node[$field].eq(data) ) {
+			not( node.state(NODE.add) ) {
+				node.state(NODE.modify,true);
+				node[@$field]=true;
+			}
+			node[$field]=data;
+		}
+		grid.update();
+	default: break;
+	}
+}
+
+##  config(template#layout.gridFetchMore)
+layout: <page>
+	<hbox>
+		<vbox>
+			<hbox margin=0>
+				<label text="이름 : " align="right"><input id="name" width=85>
+				<space>
+			</hbox>
+			<hbox>
+				<label text="이름 : " align="right"><input id="name1" width=85>
+				<space>
+			</hbox>
+		</vbox>
+		<space>
+		<button id="searchButton" text="조회" icon="vicon.magnifier_default" height=60>
+	</hbox>
+	<grid id="grid">
+	<hbox>
+		<label id="gridStatus"><space>
+		<button id="deleteNode" text="삭제" icon="vicon.delete_default">
+	</hbox>
+</page>
+onInit() {
+	fetchListCount=50;
+	db=Class.db("example");
+	not( db.open() ) {
+		db.open("data/example.db");
+		node( db.count() ) db.exec("create table address (id text, name text, addr text, phone text)");
+	}
+	grid=this.grid;
+	grid.model(Class.model('${pageCode}Grid'), "check:선택#45, id:아이디, name:이름" );
+	grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+	grid.eventMap(onFetchMore, this.gridFetchMore, 'node');
+	this.search();
+}
+searchButton.onClick() { this.search() }
+/* 그리드 조회 */
+search() {
+	root=grid.rootNode();
+	root[offset]			= 0;
+	root[fetchNum]	= fetchListCount;
+	db.fetchAll("select id, name, address, phone from address limit ${offset}, $fetchListCount",  root.removeAll() );
+	total=db.count("select count(1) from address", root );
+	this.gridStatus.value("전체 ${total} 건");
+	this.deleteNode.hide();
+	grid.update();
+}
+/* 그리드 자동조회 */
+gridFetchMore(node) {
+	root=grid.rootNode();
+	root[offset]=root[fetchNum];
+	db.fetchAll("select id, name, address, phone from address limit ${offset}, $fetchListCount", root);
+	root[fetchNum+=$fetchListCount];
+	grid.update();
+}
+
+
+
+##  config(template#layout.gridSearchContent)
+layout: <page>
+	<hbox>
+		<vbox>
+			<hbox margin=0>
+				<label text="이름 : " align="right"><input id="name" width=85>
+				<space>
+			</hbox>
+			<hbox>
+				<label text="이름 : " align="right"><input id="name1" width=85>
+				<space>
+			</hbox>
+		</vbox>
+		<space>
+		<button id="searchButton" text="조회" icon="vicon.magnifier_default" height=60>
+	</hbox>
+	<grid id="grid">
+	<label id="gridStatus"><space>
+</page>
+/* 
+ 페이지 초기화       */
+onInit() {
+	db = Class.db('${projectCode}');
+ 	this.combo.addItem( getCommCodeNode('combo'), 	'code, value', '=선택=' );
+
+	grid=this.grid;
+	grid.model(Class.model('${pageCode}Grid'), "id:아이디, name:이름" );
+	this.search();
+}
+search() {
+	root=grid.rootNode();
+	root.addNode( {id:test, name:홍길동} );
+	grid.update();
+}
+searchButton.onClick() { 
+	this.search();
+}
+
+##  config(template#layout.tree)
+layout: <page>
+	<tree id="tree">
+	<hbox>
+		<button id="refreshButton" text="새로고침" icon="vicon.arrow_refresh">
+		<space>
+	</hbox>
+</page>
+/* 
+ 페이지 초기화       */
+onInit() {
+	tree=this.tree;
+	tree.check('treeMode', true);
+	tree.model(Class.model('${pageCode}Tree'), 'value');
+
+	tree.eventMap( onChildData, this.treeData, 'node');
+	tree.eventMap( onClicked, this.treeClick, 'node, column');
+	tree.eventMap( onEditEvent, this.treeEditEvent, 'type, node, data, index');
+	tree.eventMap( onMouseDown, this.treeMouseDown, 'pos, button');	
+	tree.eventMap( onContextMenu, this.treeContextMenu, 'pos');
+
+	/* 트리 이벤트맵 
+	tree.eventMap( onDraw, this.treeDraw, 'draw, node, over');
+	tree.eventMap( onChange, this.treeChange, 'node');
+	tree.eventMap( onFilter, this.treeFilter, 'node');
+
+	tree.check('sortEnable', true);
+	tree.eventMap( onSort, this.treeSort, 'left, right');	
+	*/
+	this.treeAction();
+}
+refreshButton.onClick() {
+	cur=tree.current();
+	not( cur ) cur=tree.rootNode();
+	cur.removeAll();
+	tree.update();
+}
+treeAction() {
+	this.action("tree.reload", "새로고침", "vicon.arrow_rotate_clockwise");
+	this.action("tree.reload").trigger(func() {
+		cur=tree.contextNode;
+		cur.removeAll();
+		tree.update();
+	});
+	this.action("tree.delete", "노드삭제", "vicon.cancel_default");
+	this.action("tree.delete").trigger(func() {
+		cur=tree.contextNode, parent=cur.parent();
+		parent.remove(cur);
+		tree.update();
+	});
+}
+treeContentMenu(pos) {
+	tree.contextNode=tree.at(pos);
+	this.menu('tree.reload, -, tree.delete', pos.incrY(16) );
+}
+treeClick(node, column) {
+	tree.edit(node, column);
+}
+treeMouseDown(pos, button) {
+	if( button.eq('right') ) return 'ignore';
+}
+treeEditEvent(type, node, data, index) {
+	not( type.eq("finish") ) return;
+	node.value=data;
+}
+treeData(node) {
+	if( node.lvl.eq(0) ) {
+		node.addNode({type: root, value:트리루트});
+		return;
+	}
+	switch( node.type ) {
+	case root:
+		node.addNode( {type:name, value:홍길동});
+		node.addNode( {type:name, value:김영희});
+	case name:
+		switch( node.value ) {
+		case 홍길동:
+			node.addNode( {type:location, value:서울});
+			node.addNode( {type:location, value:부산});
+		case 김영희:
+			node.addNode( {type:location, value:대전});
+			node.addNode( {type:location, value:인천});
+		default:
+		}
+	default:
+	}
+}
+
+
+
+##  config(template#layout.treeSearchContent)
+layout: <page>
+	<hbox>
+		<vbox>
+			<hbox margin=0>
+				<label text="이름 : " align="right"><input id="name" width=85>
+				<space>
+			</hbox>
+			<hbox>
+				<label text="이름 : " align="right"><input id="name1" width=85>
+				<space>
+			</hbox>
+		</vbox>
+		<space>
+		<button id="btnSearch" text="조회" icon="vicon.magnifier_default" height=60>
+	</hbox>
+	<splitter stretchFactor="content">
+		<vbox margin=0>
+			<tree id="tree">
+			<hbox>
+				<button id="reset" text="초기화" icon="vicon.arrow_rotate_anticlockwise"><space>
+			</hbox>
+		</vbox>
+		<div id="content">
+	</splitter> 
+</page>
+/* 
+ 페이지 초기화       */
+onInit() {
+	mainPage=this;
+	db = Class.db('${projectCode}');
+ 	this.combo.addItem( getCommCodeNode('combo'), 	'code, value', '=선택=' );
+
+	tree=this.tree;
+	tree.check('treeMode', true);
+	tree.model(Class.model('${pageCode}Tree'), 'value');
+
+	tree.eventMap( onChildData, this.treeData, 'node');
+	tree.eventMap( onDraw, this.treeDraw, 'draw, node, over');
+	tree.eventMap( onChange, this.treeChange, 'node');
+	this.delay( func() {
+		comm_splitterSizes(this.tag('splitter'));
+		root=tree.rootNode().child(0);
+		tree.expand(root, true, true);
+	});
+}
+
+##  config(template#layout.treeGrid)
+layout: <page margin=0>
+		<splitter stretchFactor="content" stretch=1>
+			<tree id="tree">
+			<vbox id="content" margin=4>
+				<hbox margin=0>
+					<label text="이름 : "><input id="name" width=85>
+					<space>
+					<button id="search" text="조회" height=26 icon="vicon.magnifier_default">
+				</hbox>
+				<tree id="grid">
+				<hbox margin=4>
+					<button id="addRow" text="메뉴추가" height=26 icon="vicon.add_defalut">
+					<label id="gridStatus" stretch=1> 
+					<button id="delete" text="삭제" height=26 icon="vicon.cancel_defalut">
+					<button id="apply" text="적용" height=26 icon="vicon.application_form_edit">
+				</hbox>
+			</vbox>
+		</splitter>
+	</page>
+/*  페이지 초기화   */
+onInit() {
+	db = Class.db('${projectCode}');
+	sqlSearch =  conf('sql.${projectCode}#${pageCode}Search');
+	sqlTotal =  conf('sql.${projectCode}#${pageCode}Total');
+	tree=this.tree, grid=this.grid;
+	
+	tree.check('treeMode', true);
+	tree.model(Class.model('${pageCode}Tree'), 'value');
+
+	grid.model(Class.model('${pageCode}Grid'), gridMakeFields(sql,true) );
+	grid.check('treeMode', false);
+	grid.check('sortEnable',true);
+	
+	tree.eventMap(onDraw, this.treeDraw, 'draw, node, over');
+	tree.eventMap(onChange, this.treeChange, 'node');
+	tree.eventMap(onChildData, this.treeChildData, 'node');
+	tree.eventMap(onContextMenu, this.treeContentMenu, 'pos');
+	
+	grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+	grid.eventMap(onClicked, this.gridClicked, 'node, column');
+	
+	this.action([
+		{id: tree.Reload,			text: 새로고침,		icon: vicon.arrow_rotate_clockwise },
+		{id: tree.AddNode,		text: 노드추가,		icon: vicon.application_edit },
+		{id: tree.DeleteNode,	text: 노드삭제,		icon: vicon.delete_default },
+	]);
+	
+	this.delay( func() {
+		comm_splitterSizes(this.tag('splitter'), 280);
+		root=tree.rootNode().child(0);
+		tree.expand(root, true, true);
+	});
+}
+
+
+
+
+##  config(template#layout.splitterDivHbox)
+layout: <page>
+	<splitter handleWidth=15 stretchFactor="content">
+		<div id="left">
+		<div id="content">
+	</splitter>		
+</page>
+/*  페이지 초기화   */
+onInit() {
+	mainPage=this;
+	db = Class.db('${projectCode}');
+
+	this.leftPage();
+	this.contentPage();
+	this.delay( func() {
+		comm_splitterSizes(this.tag('splitter'), 350);
+	});
+}
+leftPage() {
+	&page=this.widget({
+		layout:<page margin=0>
+			<editor 	id="editor">
+		</page>
+		onInit() {
+			include('common/widget.EditorSrc');
+			editorImpl=newClass("common/widget.EditorSrc", this);
+		}
+	});
+	this.left.addPage(page, true);
+	return page;
+}
+contentPage(node) {
+	&page=this.widget({
+		layout:<page margin=0>
+			<grid 	id="grid">
+		</page>
+		onInit() {
+			grid=this.grid;
+			grid.model(Class.model('${pageCode}Grid'), 'id:아이디, name:이름' );
+			grid.check('sortEnable',true);
+		}
+		search() {
+			root=grid.rootNode();
+			root.addNode({id:test, name:홍길동} );
+			grid.update();
+		}
+	});
+	if( node ) {
+		page.initPage(node);
+	}
+	this.content.addPage(page, true);
+	return page;
+}
+
+##  config(template#layout.splitterDivVbox)
+layout: <page>
+	<splitter type="vbox" handleWidth=15 stretchFactor="content">
+		<div id="top">
+		<div id="content">
+	</splitter>		
+</page>
+/*  페이지 초기화   */
+onInit() {
+	mainPage=this;
+	db = Class.db('${projectCode}');
+
+	this.topPage();
+	this.contentPage();
+	this.delay( func() {
+		comm_splitterSizes(this.tag('splitter'), 350);
+	});
+}
+topPage() {
+	&page=this.widget({
+		layout:<page margin=0>
+			<editor 	id="editor">
+		</page>
+		onInit() {
+			include('common/widget.EditorSrc');
+			editorImpl=newClass("common/widget.EditorSrc", this);
+		}
+	});
+	this.left.addPage(page, true);
+	return page;
+}
+contentPage(node) {
+	&page=this.widget({
+		layout:<page>
+			<grid 	id="grid">
+		</page>
+		onInit() {
+			grid=this.grid;
+			grid.model(Class.model('${pageCode}Grid'), 'id:아이디, name:이름' );
+			grid.check('sortEnable',true);
+		}
+		search() {
+			root=grid.rootNode();
+			root.addNode({id:test, name:홍길동} );
+			grid.update();
+		}
+	});
+	if( node ) {
+		page.initPage(node);
+	}
+	this.content.addPage(page, true);
+	return page;
+}
+

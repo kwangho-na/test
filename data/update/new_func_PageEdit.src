@@ -1,0 +1,185 @@
+## PageEdit#MyScriptPageForm
+/* 페이지 생성 or 수정 버튼 클릭 */
+pageCreate.onClick() {
+	 src=layoutPage.src.value();
+	 not( src ) {
+		this.setDefaultPageSource();
+	}
+	getFormValue(this, dataNode);
+	not( formValid(this, dataNode, 'page_title') ) {
+		return;
+	}	
+	dataNode[page_info]		=when( dataNode[page_template].eq('draw'), xmlPage.getSrc() ); 
+
+	_applyPageObject=func(node) {
+		pages=Class.db('pages');
+		not( pages.exec("update pageObject set objectData=#{page_title} where objectCode='title' and cmsCode=#{page_group} and pageCode=#{page_code} ",node) ) {
+			pages.exec("insert into pageObject(cmsCode, pageCode, objectCode, objectData, type, status) values (#{page_group}, #{page_code}, 'title', #{page_title}, 'S', 0)", node);
+		}
+		not( pages.exec("update pageObject set objectData=#{page_icon} where objectCode='icon' and cmsCode=#{page_group} and pageCode=#{page_code} ",node) ) {
+			pages.exec("insert into pageObject(cmsCode, pageCode, objectCode, objectData, type, status) values (#{page_group}, #{page_code}, 'icon', #{page_icon}, 'S', 0)", node);
+		}
+	};
+
+	switch( dataNode.pageMode ) {
+	case create:
+		dataNode[project_idx]		=getParentObject( this, 'currentProjectNode').get('project_idx');
+		if( db.count("select count(1) from page_info where page_group=#{page_group} and page_code=#{page_code}",dataNode) ) {
+			dataNode.inject(page_group, page_code);
+			this.alert("${page_group}.${page_code} 는 이미등록된 페이지 입니다.");
+			return;
+		}
+		_applyPageObject(dataNode);
+		db.exec( getQuery('page_info', 'page_group, page_code, page_title, page_icon, page_kind, page_template, page_info, project_idx, note'), dataNode );
+		if( db.error() ) {
+			this.alert("페이지 생성중 오류가 발생했습니다\n에러: $db.error() ");
+			return;
+		}
+		dataNode[pageSource]	=layoutPage.getSrc();
+		dataNode[classSource]	=classPage.getSrc();  
+		fc=getParentFunc(this,'pageCreateOk');
+		fc(dataNode);
+	case edit:
+		dataNode.inject(page_group, page_code);
+		dataNode[sourceModify]=false;
+		if( layoutPage.isModify() ) {
+			if( this.confirm("페이지 레이아웃 소스가 변경되었습니다. 페이지를 다시로딩할까요?") ) {
+				pageLayout=layoutPage.getSrc(true);
+				src=parseNodeJsonString(pageLayout, this);
+				if( src ) pageReload('pages', null, page_group, page_code, src, true);
+				dataNode[sourceModify]=true;
+			}
+		}
+		if( classPage.isModify() ) {
+			if( this.confirm("페이지 클래스 소스가 변경되었습니다. 클래스를 다시로딩할까요?") ) {
+				pageClass=classPage.getSrc(true);
+				not( classRealod(pageClass.ref(),  "${page_group}.widget", dataNode, this) ) return;
+				dataNode[sourceModify]=true;
+			}
+		} 
+		if( xmlPage.isModify() ) {
+			if( this.confirm("페이지 XML 소스가 변경되었습니다. XML를 다시로딩할까요?") ) {
+				dataNode[page_info]=xmlPage.getSrc(true); 
+				dataNode[sourceModify]=true;
+			}
+		} 
+		_applyPageObject(dataNode);
+		db.exec( getQuery('page_info', 'page_group, page_code, page_title, page_icon, page_kind, page_template, page_info, note', 'page_group, page_code'), dataNode );
+		if( db.error() ) {
+			this.alert("페이지 정보 수정중 오류가 발생했습니다\n에러: $db.error() ");
+			return;
+		}
+		fc=getParentFunc(this,'pageEditOk');
+		fc(dataNode);
+		this.alert("페이지 정보가 수정되었습니다");
+	default:
+		this.alert("페이지 모드가 정의되지 않았습니다.");
+	}
+}
+
+## PageEdit#MyScriptEditMain
+/* 페이지 선택 버튼 클릭시 실행로직(canvas 에서도 페이지 함수 수정할수 있도록 수정) */
+pageSelect(node, reload) {
+	not( node ) {
+		this.alert("페이지가 선택되지 않았습니다. 선택된 페이지를 확인하세요");
+		return;
+	}
+	node.inject(page_group, page_code, page_template);
+	if( reload ) {
+		page=node[page];
+		not( page ) page=get("${page_group}.${page_code}");
+		if( page ) {
+			this.content.remove(page);
+			pageObjectDelete(page);
+		}
+	}
+	this.currentPageNode=node;
+
+	page=pageLoad("${page_group}.${page_code}", reload);
+	not( page ) {
+		this.alert("페이지 로딩중 오류가 발생했습니다.\n페이지 정보: ${page_group}.${page_code}");
+		return;
+	}
+	tab=this.leftTab;
+	tab.remove(classFuncs, true);
+	tab.remove(pageFuncs, true);
+	tab.remove(debugInfo, true);
+	node[page]=page;
+
+	if( page_template.eq('draw') ) {
+		not( drawClassInfo ) @drawClassInfo=pageLoad('PageEdit.MyScriptDrawClassTree');
+		not( pageTemplateType.eq('draw') ) {
+			tab.remove(pageTagInfo, true); 
+		}
+		not( pageTagInfo ) @pageTagInfo=pageLoad('PageEdit.MyScriptPageTagTree');
+		not( pageTemplateType.eq('page') ) {
+			tab.remove(drawClassInfo, true); 
+		}
+		tab.addPage(pageTagInfo, '페이지 태그','ficon.application-block');
+		pageTagInfo.initPage(node, page);
+
+		tab.addPage(drawClassInfo, 'Draw 태그','ficon.application-block', true);
+		drawClass=getClassInfo(null, page);
+		drawClass.loadMainPage( node[page_info] ); 
+		drawClassInfo.changeXml(drawClass);
+		pageLoad('PageEdit.@{ProjectId}Attr').removeGrid();
+		@pageTemplateType='draw';
+
+	} else {
+		not( pageTagInfo ) @pageTagInfo=pageLoad('PageEdit.MyScriptPageTagTree');
+		not( pageTemplateType.eq('page') ) {
+			tab.remove(drawClassInfo, true); 
+		}
+		tab.addPage(pageTagInfo, '페이지 태그','ficon.application-block', true);
+		pageTagInfo.initPage(node, page);
+		@pageTemplateType='page';
+	}
+	this.contentCurrentPage(page);
+}
+
+<#####################################################################################>
+## PageEdit#MyScriptPageForm
+/* 페이지 등록 수정 폼 초기화 */
+initPage(node) {
+	if( node ) {
+		dataNode.pageMode='edit';
+		db.fetch("select page_title, page_icon, page_info, page_kind, page_template, note from page_info where page_group=#{page_group} and page_code=#{page_code}", node);
+		this.pageCreate.value("페이지 정보수정");
+		node.inject(page_group, page_code);
+		page=get("${page_group}.${page_code}");
+		node[pageSource]=getPageString(node);
+		node[classSource]=getClassInfo( Cf.info('funcVar', page, 'init') );
+		dataNode[page_icon]=node[page_icon];
+		layoutPage.setValue(node[pageSource]);
+		classPage.setValue(node[classSource]);
+		xmlPage.setValue(node[page_info]);
+		
+		this.page_icon.icon(node[page_icon]);
+		setFormValue(this,node);
+		this.page_template.disable();
+	} else {
+		dataNode.pageMode='create';
+		setFormValue(this);
+		dataNode[page_icon]=null;
+		this.pageCreate.value("페이지 생성");
+		this.page_group.value(Cf[projectCode]);
+		this.page_code.focus();
+		layoutPage.setValue('');
+		classPage.setValue('');
+		xmlPage.setValue('');
+		tab.remove(xmlPage, true);
+		this.page_icon.icon("vicon.add_defalut");
+		this.page_template.enable();
+	}
+}
+
+## PageEdit#MyScriptEditMain
+/* 페이지 등록 수정 완료시 호출 */
+pageEditOk(node) {
+	node.inject( page_group, page_code );
+	pageInfo.initPage( this.currentProjectNode, page_group, page_code );
+	if( node[sourceModify] ) {
+		this.pageSelect(node, true);
+	}
+}
+

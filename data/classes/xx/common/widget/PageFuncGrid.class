@@ -1,0 +1,182 @@
+PageFuncGrid {
+	PageFuncGrid(page) {
+		this.addClass(common.Config );
+		db=Class.db('pages');
+
+		currentNode=null;
+		currentPage=null;
+		dataModel=Class.model('PageFuncInfo');
+		grid=page.grid;
+		grid.model( dataModel, gridMakeField('
+			funcKind:유형#85px,
+			funcName:함수명#180, 
+			funcParam:함수매개변수#120, 
+			note:비고#200', true)
+		);
+		grid.check('sortEnable', true);
+		grid.eventMap(onDraw, this.gridDraw, 'draw, node, over');
+		grid.eventMap(onClicked, this.gridClick, 'node, column');
+		grid.eventMap(onDoubleClicked, this.gridDoubleClick , 'node');
+		grid.eventMap(onEditEvent, this.gridEditEvent, 'type, node, data, index');
+		if( gridHeaderWidth(grid) ) {
+			grid.eventMap(onResize, this.gridResize);
+		}
+		page.deleteFunc.eventMap(onClick, this.deleteClassFuntion);
+		page.allSelect.eventMap(onClick, this.allSelectClick);
+		page.allCancel.eventMap(onClick, this.allCancelClick);
+		page.ok.eventMap(onClick, this.okClick);
+		page.cancel.eventMap(onClick, this.cancelClick);
+	}
+	initGrid(node, page ) {
+ 		root=dataModel.rootNode();
+ 		getNodeFuncInfo(node, root, page);
+		total=root.childCount();
+		page.gridStatus.value("(총 $total 건)");		
+		grid.update();
+		gridHeaderWidth(grid);
+
+		if( page ) {
+			@currentPage=page;
+		} else {
+			id=node.id;
+		}
+		@currentNode=node;
+	}
+	okClick() {
+		root=grid.rootNode();
+		cmsCode=currentPage[@cms.code], pageCode=currentPage[id];
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur.put(cmsCode, pageCode);
+				db.fetch("select case when length(ifnull(funcSrc,''))==0 then funcData else funcSrc end as src from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and funcName=#{funcName}", cur);
+			}
+		}
+		root[currentPage]=currentPage;
+		root.put(cmsCode, pageCode);
+		fc=getParentFunc(page, 'addPageFuncsEdit');
+		fc(root);
+	}
+	gridDoubleClick(node) {
+		root=grid.rootNode();
+		cmsCode=currentPage[@cms.code], pageCode=currentPage[id];
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur[checked]=false;
+			}
+		}
+		node.put(cmsCode, pageCode);
+		db.fetch("select case when length(ifnull(funcSrc,''))==0 then funcData else funcSrc end as src from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and funcName=#{funcName}", cur);
+		node[checked]=true;
+		root[currentPage]=currentPage;
+		root.put(cmsCode, pageCode);
+		fc=getParentFunc(page, 'addPageFuncsEdit');
+		fc(root, true);
+		grid.update();
+	}
+	deleteClassFuntion() {
+		not( page.confirm("선택된 함수를 삭제하시겠습니까?") ) {
+			return;
+		}
+		root=grid.rootNode();
+		cmsCode=currentPage[@cms.code], pageCode=currentPage[id];
+		arr=[];
+		while( cur, root ) {
+			if( cur[checked] ) {
+				cur.put(cmsCode, pageCode);
+				db.exec("delete from pageFunc where cmsCode=#{cmsCode} and pageCode=#{pageCode} and class_func=#{funcName}", cur);
+				arr.add(cur);
+			}
+		}
+		while( cur, arr ) {
+			root.remove(cur);
+		}
+		arr.delete();
+		grid.update();
+	}
+	cancelClick() {
+		page.hide();
+	}
+	allSelectClick() {
+		root=grid.rootNode();
+		while( cur, root ) {
+			cur[checked]=true;
+		}
+		grid.update();
+	}
+	allCancelClick() {
+		root=grid.rootNode();
+		while( cur, root ) {
+			cur[checked]=false;
+		}
+		grid.update();
+	}
+ 	gridResize() {
+		gridHeaderWidth(grid);
+	}
+	gridDraw(draw, node, over) {
+		rc=draw.rect();
+		field=grid.field(draw.index());
+		gridOver(draw, node, over);
+		switch( field ) {
+		case check:
+			rcIcon=rc.center(16,16);
+			if( node.state(NODE.add) )
+				gridModifyMark(draw, rc, '#a090ea');
+			if( node[checked] ) 
+				draw.icon(rcIcon, 'func.check');
+			else
+				draw.icon(rcIcon, 'func.add');
+		case funcKind:
+			switch(node[sort] ) {
+			case 1: icon="ficon.document-code";
+				txt='생성함수';
+			case 2: icon="ficon.document-globe";
+				txt='이벤트함수';
+			case 3: icon="ficon.document-epub";
+				txt='위젯함수';
+			case 4: icon="ficon.document-number";
+				txt='사용자함수';
+			}
+			rcIcon=rc.width(20)..center(16,16);
+			rc.incrX(20);
+			draw.icon(rcIcon, icon);
+			draw.text(rc, txt);
+		default: 
+			draw.text(rc, node[$field].trim());
+		}
+		if( node.state(NODE.modify), node[modify#$field] ) {
+			gridModifyMark(draw, rc);
+		}
+		draw.rectLine(rc,4,'#d0d0d0');
+ 	}
+	gridClick(node, column) {
+		field=grid.field(column);
+		switch( field ) {
+		case check:	gridCheck(grid, node, page.deleteFunc );
+		case note:	
+			fieldNode=grid.fields().findOne('code',field);
+			grid.edit(node, fieldNode.index());
+		}
+	}
+	gridEditEvent(type, node, data, index) {
+		field=grid.field(index);
+		switch( type ) {
+		case create:
+			return null;
+		case geometry:
+			rc=data;
+			return rc;
+		case finish:
+			not( node[$field].eq(data) ) {
+				not( node.state(NODE.add) ) {
+					node.state(NODE.modify,true);
+					node[modify#$field]=true;
+				}
+				node[$field]=data;
+			}
+			grid.update();
+		default: break;
+		}
+	}
+ 
+}

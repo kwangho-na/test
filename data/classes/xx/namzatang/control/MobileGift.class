@@ -1,0 +1,191 @@
+MobileGift {
+MobileGift(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+ }
+
+cancelButtonClick() {
+	this.mainControl().closePopup();
+}
+
+conf() {
+	offset=tag[rect].lt();
+	confNodeLayout(tag, offset);
+	
+	/* 넘버패드 영역 설정 */ 
+ 	node=findTag('NumberPad', tag);
+ 	_arr(this, 'RateColumn').recalc( node[rect].width(), '4,4,4');
+  	_arr(this, 'RateRow').recalc( node[rect].height(), '4,4,4,4');
+  	node[rect].inject(sx, sy, sw, sh);
+  	sx-=8;
+  	while( h, this[RateRow], r, 0) {
+  		cx=sx;
+  		while(w, this[RateColumn], c, 0 ) {
+  			rc=Class.rect(cx, sy, w, h).incr(2), cx+=w;
+  			switch(r) {
+  			case 0:
+  				switch(c) {
+  				case 0: node[rc01]=rc;
+  				case 1: node[rc02]=rc;
+  				case 2: node[rc03]=rc;
+  				}
+  			case 1:
+   				switch(c) {
+  				case 0: node[rc04]=rc;
+  				case 1: node[rc05]=rc;
+  				case 2: node[rc06]=rc;
+  				} 
+  			case 2:
+    			switch(c) {
+  				case 0: node[rc07]=rc;
+  				case 1: node[rc08]=rc;
+  				case 2: node[rc09]=rc;
+  				} 
+ 			case 3:
+     			switch(c) {
+  				case 0: node[rcDelete]=rc;
+  				case 1: node[rc00]=rc;
+  				case 2: node[rcDeleteAll]=rc;
+  				} 
+ 			}
+ 			arr=_arr(node, 'fields').reuse();
+ 			fields="1,2,3,4,5,6,7,8,9,0,Delete,DeleteAll";
+ 			while(id, fields.split() ) {
+ 				arr.add(id);
+ 			}
+  		}
+  		sy+=h;
+  	}
+  	this[inputText]='';
+}
+
+deleteAllButtonClick() {
+	this[inputText]='';
+	this.update();
+	
+}
+
+deleteButtonClick() {
+	val=this[inputText].value(0,-1);
+	this[inputText]=val;
+	this.update();	
+}
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	draw.mode();
+	draw.effect(
+		DRAW.RoundBox, tag[rect], 15, '#cacaca', '#ffffff', 2
+	);
+	drawNodeStyle(draw, tag);
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Title:
+			drawNodeText(draw, cur[rect], cur[text], 'left', 'PopupTitle');
+		case InputNumber:
+			drawNodeText(draw, cur[rect], this[inputText], 'left', 18, 'normal', '#505050' );
+		case NumberPad:		
+			while( field, cur[fields], n, 0 ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+					type="";					
+					attr="${field}Button";
+				} else {
+					num=n+1;
+					rc=cur[rc0$field]; 
+					type=when(  num.eq(10), "00", "0$num");
+					attr="NumberButton";
+				}
+				if( rc.eq(this.mouseDownRect) ) {
+					type.add("_p");
+				}
+				not( type ) type="default";
+				drawNodeImage(draw, rc, cur, attr,  type);
+			}	
+		case Ok:			drawNodeButton(draw, cur, null, this);
+		case Cancel:	drawNodeButton(draw, cur, null, this);
+		default:
+		}
+	}
+ }
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+ }
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case NumberPad:
+			while( field, cur[fields] ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+				} else{
+					rc=cur[rc0$field];
+				}
+				if( rc.contains(pos) ) {
+					this.mouseDownRect=rc;
+					break;
+				}
+			}
+		case Ok:				this.mouseDownRect=cur[rcButton];
+		case Cancel:		this.mouseDownRect=cur[rcButton];
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+ }
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case NumberPad:
+			while( field, cur[fields] ) {
+				if( field.eq('Delete', 'DeleteAll') ) {
+					rc=cur[rc$field];
+				} else{
+					rc=cur[rc0$field];
+				}
+				if( rc.contains(pos) && rc.eq(this.mouseDownRect) ) {
+					if( field.eq('Delete') ) {
+						this.deleteButtonClick();
+					} else if( field.eq('DeleteAll') ) {
+						this.deleteAllButtonClick();
+					} else {
+						this.numberButtonClick(field);
+					}
+					break;
+				}
+			}
+		case Ok:				this.okButtonClick();
+		case Cancel:		this.cancelButtonClick();
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+numberButtonClick(num) {
+	this[inputText].add(num);
+	this.update();
+}
+
+okButtonClick() {
+	
+}
+
+setBarcode(barcode) {
+	this[inputText]=barcode;
+	this.update();
+	
+}
+}

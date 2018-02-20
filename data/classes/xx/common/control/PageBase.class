@@ -1,0 +1,125 @@
+PageBase {
+	PageBase(page, canvas) {
+		this.addClass( 'common.Config' );
+		_log=func(msg, event) {
+			if( cf.debugEditor ) {
+				if( event ) {
+					this[logMessage]=msg;
+					this.mainControl().addCanvasEvent(DRAW.Log, this);
+				} else {
+					time=System.date('HH/mm/ss');
+					cf.debugEditor.append(">>[$time] $msg");
+				}
+			}
+			tm=System.localtime();
+			if( msg.start('##') ) {
+				logType='E';
+				Class.db('log').exec("insert into error_logs(log_type, log_message, tm) values('$logType','$msg', '$tm')");
+			} else if( msg.start('#') ) {
+				logType='I';
+				Class.db('log').exec("insert into error_logs(log_type, log_message, tm) values('$logType','$msg', '$tm')");
+			} 
+			print(">> $msg");
+		}
+	}
+	findControl(tag,root) {
+		if( tag.find('#') ) {
+			if( tag.ch().eq('#') ) tag= tag.value(1);
+			return this.findId(tag, root).get('@control');
+		}
+		return this.findTag(tag, root).get('@control');
+	}
+
+	findTag(tag, root, all) {
+		not( root ) root=xmlNode;
+		if( all ) {
+			arr=class('util').arr();
+			while( cur, root ) {
+				if( cur[tag].eq(tag) ) arr.add(cur);
+			}
+			return arr;
+		} else {
+			while( cur, root ) {
+				if( cur[tag].eq(tag) ) return cur;
+				find=this.findTag(tag, cur);
+				if( find ) return find;
+			}
+		}
+		return null;
+	}
+	getControl(cur, cid) {
+		ctrl=cur[@control];
+		if( ctrl ) return ctrl;
+		not( cid ) {
+			cid=cur.tag;
+			not( cid ) return;
+		}
+		if( cur[ClassPath] ) {
+			classId="$cur[ClassPath]/control.$cid";	
+		} else {
+			cf.inject(projectId, pageCode);
+			classId="${projectId}/${pageCode}/control.$cid";	
+		}
+		classErrorCheck=_node(cf, 'classErrorCheck');
+		if( classErrorCheck[$classId] ) return null;
+		include(classId);
+		ctrl=newClass(classId, cur, this );
+		not( ctrl ) {
+			classErrorCheck[$classId]=true;
+			_log("[error.getControl] $classId 컨트롤 로딩 실패\n cotrolNode: $cur");
+			return null;
+		}
+		cur[@control]=ctrl;
+		return ctrl;
+	}
+
+	mainControl() {
+		p=this;
+		while( p ) {
+			pp=p.parentCtrl;
+			not( pp ) return p;
+			p=pp;
+		}
+		return null;
+	}
+
+	confLayout(tag ) {
+		setNodeSize(tag); 
+		while( cur, tag ) {
+			this.getControl(cur).conf();
+		}
+	}
+	drawControl(draw, tag, timeline) {
+		drawNodeStyle(draw, tag);
+		while( cur, tag ) {
+			this.getControl(cur).draw(draw, timeline);
+		}
+	}
+	mouseDownControl(root, pos) {
+		while( cur, root ) { 
+			not( cur[rect].contains(pos) ) continue;
+			this.getControl(cur).mouseDown(pos);
+		}
+	}
+
+	mouseUpControl(root, pos) {
+		while( cur, root ) { 
+			not( cur[rect].contains(pos) ) continue;
+			this.getControl(cur).mouseUp(pos);
+		}
+	}
+
+	rate(x) {
+		not( x ) return null;
+		x*=cf.pageRate;
+		return x;
+	}
+
+	update() {
+		not( canvas ) {
+			p=this.mainControl();
+			p.inject(canvas);
+		}
+		canvas.redraw();
+	}
+}

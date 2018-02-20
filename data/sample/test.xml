@@ -1,0 +1,80 @@
+<Page Width="1080" Height="1920" KioskVersion="1.0">
+	 <Grid id="MainTitle" Height="320" Background="#f18903">  
+		<Box BackgroundImage="${imagePath}/main/intro_logo.png" Height="210"></Box>
+		<Box class="layer" style="buttons" Width="100" Height="80" Margin="980,130,20,0">
+			<Image id="Home" src="${imagePath}/main/btn/home_basic_yellow.png"/>
+		</Box>
+	</Grid>
+
+	<!-- 코너 탭 -->
+	<CornerTab Width="1080" Height="110" Width="1080" Height="110" Margin="0,210,0,0"  class="layer"
+		BackgroundImage="${imagePath}/Type/tab_bg.png"
+		TabImage="${imagePath}/Type/tab_4_[#].png" 
+		LeftButton="${imagePath}/Type/tab_left_[#].png"
+		RightButton="${imagePath}/Type/tab_right_[#].png"
+		FontSelect=[24,#808080,bold]
+		Font=[24,#FBDE9B]
+	/>
+	<Grid id="MenuList" type="vbox" Width="1080" Height="1026" Background="#FFFFFF">
+		<ListBox id="listview"  Margin="24,24,48,34" Height="912" space="12"
+		Icon_DispType01="${imagePath}/Type/icon_new.png"
+		Icon_DispType02="${imagePath}/Type/icon_best.png"
+		MenuBlankImage="${imagePath}/Type/bg_menu_blank.png"/>
+		<PagePanel Margin="24"
+			PrevImage="${imagePath}/Type/btn/btn_prev_[#].png"
+			NextImage="${imagePath}/Type/btn/btn_next_[#].png"
+			PageImage="${imagePath}/Type/navi_[#].png" 
+		/>
+	</Grid>
+	<Grid id="MenuCart" type="stack" Height="424" CurrentPage="AdPanel">
+		<!-- 장바구니 -->
+		<ShoppingCart
+			OrderMinusImage="${imagePath}/Type/list_minus_[#].png"
+			OrderPlusImage="${imagePath}/Type/list_plus_[#].png"
+			OrderDeleteImage="${imagePath}/Type/list_del_[#].png"
+			ScrollUp="${imagePath}/Type/scroll_up_[#].png"
+			ScrollDown="${imagePath}/Type/scroll_down_[#].png"
+		/>
+		
+		<!-- 광고 -->
+		<AdPanel HeightArray=[72,352]
+			TitleImage="${imagePath}/Type/list_title_bg.png"
+			TitleText="EVENT"
+		/>
+	</Grid>        
+
+	<!-- 하단 -->
+	<Grid id="MainStatus" type="hbox" Height="130" BackgroundImage="${imagePath}/Type/background_bottom.png">
+		<!-- 주문수량금액 -->
+		<OrderInfo Margin="20,14,40,26" Width="525"/>
+	   <Box style="buttons" space="10" Font=[22,#FFFFFF,bold,맑은 고딕 60g]>
+			<!-- 전체취소 버튼 -->
+			<Image id="ClearAll"  Width="85" Font=[22,#FFFFFF,bold,맑은 고딕,-5] TextMargin="0,50,0,0"
+				src="${imagePath}/main/btn/btn_clearall_[#].png" text="취소" 
+			/>
+			<!-- 상품권 버튼 -->
+			<Image id="SelectMobileGift"  Width="145" TextMargin="0,50,0,0" 
+				src="${imagePath}/main/btn/btn_wechat_[#].png" 
+			/>
+			<!-- 현금결제 버튼 -->
+			<Image id="SelectCash"  Width="145" TextMargin="0,50,0,0" 
+				src="${imagePath}/main/btn/btn_cash_[#].png"  text="현금결제" 
+			/>
+			<!-- 카드결제 버튼 -->
+			<Image id="SelectCard" Width="145" TextMargin="0,50,0,0" 
+				src="${imagePath}/main/btn/btn_card_[#].png" text="카드결제" 
+			/>
+		</Box>
+	</Grid>
+	<Popup id="Loading" class="popup"/>
+	<Popup id="PopupLoading" padding="20" class="popup"/>
+	<Popup id="SelectMobileGiftNew" class="popup"/>
+	<Popup id="SelectCardNew" class="popup"/>
+	<Popup id="SelectCashNew" class="popup"/>
+	<Popup id="SelectCashReceipt" class="popup"/>
+	<Popup id="SelectCashReceiptNumber" class="popup"/>
+	<Popup id="SelectMenuOptionNew" class="popup"/>
+	<Popup id="OrderConfirmNew" class="popup"/>
+	<Popup id="CompleteOrder" class="popup"/>
+	<Popup id="MessageWindow" class="popup"/>
+</Page>

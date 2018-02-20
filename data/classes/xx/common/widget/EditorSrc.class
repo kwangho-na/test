@@ -1,0 +1,136 @@
+EditorSrc {
+	EditorSrc(page) {
+		this.addClass( dev.EditorSrcChange, dev.EditorSrcClick );
+		not( cf ) cf={};
+		mPopupMode = 'popup';
+		mTreeNode=null;
+		mSearchPrev='';
+		mFuncSrc='';
+		saveButton=null, closeButton=null, lockButton=null;
+		searchInput=null, searchReplaceButton=null;
+		if( page.src || page.editor ) {
+			editor=when( page.src, page.src, page.editor);
+		}
+		not( editor ) return;
+		help=Class.db('help');
+		not( help.open() ) {
+			help.open('data/help.db');
+		}
+		this.setEditorEvent();
+	}
+
+	closeClick() {
+		if( page.onClose ) {
+			page.fireEvent("onClose");
+		} else {
+			page.hide();
+		}
+	}
+
+	editorChange() {
+		if( saveButton ) {
+			if( editor.isModify() ) {
+				saveButton.enable();
+			} else {
+				saveButton.disable();
+			}
+		}
+		this.editorTextChange(editor);
+	}
+
+	editorMouseClick(pos, keys) {
+		not(  keys&KEY.ctrl ) {
+			return;
+		}
+		this.editorClickPos=pos;
+		page.delay( callback() {
+			pos=this.editorClickPos;
+			this.srcMouseClick(pos ); 
+		}, this);
+	}
+
+	lockClick() {
+		if( mPopupMode.eq('popup') ) {
+			lock.icon("vicon.application_double");
+			@mPopupMode='window';
+			page.flags('window');
+		} else {
+			lock.icon("vicon.application_link");
+			@mPopupMode='popup';
+			page.flags('popup');
+		}
+		page.show();
+	}
+
+	searchEnterKey() {
+		val=searchInput.value();
+		not( val ) return;
+		if( val.eq(mSearchPrev) ) {
+			editor.searchNext(val);
+		} else {
+			editor.findAll(val);
+		}
+	}
+
+	searchFocus() {
+		searchInput.select();
+	}
+
+	searchReplaceClick() {
+		popup=pageLoad('dev.searchAndReplace');
+		popup.open();
+		popup.initPage(searchInput.value());
+		return popup();
+	}
+
+	setEditorEvent() {
+		editor.syntax( conf('syntax.dev') );
+		editor.eventMap( onMouseClick, this.editorMouseClick, 'pos, keys' );
+		editor.eventMap( onChange, this.editorChange );
+		editor.eventMap( onKeyDown, this.editorKeyDown, 'key,mode' );
+
+		if( page.save || page.btnSave ) {
+			@saveButton=nvl( page.save, page.btnSave );
+			saveButton.disable();
+		}
+		/* 찾기 & 바꾸기 처리*/
+		if( page.inputSearch ) {
+			@searchInput=page.inputSearch;
+			searchInput.eventMap(onFocus, this.searchFocus);
+			searchInput.eventMap(onEnter, this.searchEnterKey);
+		}
+		if( page.btnSearchReplace ) {
+			@searchReplaceButton=page.btnSearchReplace;
+			searchReplaceButton.eventMap(onClick, this.searchReplaceClick);
+		}
+		/* 툴버튼 처리 */
+		if( page[parentPage].get('tag').eq('div', 'tab') ) {
+			if( page[parentPage].get('id').eq('missionPage') ) return;
+			page[btnLock].findLayout().hideAll();
+			page[cancel].hide();
+		} else {
+			if( page.btnLock ) {
+				@lockButton=page.btnLock;
+				lockButton.eventMap(onClick, this.lockClick);
+			}
+			if( page.btnClose ) {
+				@closeButton=page.btnClose;
+				closeButton.eventMap(onClick, this.closeClick);
+			}	
+		}
+	}
+
+	setSrc(src) {
+		editor.clear();
+		if( src.find("^|") ) {
+			editor.insert(src, true).clearUndo();		
+			page.delay( callback() {
+				editor.focus();
+			},this);
+		} else {
+			editor.insert(src).clearUndo();
+			editor.move(0);
+		}
+		if( saveButton ) saveButton.disable();
+	}
+}

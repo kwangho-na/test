@@ -1,0 +1,123 @@
+InputCash {
+InputCash(tag, parentCtrl) {
+	parentCtrl.inject(db, cf, xmlNode);
+	this.addClass('common/control.pageBase');
+	this.initControl();
+}
+
+cancelButtonClick() {
+	order=cf[OrderHeader];
+	if( order[InputCashPrice] ) {
+		this.mainControl().qtMonSendData("04,1,$order[InputCashPrice]");
+	}
+	if( this[playerWidget] )  {
+		this[playerWidget].stop();
+		this[playerWidget].hide();
+	}
+	this.mainControl().closePopup();
+}
+
+conf() {
+	offset=tag[rect].lt();
+	confNodeLayout(tag, offset);
+	
+	/* 현금 입력정보 초기화 */
+	order=cf[OrderHeader];
+	
+	order[OrderTotalPrice]=cf[ShoppingCart.OrderTotalPrice];
+	order[InputCashPrice]=0;
+	order[DelayCount]=0;
+	order[SaleType]='O';
+	order[InputCashOk]=false;
+	
+	price=order[OrderTotalPrice];
+	this.mainControl().qtMonSendData( "02,3,1,1,0,$price");
+		
+	/* 동영상 플레이어 보이게 하기*/
+	node=findTag('Player', tag);
+	this.showMoviePlayer(node[rect], node[path]);
+}
+
+draw(draw, tag, timeline) {
+	popupFadeIn(draw, timeline);
+	drawNodeStyle(draw, tag);
+	order=cf[OrderHeader];
+	
+	while( cur, tag ) {
+		switch(cur[tag] ) {
+		case Player:
+			this.showMoviePlayer(cur[rect]);
+		case AmountOfPayment:
+			price=util_priceComma(order[OrderTotalPrice]);	
+			drawNodeText(draw, cur[rect], price, "right", 22, '#fa2030');
+		case InputAmount:
+			price=order[InputCashPrice];
+			price=util_priceComma(price);	
+			not( price ) price=0;
+			drawNodeText(draw, cur[rect], util_priceComma(price), "right", 22, '#707a7a');
+		case BalanceAmount:
+			price= order[OrderTotalPrice];
+			price-=order[InputCashPrice];
+			if( price<=0 ) {
+				order[InputCashOk]=true;
+			}
+			drawNodeText(draw, cur[rect], util_priceComma(price), "right", 22, '#707a7a');
+		case CancelButton: 
+			not( order[InputCashOk] ) drawNodeButton(draw, cur, null, this);
+		}
+	}
+}
+
+initControl() {
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);	
+}
+
+mouseDown(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case CancelButton: this.mouseDownRect=cur[rect];
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.update();
+	}
+  }
+
+mouseUp(pos) {
+	while( cur, tag ) {
+		not( cur[rect].contains(pos) ) continue;
+		switch(cur[tag] ) {
+		case CancelButton: this.cancelButtonClick();
+		default:
+		}
+	}
+	if( this.mouseDownRect ) {
+		this.mouseDownRect=null;
+		this.update();
+	}
+}
+
+showMoviePlayer(rc, path) { 
+	main=this.mainControl();
+	canvas=main.canvas;
+	player=this.playerWidget;
+	not( player ) {
+		player=canvas.widget(tr('widget#namzatang.moviePlayer'), true);
+		player.flags('top');
+		player.open();
+		this.mainControl().addPlayer(player);
+		this.playerWidget=player;
+	}
+	rcGlobal=canvas.mapGlobal(rc);
+	player.move(rcGlobal.lt());
+	player.size(rcGlobal.size());
+	if( path ) {
+		player.flags('splash');
+		player.show();
+		player.initPage(path);		
+	}
+}
+}

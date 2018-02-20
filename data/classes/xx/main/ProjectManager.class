@@ -1,0 +1,524 @@
+ProjectManager {
+
+ProjectManager(page) {
+	this.addClass('common/control.PageBase');
+ 	
+	timelineNode={};
+	canvas=page.canvas;
+	canvas.eventMap( onDraw, this.canvasDraw, 'draw');
+	canvas.eventMap( onMouseDown, this.canvasMouseDown, 'pos');
+	canvas.eventMap( onMouseUp, this.canvasMouseUp, 'pos');
+	canvas.eventMap( onMouseMove, this.canvasMouseMove, 'pos');
+	canvas.eventMap( onEvent, this.commandEvent, 'type, node');	
+	
+	/* 설정정보 세팅 */
+	this.initConfig();
+	
+	/* 타이머 설정 */
+	canvas.timer( 1000, callback() {
+		this.timeout();
+	}, this);
+ 
+	this.initPage();
+}
+initConfig() {
+	/* 기본설정 정보 (향후 config DB에서 불러온다) */
+	cf.debug=true;
+	cf.projectId ='main';
+	cf.pageXmlPath='data/pageXml';
+}
+
+initPage() {
+	cf.pageStart=false;
+	cf.pageRate=1;
+	this.timelineStart('ShiftMenu', 550, 22, 'in');
+	this.setCanvasSize();
+}
+
+loadMainPage(pageXml) {
+	root= this.loadPage(pageXml);
+	this.mainNode=root;
+	this.pageStart();
+	this.update();
+}
+
+pageStart() {
+	tag=this[mainNode];
+	not( tag ) {
+		return;
+	}
+	cf[pageStart]=true;
+	cf[pageStartTick]=System.tick();
+	cf[classErrorCheck].initNode();
+	not( tag[type] ) tag[type]='vbox';
+	setNodeSize(tag, true);
+	arr=_arr(cf,'ActionRects').reuse();
+	sx=tag[rect].right() - 100;
+	arr.add( Class.rect(0,0,100,100) );
+	arr.add( Class.rect(sx,0,100,100) );	
+}
+ 
+addCanvasEvent(type, node) {
+	not( node ) return;
+	canvas.postEvent(type, node);
+}
+
+addPlayer(player) {
+	_arr(this,'MoviewPlayers').add(player);
+}
+
+alert(msg, title) {
+	not( title ) title="알림";
+	this.closePopup();
+	root=xmlNode.child(0);
+	popup=null;
+	while( cur, root ) {
+		not( cur[tag].eq('Popup') ) continue;
+		if( cur[id].eq('MessageWindow') ) {
+			popup=this.getControl(cur); 
+			pageNode=popup.loadPage();
+			not( pageNode ) {
+				page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+				return;
+			}
+			titleNode=findTag('Title', pageNode);
+			messageNode=findTag('Message', pageNode);
+			titleNode[title]=title;
+			messageNode[message]=msg;
+			not( pageNode[pageId] ) pageNode[pageId]=popupId;
+			break;
+		}
+	}
+	cf[popupStartTick]=System.tick();
+	cf[popupControl]=popup;
+	this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+	popup.conf();
+	this.update();
+}
+
+canvasDraw(draw) {
+	/*
+	geo=canvas.geo();
+		not( geo.eq(this.prevGeo) ) {
+		this.chageScroll(geo, this.prevGeo);
+		this.prevGeo=geo;
+	}
+	*/
+	draw.begin(canvas);
+	while( tm, timelineNode ) {
+		not( tm.state(NODE.start) ) continue;
+		tid=tm[tid];
+		if( Cf.timeLine("${tid}.running") ) { 
+			this.draw(draw, tm);
+			if( cf[popupControl] ) {
+				cf[popupControl].draw(draw,tm);
+			}
+			draw.end();
+			return;
+		} else {
+			tm.state(NODE.start, false);
+			this.draw(draw, tm);
+			if( cf[popupControl] ) {
+				cf[popupControl].draw(draw,tm);
+			}
+			draw.end();
+			return;			
+		}
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].draw(draw, null, tm);
+	} else {
+		this.draw(draw );
+		if( cf[popupControl] ) {
+			cf[popupControl].draw(draw,tm);
+		}
+	}
+	if( cf[selectedItem] ) {
+		rc=cf.selectedItem.rect;
+		draw.rectLine(rc.incr(1), 0, '#afa0ea',3);
+	}
+	if( this.mouseDownAction ) {
+		draw.save().pen('#cab0e9', 4);
+		draw.polyLine(this[mouseActionPoints]);
+		draw.restore();
+	}
+	draw.end();
+}
+
+canvasMouseDown(pos) {
+	while( rc, cf[ActionRects] ) {
+		if( rc.contains(pos) ) {
+			_arr(this,'mouseActionPoints').reuse();
+			this.mouseDownAction=true;
+		}
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].mouseDown(pos);
+		return;
+	} else if( cf[popupControl] ) {
+		cf[popupControl].mouseDown(pos);
+		return;
+	}
+	this.mouseDown(pos);
+}
+
+canvasMouseMove(pos) {
+	if( this.mouseDownAction ) {
+		this[mouseActionPoints].add(pos);
+		this.update();
+	}
+	not( cf.mouseMoveUse ) return;
+}
+
+canvasMouseUp(pos) {
+	if( this.mouseDownAction ) {
+		arr=Cf.direction(this[mouseActionPoints]);
+		print("canvasMouseUp=$arr");
+		switch( arr.size() ) {
+		case 1:
+			arr.inject(a);
+			switch(a) {
+			case Right:
+				this.openPopup('OrderConfirmNew');
+			case Left:
+				page.flags('splash');
+				page.open();
+			}
+ 		case 2:
+			arr.inject(a,b);
+			switch(a) {
+			case Right:
+				switch(b) {
+				case Down:	this.loadStackPage('AdminLogin');
+				case Left:	this.loadStackPage('WebView');
+				default:
+				}
+			case Left:
+				switch(b) {
+				case Down:
+					page.flags('window');
+					page.open();
+				default:
+				}
+			}
+		case 3:
+			arr.inject(a,b,c);
+			if( a.eq('Left'), b.eq('Down'), c.eq('Right') ) {
+				_log("#exit kiosk");
+				page.exit();
+			}
+		case 4:
+			arr.inject(a,b,c,d);
+			if( a.eq('Right'), b.eq('Down'), c.eq('Left'), d.eq('Up') ) {
+				pageLoad('dev.main').open();
+			}
+		default:
+		}
+		this[mouseActionPoints].reuse();
+		this.mouseDownAction=false;
+		this.update();
+	}
+	if( cf[stackPage] ) {
+		cf[stackPage].mouseUp(pos);
+		return;
+	} else if( cf[popupControl] ) {
+		cf[popupControl].mouseUp(pos);
+		return;
+	}
+	this.mouseUp(pos);
+}
+
+chageScroll(geo, prev) {
+	while( widget, cf[SubWidgets] ) {
+		not( widget ) return;
+		if( widget.is('visible') ) {
+			dx=geo.x()-prev.x(), dy=geo.y()-prev.y();
+			leftTop=widget.geo().lt();
+			widget.move(leftTop.incrY(dy));
+		}
+	}
+}
+
+closeKiosk() {
+ 
+}
+
+closePopup(popupId) {
+	root=this[mainNode];
+	not( root ) {
+		root=xmlNode.child(0);
+	}
+	popup=null;
+	if( popupId ) {
+		while( cur, root ) {
+			not( cur[tag].eq('Popup') ) continue;
+			if( cur[id].eq(popupId) ) {
+				popup=this.getControl(cur); 
+				break;
+			}
+		}
+	}
+	not( popup ) {
+		popup=cf[popupControl];
+	}	
+	/* 탐업창 close 처리 (로딩창 닫기 등) */
+	cashOpen=false;
+	if( popup ) {
+		popup.inject(tag);
+		if( tag[id].eq('MessageWindow') ) {
+			order=cf[OrderHeader];
+ 			if( order[InputCashOk] ) {				
+				if( order[DelayCount]>2 ) {
+					cashOpen=true;
+				}
+			}
+		}
+		popup.closePopup();	
+	}
+	
+	/* 웹뷰를 닫는다 */
+	webView=this.webviewWidget;
+	if( webView ) {
+		webView.hide();
+	}
+	
+	/* 열려있는 동영상 플레이 닫는다 */
+	while( player, _arr(this,'MoviewPlayers') ) {
+		player.hide();
+	}
+		
+	cf[popupControl]=null;
+	if( cashOpen ) {
+		this.openPopup('SelectCashReceipt');
+	}
+	this.update();
+}
+
+closeStackPage() {
+	not( cf[stackPage] ) return;
+	this.closePopup();
+	cf[stackPage].closePage();
+	cf[stackPage]=null;
+	this.update();
+}
+
+commandAdd(type, node) {
+	not( node ) return;
+	node[command]=type;
+	kioskWorker.push(node);
+}
+
+commandEvent(type, tag) {
+	switch( type ) {
+	default:
+		typeNm=getEventTypeName(type);
+		_log("commandEvent type not define => type: $typeNm");
+	}
+}
+
+commandWork(type, tag) {
+}
+
+conf() {
+	tag=xmlNode.child(0);
+	this.confLayout(tag);
+}
+ 
+
+draw(draw,  timeline) {
+	main=this[mainNode];
+	not( main ) {
+		main=xmlNode.child(0);
+		this[mainNode]=main;
+	}
+	this.drawControl(draw, main, timeline);
+	version=conf('version#kiosk.main');
+	rc=Class.rect(390,15,200,40);
+	draw.font(12,'normal','#f0f0f0');
+	draw.text(rc, "ver. $version");
+	
+}
+
+loadStackPage(pageId) {
+	root=this[stack$pageId];	
+	page=null;
+	if( root ) {
+		page=root.child(0);
+	} else {
+		node=xmlNode.child(0);
+		root=node.addNode({tag:stack, id=$pageId});
+		this[stack$pageId]=root; 
+		file=Class.file();
+		fileName="$cf[pageXmlPath]/${pageId}.xml";
+		if( file.isFile(fileName) ) {
+			this.loadXml(fileName, root.removeAll() );
+		}
+		not( root.childCount() ) {
+			_log("loadStackPage error={ $pageId loading fail}");
+			return null;
+		}
+		page=root.child(0);
+		page[type]='vbox';
+		setNodeSize(page, true);
+		treePage=get('Kiosk.EditPageTree');
+		if( treePage ) {
+			treePage.tree.update();
+		}
+	}
+	tag=page.child(0);
+	ctrl= this.getControl(tag);
+	ctrl.conf(); 
+	cf[stackPage]=ctrl;
+	this.update();
+	return ctrl;
+}
+
+mouseDown(pos) {
+	cf[mouseDownTick]=System.tick();
+	root=xmlNode.child(0);
+	this.mouseDownControl(root, pos);
+}
+
+mouseUp(pos) {
+	root=xmlNode.child(0);
+	this.mouseUpControl(root, pos);
+	cf[mouseDownTick]=0;
+}
+
+openPopup(popupId) {
+	this.closePopup();
+	root=xmlNode.child(0);
+	popup=null;
+	while( cur, root ) {
+		not( cur[tag].eq('Popup') ) continue;
+		if( cur[id].eq(popupId) ) {
+			popup=this.getControl(cur); 
+			pageNode=popup.loadPage();
+			not( pageNode ) {
+				page.alert("$popupId 팝업 XML 이 존재하지 않습니다");
+				return;
+			}
+			not( pageNode[pageId] ) pageNode[pageId]=popupId;
+			break;
+		}
+	}
+	not( popup ) {
+		page.alert("$popupId 팝업 정보가 존재하지 않습니다");
+		return;
+	}
+	cf[popupStartTick]=System.tick();
+	cf[popupControl]=popup;
+	this.timelineStart('FadeInPopup', 2000, 30, 'in', 'start');
+	popup.conf();
+	this.update();
+}
+
+
+print(root, depth) {
+	not( root ) root=xmlNode;
+	not( depth ) depth=0;
+	indent='';
+	while( n, depth ) indent.add(" ");
+	while( cur, root ) {
+		print("$indent $cur[tag]=$cur[rect]");
+		this.print(cur, depth+1);			
+	}
+}
+ 
+setCanvasSize() {
+	root=this[mainNode];
+	if( root ) {
+		w=this.rate(root[Width]), h=this.rate(root[Height]);
+		if( w, h ) canvas.size(w,h);
+	}
+}
+
+setPageRate(rate) {
+	not( rate) return;
+	not( typeof(rate,'number') ) {
+		rate=rate.toNumber();
+	}
+	if( rate ) cf.pageRate=rate;
+	this.setCanvasSize();
+	this.conf();
+	this.print();
+	this.update();
+}
+ 
+ 
+timelineCheck(cmd, target, style) {
+	not( cmd ) {
+		while( tm, timelineNode ) {
+			not( tm.state(NODE.start) ) continue;
+			if( Cf.timeLine("${tm[tid]}.running") ) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	if( target ) {
+		tm=timelineNode.findOne('tid',cmd);
+		not( tm ) {
+			_log("$cmd 타임라인을 찾을수 없습니다");
+		}
+		tm.inject(duration, range, mode);
+		tm.state(NODE.start, true);
+		tm[drawCount]=0;
+		tm.target=target;
+		tm.command=target.command;
+		tm.timelineStyle=style;
+		Cf.timeLine("${cmd}.start", canvas, duration, range, mode);
+	} else {
+		return Cf.timeLine(cmd);
+	}
+}
+
+timelineStart(tid, duration, range, mode, state) {
+	not( state ) state="stay";
+	tm=timelineNode.findOne('tid',tid);
+	not( tm ) {
+		tm=timelineNode.addNode();
+	}
+	tm.state(0);
+	if( state.eq('stay') ) {
+		tm.state(NODE.stay, true);
+	} else {
+		tm.state(NODE.start, true);
+	}
+
+	tm[tid]=tid;
+	tm[startTick]=System.tick();
+	tm.put(duration, range, mode);
+	if( tm.state(NODE.start)) {
+		Cf.timeLine("${tid}.start", canvas, duration, range, mode);
+	}
+	return tm;
+}
+
+timelineStop(key) {
+	if( key ) {
+		Cf.timeLine("${key}.stop");
+	} else {
+		while( key, Cf.timeLine() ) {
+			if( Cf.timeLine("${key}.running") ) {
+				Cf.timeLine("${key}.stop");
+			}
+		}
+	}
+	timelineNode.removeAll();
+}
+
+timeout() {
+	not( cf[pageStart] ) {
+		return;
+	}	
+	/* 타임아웃 체크 */
+	timeoutCount=cf[timeoutCount++];
+	mod=timeoutCount % 240;
+	not( mod ) {
+		print("timeoutCheck ========= $timeoutCount");		
+	}
+}
+ 
+}
